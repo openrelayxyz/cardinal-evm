@@ -16,7 +16,7 @@
 
 package params
 
-import "github.com/ethereum/go-ethereum/common"
+import "github.com/openrelayxyz/cardinal-types"
 
 // MainnetBootnodes are the enode URLs of the P2P bootstrap nodes running on
 // the main Ethereum network.
@@ -96,7 +96,7 @@ const dnsPrefix = "enrtree://AKA3AM6LPBYEUDMVNU3BSVQJ5AD45Y7YPOHJLEF6W26QOE4VTUD
 // KnownDNSNetwork returns the address of a public DNS-based node list for the given
 // genesis hash and protocol. See https://github.com/ethereum/discv4-dns-lists for more
 // information.
-func KnownDNSNetwork(genesis common.Hash, protocol string) string {
+func KnownDNSNetwork(genesis types.Hash, protocol string) string {
 	var net string
 	switch genesis {
 	case MainnetGenesisHash:

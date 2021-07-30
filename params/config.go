@@ -21,22 +21,23 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-types"
 	"golang.org/x/crypto/sha3"
 )
 
 // Genesis hashes to enforce below configs on.
 var (
-	MainnetGenesisHash   = common.HexToHash("0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3")
-	RopstenGenesisHash   = common.HexToHash("0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d")
-	RinkebyGenesisHash   = common.HexToHash("0x6341fd3daf94b748c72ced5a5b26028f2474f5f00d824504e4fa37a75767e177")
-	GoerliGenesisHash    = common.HexToHash("0xbf7e331f7f7c1dd2e05159666b3bf8bc7a8a3a9eb1d518969eab529dd9b88c1a")
-	CalaverasGenesisHash = common.HexToHash("0xeb9233d066c275efcdfed8037f4fc082770176aefdbcb7691c71da412a5670f2")
+	MainnetGenesisHash   = types.HexToHash("0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3")
+	RopstenGenesisHash   = types.HexToHash("0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d")
+	RinkebyGenesisHash   = types.HexToHash("0x6341fd3daf94b748c72ced5a5b26028f2474f5f00d824504e4fa37a75767e177")
+	GoerliGenesisHash    = types.HexToHash("0xbf7e331f7f7c1dd2e05159666b3bf8bc7a8a3a9eb1d518969eab529dd9b88c1a")
+	CalaverasGenesisHash = types.HexToHash("0xeb9233d066c275efcdfed8037f4fc082770176aefdbcb7691c71da412a5670f2")
 )
 
 // TrustedCheckpoints associates each known checkpoint with the genesis hash of
 // the chain it belongs to.
-var TrustedCheckpoints = map[common.Hash]*TrustedCheckpoint{
+var TrustedCheckpoints = map[types.Hash]*TrustedCheckpoint{
 	MainnetGenesisHash: MainnetTrustedCheckpoint,
 	RopstenGenesisHash: RopstenTrustedCheckpoint,
 	RinkebyGenesisHash: RinkebyTrustedCheckpoint,
@@ -45,7 +46,7 @@ var TrustedCheckpoints = map[common.Hash]*TrustedCheckpoint{
 
 // CheckpointOracles associates each known checkpoint oracles with the genesis hash of
 // the chain it belongs to.
-var CheckpointOracles = map[common.Hash]*CheckpointOracleConfig{
+var CheckpointOracles = map[types.Hash]*CheckpointOracleConfig{
 	MainnetGenesisHash: MainnetCheckpointOracle,
 	RopstenGenesisHash: RopstenCheckpointOracle,
 	RinkebyGenesisHash: RinkebyCheckpointOracle,
@@ -60,7 +61,7 @@ var (
 		DAOForkBlock:        big.NewInt(1_920_000),
 		DAOForkSupport:      true,
 		EIP150Block:         big.NewInt(2_463_000),
-		EIP150Hash:          common.HexToHash("0x2086799aeebeae135c246c65021c82b4e15a2c451340993aacfd2751886514f0"),
+		EIP150Hash:          types.HexToHash("0x2086799aeebeae135c246c65021c82b4e15a2c451340993aacfd2751886514f0"),
 		EIP155Block:         big.NewInt(2_675_000),
 		EIP158Block:         big.NewInt(2_675_000),
 		ByzantiumBlock:      big.NewInt(4_370_000),
@@ -76,9 +77,9 @@ var (
 	// MainnetTrustedCheckpoint contains the light client trusted checkpoint for the main network.
 	MainnetTrustedCheckpoint = &TrustedCheckpoint{
 		SectionIndex: 389,
-		SectionHead:  common.HexToHash("0x8f96e510cf64abf34095c5aa3937acdf5316de5540945b9688f4a2e083cddc73"),
-		CHTRoot:      common.HexToHash("0xa2362493848d6dbc50dcbbf74c017ea808b8938bfb129217d507bd276950d7ac"),
-		BloomRoot:    common.HexToHash("0x72fc78a841bde7e08e1fb7c187b622c49dc8271db12db748ff5d0f27bdb41413"),
+		SectionHead:  types.HexToHash("0x8f96e510cf64abf34095c5aa3937acdf5316de5540945b9688f4a2e083cddc73"),
+		CHTRoot:      types.HexToHash("0xa2362493848d6dbc50dcbbf74c017ea808b8938bfb129217d507bd276950d7ac"),
+		BloomRoot:    types.HexToHash("0x72fc78a841bde7e08e1fb7c187b622c49dc8271db12db748ff5d0f27bdb41413"),
 	}
 
 	// MainnetCheckpointOracle contains a set of configs for the main network oracle.
@@ -101,7 +102,7 @@ var (
 		DAOForkBlock:        nil,
 		DAOForkSupport:      true,
 		EIP150Block:         big.NewInt(0),
-		EIP150Hash:          common.HexToHash("0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d"),
+		EIP150Hash:          types.HexToHash("0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d"),
 		EIP155Block:         big.NewInt(10),
 		EIP158Block:         big.NewInt(10),
 		ByzantiumBlock:      big.NewInt(1_700_000),
@@ -117,9 +118,9 @@ var (
 	// RopstenTrustedCheckpoint contains the light client trusted checkpoint for the Ropsten test network.
 	RopstenTrustedCheckpoint = &TrustedCheckpoint{
 		SectionIndex: 322,
-		SectionHead:  common.HexToHash("0xe3f2fb70acd752bbcac06b67688db8430815c788a31213011ed51b966108a5f4"),
-		CHTRoot:      common.HexToHash("0xb2993a6bc28b23b84159cb477c38c0ec5607434faae6b3657ad44cbcf116f288"),
-		BloomRoot:    common.HexToHash("0x871841e5c2ada9dab2011a550d38e9fe0a30047cfc81f1ffc7ebc09f4f230732"),
+		SectionHead:  types.HexToHash("0xe3f2fb70acd752bbcac06b67688db8430815c788a31213011ed51b966108a5f4"),
+		CHTRoot:      types.HexToHash("0xb2993a6bc28b23b84159cb477c38c0ec5607434faae6b3657ad44cbcf116f288"),
+		BloomRoot:    types.HexToHash("0x871841e5c2ada9dab2011a550d38e9fe0a30047cfc81f1ffc7ebc09f4f230732"),
 	}
 
 	// RopstenCheckpointOracle contains a set of configs for the Ropsten test network oracle.
@@ -142,7 +143,7 @@ var (
 		DAOForkBlock:        nil,
 		DAOForkSupport:      true,
 		EIP150Block:         big.NewInt(2),
-		EIP150Hash:          common.HexToHash("0x9b095b36c15eaf13044373aef8ee0bd3a382a5abb92e402afa44b8249c3a90e9"),
+		EIP150Hash:          types.HexToHash("0x9b095b36c15eaf13044373aef8ee0bd3a382a5abb92e402afa44b8249c3a90e9"),
 		EIP155Block:         big.NewInt(3),
 		EIP158Block:         big.NewInt(3),
 		ByzantiumBlock:      big.NewInt(1_035_301),
@@ -161,9 +162,9 @@ var (
 	// RinkebyTrustedCheckpoint contains the light client trusted checkpoint for the Rinkeby test network.
 	RinkebyTrustedCheckpoint = &TrustedCheckpoint{
 		SectionIndex: 270,
-		SectionHead:  common.HexToHash("0x03ef8982c93bbf18c859bc1b20ae05b439f04cf1ff592656e941d2c3fcff5d68"),
-		CHTRoot:      common.HexToHash("0x9eb80685e8ece479e105b170439779bc0f89997ab7f4dee425f85c4234e8a6b5"),
-		BloomRoot:    common.HexToHash("0xc3673721c5697efe5fe4cb825d178f4a335dbfeda6a197fb75c9256a767379dc"),
+		SectionHead:  types.HexToHash("0x03ef8982c93bbf18c859bc1b20ae05b439f04cf1ff592656e941d2c3fcff5d68"),
+		CHTRoot:      types.HexToHash("0x9eb80685e8ece479e105b170439779bc0f89997ab7f4dee425f85c4234e8a6b5"),
+		BloomRoot:    types.HexToHash("0xc3673721c5697efe5fe4cb825d178f4a335dbfeda6a197fb75c9256a767379dc"),
 	}
 
 	// RinkebyCheckpointOracle contains a set of configs for the Rinkeby test network oracle.
@@ -203,9 +204,9 @@ var (
 	// GoerliTrustedCheckpoint contains the light client trusted checkpoint for the Görli test network.
 	GoerliTrustedCheckpoint = &TrustedCheckpoint{
 		SectionIndex: 154,
-		SectionHead:  common.HexToHash("0xf4cb74cc0e3683589f4992902184241fb892d7c3859d0044c16ec864605ff80d"),
-		CHTRoot:      common.HexToHash("0xead95f9f2504b2c7c6d82c51d30e50b40631c3ea2f590cddcc9721cfc0ae79de"),
-		BloomRoot:    common.HexToHash("0xc6dd6cfe88ac9c4a6d19c9a8651944fa9d941a2340a8f5ddaf673d4d39779d81"),
+		SectionHead:  types.HexToHash("0xf4cb74cc0e3683589f4992902184241fb892d7c3859d0044c16ec864605ff80d"),
+		CHTRoot:      types.HexToHash("0xead95f9f2504b2c7c6d82c51d30e50b40631c3ea2f590cddcc9721cfc0ae79de"),
+		BloomRoot:    types.HexToHash("0xc6dd6cfe88ac9c4a6d19c9a8651944fa9d941a2340a8f5ddaf673d4d39779d81"),
 	}
 
 	// GoerliCheckpointOracle contains a set of configs for the Goerli test network oracle.
@@ -247,16 +248,16 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(EthashConfig), nil}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(EthashConfig), nil}
 
 	// AllCliqueProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Clique consensus.
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}}
+	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}}
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(EthashConfig), nil}
+	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(EthashConfig), nil}
 	TestRules       = TestChainConfig.Rules(new(big.Int))
 )
 
@@ -266,21 +267,21 @@ var (
 // entire header chain while still being able to securely access old headers/logs.
 type TrustedCheckpoint struct {
 	SectionIndex uint64      `json:"sectionIndex"`
-	SectionHead  common.Hash `json:"sectionHead"`
-	CHTRoot      common.Hash `json:"chtRoot"`
-	BloomRoot    common.Hash `json:"bloomRoot"`
+	SectionHead  types.Hash `json:"sectionHead"`
+	CHTRoot      types.Hash `json:"chtRoot"`
+	BloomRoot    types.Hash `json:"bloomRoot"`
 }
 
 // HashEqual returns an indicator comparing the itself hash with given one.
-func (c *TrustedCheckpoint) HashEqual(hash common.Hash) bool {
+func (c *TrustedCheckpoint) HashEqual(hash types.Hash) bool {
 	if c.Empty() {
-		return hash == common.Hash{}
+		return hash == types.Hash{}
 	}
 	return c.Hash() == hash
 }
 
 // Hash returns the hash of checkpoint's four key fields(index, sectionHead, chtRoot and bloomTrieRoot).
-func (c *TrustedCheckpoint) Hash() common.Hash {
+func (c *TrustedCheckpoint) Hash() types.Hash {
 	var sectionIndex [8]byte
 	binary.BigEndian.PutUint64(sectionIndex[:], c.SectionIndex)
 
@@ -290,14 +291,14 @@ func (c *TrustedCheckpoint) Hash() common.Hash {
 	w.Write(c.CHTRoot[:])
 	w.Write(c.BloomRoot[:])
 
-	var h common.Hash
+	var h types.Hash
 	w.Sum(h[:0])
 	return h
 }
 
 // Empty returns an indicator whether the checkpoint is regarded as empty.
 func (c *TrustedCheckpoint) Empty() bool {
-	return c.SectionHead == (common.Hash{}) || c.CHTRoot == (common.Hash{}) || c.BloomRoot == (common.Hash{})
+	return c.SectionHead == (types.Hash{}) || c.CHTRoot == (types.Hash{}) || c.BloomRoot == (types.Hash{})
 }
 
 // CheckpointOracleConfig represents a set of checkpoint contract(which acts as an oracle)
@@ -323,7 +324,7 @@ type ChainConfig struct {
 
 	// EIP150 implements the Gas price changes (https://github.com/ethereum/EIPs/issues/150)
 	EIP150Block *big.Int    `json:"eip150Block,omitempty"` // EIP150 HF block (nil = no fork)
-	EIP150Hash  common.Hash `json:"eip150Hash,omitempty"`  // EIP150 HF hash (needed for header only clients as only gas pricing changed)
+	EIP150Hash  types.Hash `json:"eip150Hash,omitempty"`  // EIP150 HF hash (needed for header only clients as only gas pricing changed)
 
 	EIP155Block *big.Int `json:"eip155Block,omitempty"` // EIP155 HF block
 	EIP158Block *big.Int `json:"eip158Block,omitempty"` // EIP158 HF block

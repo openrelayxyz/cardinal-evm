@@ -30,9 +30,10 @@ import (
 	"math/big"
 	"os"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-evm/common/math"
+	"github.com/openrelayxyz/cardinal-evm/rlp"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -66,7 +67,7 @@ func NewKeccakState() KeccakState {
 }
 
 // HashData hashes the provided data using the KeccakState and returns a 32 byte hash
-func HashData(kh KeccakState, data []byte) (h common.Hash) {
+func HashData(kh KeccakState, data []byte) (h types.Hash) {
 	kh.Reset()
 	kh.Write(data)
 	kh.Read(h[:])
@@ -86,7 +87,7 @@ func Keccak256(data ...[]byte) []byte {
 
 // Keccak256Hash calculates and returns the Keccak256 hash of the input data,
 // converting it to an internal Hash data structure.
-func Keccak256Hash(data ...[]byte) (h common.Hash) {
+func Keccak256Hash(data ...[]byte) (h types.Hash) {
 	d := NewKeccakState()
 	for _, b := range data {
 		d.Write(b)

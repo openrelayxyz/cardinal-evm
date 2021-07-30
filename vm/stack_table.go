@@ -1,4 +1,4 @@
-// Copyright 2020 The go-ethereum Authors
+// Copyright 2017 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
 // The go-ethereum library is free software: you can redistribute it and/or modify
@@ -14,32 +14,29 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package bls12381
+package vm
 
 import (
-	"errors"
-	"math/big"
-
-	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-evm/params"
 )
 
-func bigFromHex(hex string) *big.Int {
-	return new(big.Int).SetBytes(common.FromHex(hex))
+func minSwapStack(n int) int {
+	return minStack(n, n)
+}
+func maxSwapStack(n int) int {
+	return maxStack(n, n)
 }
 
-// decodeFieldElement expects 64 byte input with zero top 16 bytes,
-// returns lower 48 bytes.
-func decodeFieldElement(in []byte) ([]byte, error) {
-	if len(in) != 64 {
-		return nil, errors.New("invalid field element length")
-	}
-	// check top bytes
-	for i := 0; i < 16; i++ {
-		if in[i] != byte(0x00) {
-			return nil, errors.New("invalid field element top bytes")
-		}
-	}
-	out := make([]byte, 48)
-	copy(out[:], in[16:])
-	return out, nil
+func minDupStack(n int) int {
+	return minStack(n, n+1)
+}
+func maxDupStack(n int) int {
+	return maxStack(n, n+1)
+}
+
+func maxStack(pop, push int) int {
+	return int(params.StackLimit) + pop - push
+}
+func minStack(pops, push int) int {
+	return pops
 }
