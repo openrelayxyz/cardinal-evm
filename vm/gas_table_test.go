@@ -18,14 +18,14 @@ package vm
 
 import (
 	"math"
-	"math/big"
+	// "math/big"
 	"testing"
 
-	"github.com/openrelayxyz/cardinal-evm/common"
-	"github.com/openrelayxyz/cardinal-types/hexutil"
+	// "github.com/openrelayxyz/cardinal-evm/common"
+	// "github.com/openrelayxyz/cardinal-types/hexutil"
 	// "github.com/ethereum/go-ethereum/core/rawdb"
 	// "github.com/ethereum/go-ethereum/core/state"
-	"github.com/openrelayxyz/cardinal-evm/params"
+	// "github.com/openrelayxyz/cardinal-evm/params"
 )
 
 func TestMemoryGasCost(t *testing.T) {

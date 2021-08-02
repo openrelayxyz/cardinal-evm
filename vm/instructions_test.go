@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"testing"
 
+	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/params"
@@ -631,7 +632,7 @@ func TestCreate2Addreses(t *testing.T) {
 	} {
 
 		origin := common.BytesToAddress(common.FromHex(tt.origin))
-		salt := common.BytesToHash(common.FromHex(tt.salt))
+		salt := types.BytesToHash(common.FromHex(tt.salt))
 		code := common.FromHex(tt.code)
 		codeHash := crypto.Keccak256(code)
 		address := crypto.CreateAddress2(origin, salt, codeHash)
