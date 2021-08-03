@@ -34,9 +34,9 @@ type dummyContractRef struct {
 func (dummyContractRef) Address() common.Address     { return common.Address{} }
 func (dummyContractRef) Value() *big.Int             { return new(big.Int) }
 func (dummyContractRef) SetCode(types.Hash, []byte) {}
-func (d *dummyContractRef) ForEachStorage(callback func(key, value types.Hash) bool) {
-	d.calledForEach = true
-}
+// func (d *dummyContractRef) ForEachStorage(callback func(key, value types.Hash) bool) {
+// 	d.calledForEach = true
+// }
 func (d *dummyContractRef) SubBalance(amount *big.Int) {}
 func (d *dummyContractRef) AddBalance(amount *big.Int) {}
 func (d *dummyContractRef) SetBalance(*big.Int)        {}
