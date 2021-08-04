@@ -18,14 +18,17 @@ package vm
 
 import (
 	"math"
-	// "math/big"
+	"math/big"
 	"testing"
 
-	// "github.com/openrelayxyz/cardinal-evm/common"
 	// "github.com/openrelayxyz/cardinal-types/hexutil"
 	// "github.com/ethereum/go-ethereum/core/rawdb"
-	// "github.com/ethereum/go-ethereum/core/state"
-	// "github.com/openrelayxyz/cardinal-evm/params"
+	"github.com/openrelayxyz/cardinal-evm/state"
+	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
+	"github.com/openrelayxyz/cardinal-storage"
+	"github.com/openrelayxyz/cardinal-evm/params"
 )
 
 func TestMemoryGasCost(t *testing.T) {
@@ -77,32 +80,52 @@ var eip2200Tests = []struct {
 	{1, 2307, "0x6001600055", 806, 0, nil},                                     // 1 -> 1 (2301 sentry + 2xPUSH)
 }
 
+func testWithStateDB(fn func(sdb state.StateDB) error) error {
+  sdb := state.NewMemStateDB(1, 128)
+  sdb.Storage.AddBlock(
+    types.HexToHash("a"),
+    types.Hash{},
+    1,
+    big.NewInt(1),
+    []storage.KeyValue{
+      storage.KeyValue{Key: []byte("/a/Data"), Value: []byte("Something")},
+      storage.KeyValue{Key: []byte("/a/Data2"), Value: []byte("Something Else")},
+      storage.KeyValue{Key: []byte("a"), Value: []byte("1")},
+      storage.KeyValue{Key: []byte("b"), Value: []byte("2")},
+    },
+    [][]byte{},
+    []byte("0"),
+  )
+  return sdb.View(types.HexToHash("a"), fn)
+}
+
 func TestEIP2200(t *testing.T) {
-	t.Fatalf("Not Implemented")
-	// for i, tt := range eip2200Tests {
-	// 	address := common.BytesToAddress([]byte("contract"))
-	//
-	// 	statedb, _ := state.New(types.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()), nil)
-	// 	statedb.CreateAccount(address)
-	// 	statedb.SetCode(address, hexutil.MustDecode(tt.input))
-	// 	statedb.SetState(address, types.Hash{}, common.BytesToHash([]byte{tt.original}))
-	// 	statedb.Finalise(true) // Push the state into the "original" slot
-	//
-	// 	vmctx := BlockContext{
-	// 		CanTransfer: func(StateDB, common.Address, *big.Int) bool { return true },
-	// 		Transfer:    func(StateDB, common.Address, common.Address, *big.Int) {},
-	// 	}
-	// 	vmenv := NewEVM(vmctx, TxContext{}, statedb, params.AllEthashProtocolChanges, Config{ExtraEips: []int{2200}})
-	//
-	// 	_, gas, err := vmenv.Call(AccountRef(common.Address{}), address, nil, tt.gaspool, new(big.Int))
-	// 	if err != tt.failure {
-	// 		t.Errorf("test %d: failure mismatch: have %v, want %v", i, err, tt.failure)
-	// 	}
-	// 	if used := tt.gaspool - gas; used != tt.used {
-	// 		t.Errorf("test %d: gas used mismatch: have %v, want %v", i, used, tt.used)
-	// 	}
-	// 	if refund := vmenv.StateDB.GetRefund(); refund != tt.refund {
-	// 		t.Errorf("test %d: gas refund mismatch: have %v, want %v", i, refund, tt.refund)
-	// 	}
-	// }
+	for i, tt := range eip2200Tests {
+		testWithStateDB(func(statedb state.StateDB) error {
+			address := common.BytesToAddress([]byte("contract"))
+
+			statedb.CreateAccount(address)
+			statedb.SetCode(address, hexutil.MustDecode(tt.input))
+			statedb.SetState(address, types.Hash{}, types.BytesToHash([]byte{tt.original}))
+			statedb.Finalise() // Push the state into the "original" slot
+
+			vmctx := BlockContext{
+				CanTransfer: func(state.StateDB, common.Address, *big.Int) bool { return true },
+				Transfer:    func(state.StateDB, common.Address, common.Address, *big.Int) {},
+			}
+			vmenv := NewEVM(vmctx, TxContext{}, statedb, params.AllEthashProtocolChanges, Config{ExtraEips: []int{2200}})
+
+			_, gas, err := vmenv.Call(AccountRef(common.Address{}), address, nil, tt.gaspool, new(big.Int))
+			if err != tt.failure {
+				t.Errorf("test %d: failure mismatch: have %v, want %v", i, err, tt.failure)
+			}
+			if used := tt.gaspool - gas; used != tt.used {
+				t.Errorf("test %d: gas used mismatch: have %v, want %v", i, used, tt.used)
+			}
+			if refund := vmenv.StateDB.GetRefund(); refund != tt.refund {
+				t.Errorf("test %d: gas refund mismatch: have %v, want %v", i, refund, tt.refund)
+			}
+			return nil
+		})
+	}
 }

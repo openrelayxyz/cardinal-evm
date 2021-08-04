@@ -31,33 +31,32 @@ import (
 )
 
 
-type statedbManager struct{
-  storage storage.Storage
-  chainid int64
+type StatedbManager struct{
+  Storage storage.Storage
+  Chainid int64
 }
 
-func (sdbm *statedbManager) View(h ctypes.Hash, fn func(sdb StateDB) error) error {
-  return sdbm.storage.View(h, func (tx storage.Transaction) error {
+func (sdbm *StatedbManager) View(h ctypes.Hash, fn func(sdb StateDB) error) error {
+  return sdbm.Storage.View(h, func (tx storage.Transaction) error {
     return fn(&stateDB{
       tx: tx,
       state: make(map[common.Address]*stateObject),
       journal: []journalEntry{},
-      chainid: sdbm.chainid,
+      chainid: sdbm.Chainid,
       accessList: newAccessList(),
     })
   })
 }
 
-func NewMemStateDB(chainid, reorgDepth int64) *statedbManager {
+func NewMemStateDB(chainid, reorgDepth int64) *StatedbManager {
   mdb := mem.NewMemoryDatabase(4)
-  return &statedbManager{storage: current.New(mdb, reorgDepth), chainid: chainid}
+  return &StatedbManager{Storage: current.New(mdb, reorgDepth), Chainid: chainid}
 }
 
 type journalEntry struct{
   addr *common.Address
   revert func(*stateDB)
 }
-
 
 type stateDB struct {
   tx storage.Transaction
@@ -68,7 +67,7 @@ type stateDB struct {
   accessList *accessList
 }
 
-func (sdb *stateDB) Copy() *stateDB {
+func (sdb *stateDB) Copy() StateDB {
   state := make(map[common.Address]*stateObject)
   for addr, sobj := range sdb.state {
     state[addr] = sobj.copy()
@@ -85,7 +84,7 @@ func (sdb *stateDB) Copy() *stateDB {
   }
 }
 
-func (sdb *stateDB) finalise() {
+func (sdb *stateDB) Finalise() {
   for _, sobj := range sdb.state {
     sobj.finalise()
   }
@@ -113,8 +112,10 @@ func (sdb *stateDB) CreateAccount(addr common.Address) {
   }
   sdb.journal = append(sdb.journal, journalEntry{&addr, func(sdb *stateDB) { sdb.state[addr] = prev }})
   if !prev.deleted && !prev.suicided {
-    prev.loadAccount(sdb.tx, sdb.chainid)
-    sdb.state[addr].addBalance(prev.getBalance())
+    if prev.loadAccount(sdb.tx, sdb.chainid) {
+      sdb.state[addr].addBalance(prev.getBalance())
+    }
+
   }
 }
 

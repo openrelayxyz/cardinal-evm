@@ -45,18 +45,42 @@ type stateObject struct{
   nonce        *uint64
 }
 
+func (s *stateObject) equal(b *stateObject) bool {
+  if s.address != b.address || s.balanceDelta.Cmp(b.balanceDelta) != 0 || len(s.clean) != len(b.clean) || s.suicided != b.suicided || s.deleted != b.deleted || *s.nonce != *b.nonce {
+    return false
+  }
+  if s.account != nil && b.account != nil {
+    if s.account.Nonce != b.account.Nonce { return false }
+    if !bytes.Equal(s.account.Root, b.account.Root) { return false }
+    if !bytes.Equal(s.account.CodeHash, b.account.CodeHash) { return false }
+    if s.getBalance().Cmp(b.getBalance()) != 0 { return false }
+  }
+  if s.code != nil && b.code != nil {
+    if s.code.getHash() != b.code.getHash() { return false }
+  }
+  for k, v := range s.clean {
+    if b.clean[k] != v { return false }
+  }
+  for k, v := range s.dirty {
+    if b.dirty[k] != v { return false }
+  }
+  return true
+}
+
 func (s *stateObject) copy() *stateObject {
-  return &stateObject{
+
+  state := &stateObject{
     address: s.address,
     account: s.account,
-    balanceDelta: new(big.Int).Set(s.balanceDelta),
     code: s.code,
     dirty: s.dirty.Copy(),
     clean: s.clean.Copy(),
     suicided: s.suicided,
     deleted: s.deleted,
-    nonce: &(*s.nonce),
   }
+  if s.balanceDelta != nil { state.balanceDelta = new(big.Int).Set(s.balanceDelta) }
+  if s.nonce != nil { state.nonce = &(*s.nonce) }
+  return state
 }
 
 func (s *stateObject) finalise() {
@@ -126,8 +150,14 @@ func (s *stateObject) addBalance(amount *big.Int) journalEntry {
 }
 
 func (s *stateObject) getBalance() *big.Int {
-  if s.balanceDelta == nil { return s.account.Balance }
-  return new(big.Int).Add(s.account.Balance, s.balanceDelta)
+  var balance *big.Int
+  delta := s.balanceDelta
+  if delta == nil { delta = new(big.Int) }
+  if s.account != nil {
+    balance = s.account.Balance
+  }
+  if balance == nil { balance = new(big.Int)}
+  return new(big.Int).Add(delta, balance)
 }
 
 func (s *stateObject) getNonce(tx storage.Transaction, chainid int64) uint64 {
