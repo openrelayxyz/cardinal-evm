@@ -45,6 +45,20 @@ type stateObject struct{
   nonce        *uint64
 }
 
+func (s *stateObject) copy() *stateObject {
+  return &stateObject{
+    address: s.address,
+    account: s.account,
+    balanceDelta: new(big.Int).Set(s.balanceDelta),
+    code: s.code,
+    dirty: s.dirty.Copy(),
+    clean: s.clean.Copy(),
+    suicided: s.suicided,
+    deleted: s.deleted,
+    nonce: &(*s.nonce),
+  }
+}
+
 func (s *stateObject) finalise() {
   for k, v := range s.dirty{
     s.clean[k] = v
@@ -83,8 +97,6 @@ func (s *stateObject) loadCode(tx storage.Transaction, chainid int64) bool {
   }
   if s.account != nil {
     ce.hash = types.BytesToHash(s.account.CodeHash)
-  } else {
-    ce.hash = crypto.Keccak256Hash(code)
   }
   s.code = ce
   return true
@@ -93,18 +105,24 @@ func (s *stateObject) loadCode(tx storage.Transaction, chainid int64) bool {
 func (s *stateObject) subBalance(amount *big.Int) journalEntry {
   if s.balanceDelta == nil {
     s.balanceDelta = new(big.Int).Neg(amount)
-    return journalEntry{&s.address, func() { s.balanceDelta = nil }}
+    return journalEntry{&s.address, func(sdb *stateDB) { sdb.getAccount(s.address).balanceDelta = nil }}
   }
   s.balanceDelta.Sub(s.balanceDelta, amount)
-  return journalEntry{&s.address, func() { s.balanceDelta.Add(s.balanceDelta, amount) }}
+  return journalEntry{&s.address, func(sdb *stateDB) {
+    rs := sdb.getAccount(s.address)
+    rs.balanceDelta.Add(rs.balanceDelta, amount)
+  }}
 }
 func (s *stateObject) addBalance(amount *big.Int) journalEntry {
   if s.balanceDelta == nil {
     s.balanceDelta = new(big.Int).Set(amount)
-    return journalEntry{&s.address, func() { s.balanceDelta = nil }}
+    return journalEntry{&s.address, func(sdb *stateDB) { sdb.getAccount(s.address).balanceDelta = nil }}
   }
   s.balanceDelta.Add(s.balanceDelta, amount)
-  return journalEntry{&s.address, func() { s.balanceDelta.Sub(s.balanceDelta, amount) }}
+  return journalEntry{&s.address, func(sdb *stateDB) {
+    rs := sdb.getAccount(s.address)
+    rs.balanceDelta.Sub(rs.balanceDelta, amount)
+  }}
 }
 
 func (s *stateObject) getBalance() *big.Int {
@@ -120,13 +138,13 @@ func (s *stateObject) getNonce(tx storage.Transaction, chainid int64) uint64 {
 func (s *stateObject) setNonce(nonce uint64) journalEntry {
   oldNonce := s.nonce
   s.nonce = &nonce
-  return journalEntry{&s.address, func() { s.nonce = oldNonce }}
+  return journalEntry{&s.address, func(sdb *stateDB) { sdb.getAccount(s.address).nonce = oldNonce }}
 }
 
 func (s *stateObject) getCodeHash(tx storage.Transaction, chainid int64) types.Hash {
   if s.account != nil { return types.BytesToHash(s.account.CodeHash) }
   if !s.loadCode(tx, chainid) { return emptyCode }
-  return s.code.hash
+  return s.code.getHash()
 }
 
 func (s *stateObject) getCode(tx storage.Transaction, chainid int64) []byte {
@@ -140,7 +158,7 @@ func (s *stateObject) setCode(code []byte) journalEntry {
     code: code,
     hash: crypto.Keccak256Hash(code),
   }
-  return journalEntry{&s.address, func() { s.code = old }}
+  return journalEntry{&s.address, func(sdb *stateDB) { sdb.getAccount(s.address).code = old }}
 }
 func (s *stateObject) getCommittedState(tx storage.Transaction, chainid int64, storage types.Hash) types.Hash {
   if data, ok := s.clean[storage]; ok { return data }
@@ -156,16 +174,16 @@ func (s *stateObject) getState(tx storage.Transaction, chainid int64, storage ty
 func (s *stateObject) setState(storage, data types.Hash) journalEntry {
   if old, ok := s.dirty[storage]; ok {
     s.dirty[storage] = data
-    return journalEntry{&s.address, func() { s.dirty[storage] = old }}
+    return journalEntry{&s.address, func(sdb *stateDB) { sdb.getAccount(s.address).dirty[storage] = old }}
   }
   s.dirty[storage] = data
-  return journalEntry{&s.address, func() { delete(s.dirty, storage) }}
+  return journalEntry{&s.address, func(sdb *stateDB) { delete(sdb.getAccount(s.address).dirty, storage) }}
 }
 
 func (s *stateObject) suicide() (bool, *journalEntry) {
   if s.suicided || s.deleted { return false, nil }
   s.suicided = true
-  return true, &journalEntry{&s.address, func() { s.suicided = false }}
+  return true, &journalEntry{&s.address, func(sdb *stateDB) { sdb.getAccount(s.address).suicided = false }}
 }
 
 func (s *stateObject) empty(tx storage.Transaction, chainid int64) bool {

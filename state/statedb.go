@@ -55,17 +55,34 @@ func NewMemStateDB(chainid, reorgDepth int64) *statedbManager {
 
 type journalEntry struct{
   addr *common.Address
-  revert func()
+  revert func(*stateDB)
 }
 
 
 type stateDB struct {
   tx storage.Transaction
-  state map[common.Address]*stateObject
   journal []journalEntry
+  state map[common.Address]*stateObject
   chainid int64
   refund uint64
   accessList *accessList
+}
+
+func (sdb *stateDB) Copy() *stateDB {
+  state := make(map[common.Address]*stateObject)
+  for addr, sobj := range sdb.state {
+    state[addr] = sobj.copy()
+  }
+  journal := make([]journalEntry, len(sdb.journal))
+  copy(journal[:], sdb.journal[:])
+  return &stateDB{
+    tx: sdb.tx,
+    journal: journal,
+    state: state,
+    chainid: sdb.chainid,
+    refund: sdb.refund,
+    accessList: sdb.accessList.Copy(),
+  }
 }
 
 func (sdb *stateDB) finalise() {
@@ -94,7 +111,7 @@ func (sdb *stateDB) CreateAccount(addr common.Address) {
     dirty: make(Storage),
     clean: make(Storage),
   }
-  sdb.journal = append(sdb.journal, journalEntry{&addr, func() { sdb.state[addr] = prev }})
+  sdb.journal = append(sdb.journal, journalEntry{&addr, func(sdb *stateDB) { sdb.state[addr] = prev }})
   if !prev.deleted && !prev.suicided {
     prev.loadAccount(sdb.tx, sdb.chainid)
     sdb.state[addr].addBalance(prev.getBalance())
@@ -144,12 +161,12 @@ func (sdb *stateDB) GetCodeSize(addr common.Address) int {
 func (sdb *stateDB) AddRefund(amount uint64) {
   old := sdb.refund
   sdb.refund += amount
-  sdb.journal = append(sdb.journal, journalEntry{nil, func() { sdb.refund = old }})
+  sdb.journal = append(sdb.journal, journalEntry{nil, func(sdb *stateDB) { sdb.refund = old }})
 }
 func (sdb *stateDB) SubRefund(amount uint64) {
   old := sdb.refund
   sdb.refund -= amount
-  sdb.journal = append(sdb.journal, journalEntry{nil, func() { sdb.refund = old }})
+  sdb.journal = append(sdb.journal, journalEntry{nil, func(sdb *stateDB) { sdb.refund = old }})
 }
 func (sdb *stateDB) GetRefund() uint64 { return sdb.refund }
 func (sdb *stateDB) GetCommittedState(addr common.Address, storage ctypes.Hash) ctypes.Hash {
@@ -216,7 +233,7 @@ func (sdb *stateDB) SlotInAccessList(addr common.Address, slot ctypes.Hash) (add
 // even if the feature/fork is not active yet
 func (sdb *stateDB) AddAddressToAccessList(addr common.Address) {
   if sdb.accessList.AddAddress(addr) {
-    sdb.journal = append(sdb.journal, journalEntry{nil, func() { sdb.accessList.DeleteAddress(addr) }})
+    sdb.journal = append(sdb.journal, journalEntry{nil, func(sdb *stateDB) { sdb.accessList.DeleteAddress(addr) }})
   }
 }
 // AddSlotToAccessList adds the given (address,slot) to the access list. This operation is safe to perform
@@ -228,15 +245,15 @@ func (sdb *stateDB) AddSlotToAccessList(addr common.Address, slot ctypes.Hash) {
     // scope of 'address' without having the 'address' become already added to
     // the access list (via call-variant, create, etc). Better safe than sorry,
     // though.
-    sdb.journal = append(sdb.journal, journalEntry{nil, func() { sdb.accessList.DeleteAddress(addr) }})
+    sdb.journal = append(sdb.journal, journalEntry{nil, func(sdb *stateDB) { sdb.accessList.DeleteAddress(addr) }})
   }
   if slotMod {
-    sdb.journal = append(sdb.journal, journalEntry{nil, func() { sdb.accessList.DeleteSlot(addr, slot) }})
+    sdb.journal = append(sdb.journal, journalEntry{nil, func(sdb *stateDB) { sdb.accessList.DeleteSlot(addr, slot) }})
   }
 }
 func (sdb *stateDB) RevertToSnapshot(snap int) {
   for i := len(sdb.journal) - 1; i >= snap; i-- {
-    sdb.journal[i].revert()
+    sdb.journal[i].revert(sdb)
   }
   sdb.journal = sdb.journal[:snap]
 }
