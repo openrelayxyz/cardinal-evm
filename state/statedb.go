@@ -67,6 +67,14 @@ type stateDB struct {
   accessList *accessList
 }
 
+func (sdb *stateDB) kv() []storage.KeyValue {
+  result := []storage.KeyValue{}
+  for _, sobj := range sdb.state {
+    result = append(result, sobj.kv(sdb.chainid)...)
+  }
+  return result
+}
+
 func (sdb *stateDB) Copy() StateDB {
   state := make(map[common.Address]*stateObject)
   for addr, sobj := range sdb.state {

@@ -1,6 +1,7 @@
 package state
 
 import (
+  // "fmt"
   "math/big"
   "testing"
   "github.com/openrelayxyz/cardinal-storage"
@@ -9,18 +10,21 @@ import (
 )
 
 func testWithStateDB(fn func(sdb StateDB) error) error {
+  return testLoadedWithStateDB([]storage.KeyValue{
+    storage.KeyValue{Key: []byte("/a/Data"), Value: []byte("Something")},
+    storage.KeyValue{Key: []byte("/a/Data2"), Value: []byte("Something Else")},
+    storage.KeyValue{Key: []byte("a"), Value: []byte("1")},
+    storage.KeyValue{Key: []byte("b"), Value: []byte("2")},
+  }, fn)
+}
+func testLoadedWithStateDB(records []storage.KeyValue, fn func(sdb StateDB) error) error {
   sdb := NewMemStateDB(1, 128)
-  sdb.storage.AddBlock(
+  sdb.Storage.AddBlock(
     types.HexToHash("a"),
     types.Hash{},
     1,
     big.NewInt(1),
-    []storage.KeyValue{
-      storage.KeyValue{Key: []byte("/a/Data"), Value: []byte("Something")},
-      storage.KeyValue{Key: []byte("/a/Data2"), Value: []byte("Something Else")},
-      storage.KeyValue{Key: []byte("a"), Value: []byte("1")},
-      storage.KeyValue{Key: []byte("b"), Value: []byte("2")},
-    },
+    records,
     [][]byte{},
     []byte("0"),
   )
@@ -49,6 +53,21 @@ func TestNull(t *testing.T) {
 }
 
 
+func TestPreLoadedSnapshot(t *testing.T) {
+  stateobjaddr := common.BytesToAddress([]byte("aa"))
+  var storageaddr types.Hash
+  data2 := types.BytesToHash([]byte{43})
+  if err := testLoadedWithStateDB([]storage.KeyValue{
+      storage.KeyValue{common.FromHex("632f312f612f366566626666643066343866316532393463613964343166633938333263323231393935343833363931393239363136636139613263663835346432643733372f64"), common.FromHex("c0")},
+      storage.KeyValue{common.FromHex("632f312f612f366566626666643066343866316532393463613964343166633938333263323231393935343833363931393239363136636139613263663835346432643733372f732f30303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030"), common.FromHex("000000000000000000000000000000000000000000000000000000000000002b")},
+    },
+  func(sdb StateDB) error {
+    if v := sdb.GetState(stateobjaddr, storageaddr); v != data2 {
+      t.Errorf("wrong storage value %v, want %v", v, data2)
+    }
+    return nil
+  }); err != nil { t.Errorf(err.Error()) }
+}
 func TestSnapshot(t *testing.T) {
   stateobjaddr := common.BytesToAddress([]byte("aa"))
   var storageaddr types.Hash
@@ -64,6 +83,7 @@ func TestSnapshot(t *testing.T) {
 
     // set a new state object value, revert it and ensure correct content
     sdb.SetState(stateobjaddr, storageaddr, data2)
+    // fmt.Println(sdb.(*stateDB).kv())
     sdb.RevertToSnapshot(snapshot)
 
     if v := sdb.GetState(stateobjaddr, storageaddr); v != data1 {

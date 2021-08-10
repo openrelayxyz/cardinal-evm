@@ -12,7 +12,7 @@ func AccountData(chainid int64, address []byte) []byte {
 }
 // AccountCode returns the Cardinal Storage key containing the account code for
 // the specified address.
-func AccountCode(chainid int64, address []byte) []byte {
+func AccountCode(chainid int64, codeHash []byte) []byte {
   // TODO: Evaluate code storage path.
   // We can look up by address even if we've never had to load the account
   // information to get the hash, which could lead to faster code lookups.
@@ -22,7 +22,7 @@ func AccountCode(chainid int64, address []byte) []byte {
   // duplicate code storage when multiple accounts have the same code. Storing
   // by hash would deduplicate the stored code, saving space at the possible
   // cost of extra lookups.
-  return []byte(fmt.Sprintf("c/%x/a/%x/c", chainid, crypto.Keccak256Hash(address)))
+  return []byte(fmt.Sprintf("c/%x/c/%x", chainid, codeHash))
 }
 // AccountStorage returns the Cardinal Storage key containing the data stored
 // by the specified address at the specified storage entry.

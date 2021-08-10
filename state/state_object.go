@@ -7,6 +7,7 @@ import (
   "github.com/openrelayxyz/cardinal-storage"
   "github.com/openrelayxyz/cardinal-evm/common"
   "github.com/openrelayxyz/cardinal-evm/crypto"
+  "github.com/openrelayxyz/cardinal-evm/rlp"
   "github.com/openrelayxyz/cardinal-evm/schema"
   log "github.com/inconshreveable/log15"
 )
@@ -43,6 +44,30 @@ type stateObject struct{
   suicided     bool
   deleted      bool
   nonce        *uint64
+}
+
+func (s *stateObject) kv(chainid int64) []storage.KeyValue {
+  if s.deleted || s.suicided { return []storage.KeyValue{} }
+  result := make([]storage.KeyValue, 0, len(s.dirty) + len(s.clean) + 2)
+  acct := s.account.Copy()
+  if s.code != nil {
+    copy(acct.CodeHash, s.code.getHash().Bytes())
+  }
+  acct.Balance = s.getBalance()
+  acctRLP, _ := rlp.EncodeToBytes(s.account)
+  result = append(result, storage.KeyValue{schema.AccountData(chainid, s.address.Bytes()), acctRLP})
+  if s.code != nil {
+    result = append(result, storage.KeyValue{schema.AccountCode(chainid, s.code.hash.Bytes()), s.code.code})
+  }
+  for k, v := range s.dirty {
+    result = append(result, storage.KeyValue{schema.AccountStorage(chainid, s.address.Bytes(), k.Bytes()), v.Bytes()})
+  }
+  for k, v := range s.clean {
+    if _, ok := s.dirty[k]; !ok {
+      result = append(result, storage.KeyValue{schema.AccountStorage(chainid, s.address.Bytes(), k.Bytes()), v.Bytes()})
+    }
+  }
+  return result
 }
 
 func (s *stateObject) equal(b *stateObject) bool {
@@ -108,6 +133,7 @@ func (s *stateObject) loadAccount(tx storage.Transaction, chainid int64) bool {
 func (s *stateObject) loadCode(tx storage.Transaction, chainid int64) bool {
   if s.deleted { return false }
   if s.code != nil { return true }
+  s.loadAccount(tx, chainid)
   if s.account != nil && bytes.Equal(s.account.CodeHash, emptyCode.Bytes()) {
     s.code = &codeEntry{
       code: []byte{},
@@ -115,14 +141,11 @@ func (s *stateObject) loadCode(tx storage.Transaction, chainid int64) bool {
     }
     return true
   }
-  code, _ := tx.Get(schema.AccountCode(chainid, s.address.Bytes()))
-  ce := &codeEntry{
+  code, _ := tx.Get(schema.AccountCode(chainid, s.account.CodeHash))
+  s.code = &codeEntry{
     code: code,
+    hash: types.BytesToHash(s.account.CodeHash),
   }
-  if s.account != nil {
-    ce.hash = types.BytesToHash(s.account.CodeHash)
-  }
-  s.code = ce
   return true
 }
 

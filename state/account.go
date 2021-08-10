@@ -40,6 +40,27 @@ type Account struct {
 	CodeHash []byte
 }
 
+func (ac *Account) Copy() *Account {
+  if ac == nil {
+    return &Account{
+      Nonce: 0,
+      Balance: new(big.Int),
+      Root: emptyRoot.Bytes(),
+      CodeHash: emptyCode.Bytes(),
+    }
+  }
+  result := &Account{
+    Nonce: ac.Nonce,
+    Balance: new(big.Int),
+    Root: make([]byte, len(ac.Root)),
+    CodeHash: make([]byte, len(ac.CodeHash)),
+  }
+  if ac.Balance != nil { result.Balance.Set(ac.Balance) }
+  if ac.Root != nil { copy(result.Root[:], ac.Root) }
+  if ac.CodeHash != nil { copy(result.CodeHash[:], ac.CodeHash) }
+  return result
+}
+
 
 // FullAccount decodes the data on the 'slim RLP' format and return
 // the consensus format account.
