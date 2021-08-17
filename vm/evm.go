@@ -79,6 +79,16 @@ type BlockContext struct {
 	BaseFee     *big.Int       // Provides information for BASEFEE
 }
 
+func defaultCanTransfer(db state.StateDB, addr common.Address, amount *big.Int) bool {
+	return db.GetBalance(addr).Cmp(amount) >= 0
+}
+
+func defaultTransfer(db state.StateDB, sender, recipient common.Address, amount *big.Int) {
+	db.SubBalance(sender, amount)
+	db.AddBalance(recipient, amount)
+}
+
+
 // TxContext provides the EVM with information about a transaction.
 // All fields can change between transactions.
 type TxContext struct {
@@ -127,6 +137,8 @@ type EVM struct {
 // NewEVM returns a new EVM. The returned EVM is not thread safe and should
 // only ever be used *once*.
 func NewEVM(blockCtx BlockContext, txCtx TxContext, statedb state.StateDB, chainConfig *params.ChainConfig, config Config) *EVM {
+	if blockCtx.CanTransfer == nil { blockCtx.CanTransfer = defaultCanTransfer }
+	if blockCtx.Transfer == nil { blockCtx.Transfer = defaultTransfer }
 	evm := &EVM{
 		Context:     blockCtx,
 		TxContext:   txCtx,

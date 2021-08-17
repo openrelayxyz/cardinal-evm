@@ -1005,6 +1005,25 @@ func TestInvalidOptionalField(t *testing.T) {
 
 }
 
+func TestReuseSourceBytes(t *testing.T) {
+	input := unhex("8D6162636465666768696A6B6C6D")
+	val := []byte{}
+	err := DecodeBytes(input, &val)
+	if err != nil { t.Errorf("Error decoding: %v", err.Error()) }
+	if !bytes.Equal(val, []byte("abcdefghijklm")) { t.Errorf("Unexpected decoding output") }
+	copy(input[:], unhex("FFFFFFFFFFFFFFFFFFFFFFFFFFFF"))
+	if !bytes.Equal(val, []byte("abcdefghijklm")) { t.Errorf("Decoded output changed") }
+}
+func TestReuseSourceSlice(t *testing.T) {
+	input := unhex("8D6162636465666768696A6B6C6D")
+	val := []byte{}
+	err := DecodeBytes(input, &val)
+	if err != nil { t.Errorf("Error decoding: %v", err.Error()) }
+	if !bytes.Equal(val, []byte("abcdefghijklm")) { t.Errorf("Unexpected decoding output") }
+	copy(input[:], unhex("FFFFFFFFFFFFFFFFFFFFFFFFFFFF"))
+	if !bytes.Equal(val, []byte("abcdefghijklm")) { t.Errorf("Decoded output changed") }
+}
+
 func ExampleDecode() {
 	input, _ := hex.DecodeString("C90A1486666F6F626172")
 

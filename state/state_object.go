@@ -118,10 +118,13 @@ func (s *stateObject) finalise() {
 func (s *stateObject) loadAccount(tx storage.Transaction, chainid int64) bool {
   if s.deleted { return false }
   if s.account == nil {
-    acctData, err := tx.Get(schema.AccountData(chainid, s.address.Bytes()))
+    err := tx.ZeroCopyGet(schema.AccountData(chainid, s.address.Bytes()), func(acctData []byte) error {
+      account, err := FullAccount(acctData)
+      if err != nil { return err }
+      s.account = &account
+      return nil
+    })
     if err == storage.ErrNotFound { return false }
-    account, err := FullAccount(acctData)
-    s.account = &account
     if err != nil {
       log.Error("Error parsing account", "addr", s.address, "err", err)
       return false
@@ -215,8 +218,12 @@ func (s *stateObject) setCode(code []byte) journalEntry {
 }
 func (s *stateObject) getCommittedState(tx storage.Transaction, chainid int64, storage types.Hash) types.Hash {
   if data, ok := s.clean[storage]; ok { return data }
-  data, _ := tx.Get(schema.AccountStorage(chainid, s.address.Bytes(), storage.Bytes()))
-  s.clean[storage] = types.BytesToHash(data)
+  tx.ZeroCopyGet(schema.AccountStorage(chainid, s.address.Bytes(), storage.Bytes()), func(data []byte) error {
+    // BytesToHash performs a copy operation, so this may be more efficient
+    // than using Get()
+    s.clean[storage] = types.BytesToHash(data)
+    return nil
+  })
   return s.clean[storage]
 }
 

@@ -21,37 +21,12 @@ import (
   "math/big"
   "github.com/openrelayxyz/cardinal-storage/current"
   "github.com/openrelayxyz/cardinal-storage/db/mem"
-  // "github.com/openrelayxyz/cardinal-storage/db"
   "github.com/openrelayxyz/cardinal-storage"
   "github.com/openrelayxyz/cardinal-evm/common"
   "github.com/openrelayxyz/cardinal-evm/types"
-  // "github.com/openrelayxyz/cardinal-evm/schema"
   // log "github.com/inconshreveable/log15"
   ctypes "github.com/openrelayxyz/cardinal-types"
 )
-
-
-type StatedbManager struct{
-  Storage storage.Storage
-  Chainid int64
-}
-
-func (sdbm *StatedbManager) View(h ctypes.Hash, fn func(sdb StateDB) error) error {
-  return sdbm.Storage.View(h, func (tx storage.Transaction) error {
-    return fn(&stateDB{
-      tx: tx,
-      state: make(map[common.Address]*stateObject),
-      journal: []journalEntry{},
-      chainid: sdbm.Chainid,
-      accessList: newAccessList(),
-    })
-  })
-}
-
-func NewMemStateDB(chainid, reorgDepth int64) *StatedbManager {
-  mdb := mem.NewMemoryDatabase(4)
-  return &StatedbManager{Storage: current.New(mdb, reorgDepth), Chainid: chainid}
-}
 
 type journalEntry struct{
   addr *common.Address
@@ -65,6 +40,35 @@ type stateDB struct {
   chainid int64
   refund uint64
   accessList *accessList
+}
+
+func NewStateDB(tx storage.Transaction, chainid int64) StateDB {
+  return &stateDB{
+    tx: tx,
+    state: make(map[common.Address]*stateObject),
+    journal: []journalEntry{},
+    chainid: chainid,
+    accessList: newAccessList(),
+  }
+}
+
+
+type StatedbManager struct{
+  Storage  storage.Storage
+  Chainid  int64
+}
+
+func (sdbm *StatedbManager) View(h ctypes.Hash, fn func(storage.Transaction, StateDB) error) error {
+  return sdbm.Storage.View(h, func (tx storage.Transaction) error {
+    return fn(tx, NewStateDB(tx, sdbm.Chainid))
+  })
+}
+
+
+func NewMemStateDB(chainid, reorgDepth int64) *StatedbManager {
+  mdb := mem.NewMemoryDatabase(4)
+  // TODO: Support whitelist functionality
+  return &StatedbManager{Storage: current.New(mdb, reorgDepth, nil), Chainid: chainid}
 }
 
 func (sdb *stateDB) kv() []storage.KeyValue {

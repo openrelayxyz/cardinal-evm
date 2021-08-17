@@ -9,7 +9,7 @@ import (
   "github.com/openrelayxyz/cardinal-evm/common"
 )
 
-func testWithStateDB(fn func(sdb StateDB) error) error {
+func testWithStateDB(fn func(tx storage.Transaction,sdb StateDB) error) error {
   return testLoadedWithStateDB([]storage.KeyValue{
     storage.KeyValue{Key: []byte("/a/Data"), Value: []byte("Something")},
     storage.KeyValue{Key: []byte("/a/Data2"), Value: []byte("Something Else")},
@@ -17,7 +17,7 @@ func testWithStateDB(fn func(sdb StateDB) error) error {
     storage.KeyValue{Key: []byte("b"), Value: []byte("2")},
   }, fn)
 }
-func testLoadedWithStateDB(records []storage.KeyValue, fn func(sdb StateDB) error) error {
+func testLoadedWithStateDB(records []storage.KeyValue, fn func(tx storage.Transaction,sdb StateDB) error) error {
   sdb := NewMemStateDB(1, 128)
   sdb.Storage.AddBlock(
     types.HexToHash("a"),
@@ -33,7 +33,7 @@ func testLoadedWithStateDB(records []storage.KeyValue, fn func(sdb StateDB) erro
 
 
 func TestNull(t *testing.T) {
-  if err := testWithStateDB(func(sdb StateDB) error {
+  if err := testWithStateDB(func(tx storage.Transaction,sdb StateDB) error {
     address := common.HexToAddress("0x823140710bf13990e4500136726d8b55")
     sdb.CreateAccount(address)
     //value := common.FromHex("0x823140710bf13990e4500136726d8b55")
@@ -61,7 +61,7 @@ func TestPreLoadedSnapshot(t *testing.T) {
       storage.KeyValue{common.FromHex("632f312f612f366566626666643066343866316532393463613964343166633938333263323231393935343833363931393239363136636139613263663835346432643733372f64"), common.FromHex("c0")},
       storage.KeyValue{common.FromHex("632f312f612f366566626666643066343866316532393463613964343166633938333263323231393935343833363931393239363136636139613263663835346432643733372f732f30303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030"), common.FromHex("000000000000000000000000000000000000000000000000000000000000002b")},
     },
-  func(sdb StateDB) error {
+  func(tx storage.Transaction,sdb StateDB) error {
     if v := sdb.GetState(stateobjaddr, storageaddr); v != data2 {
       t.Errorf("wrong storage value %v, want %v", v, data2)
     }
@@ -73,7 +73,7 @@ func TestSnapshot(t *testing.T) {
   var storageaddr types.Hash
   data1 := types.BytesToHash([]byte{42})
   data2 := types.BytesToHash([]byte{43})
-  if err := testWithStateDB(func(sdb StateDB) error {
+  if err := testWithStateDB(func(tx storage.Transaction,sdb StateDB) error {
     // snapshot the genesis state
     genesis := sdb.Snapshot()
 
@@ -110,7 +110,7 @@ func TestCopySnapshot(t *testing.T) {
   var storageaddr types.Hash
   data1 := types.BytesToHash([]byte{42})
   data2 := types.BytesToHash([]byte{43})
-  if err := testWithStateDB(func(sdb StateDB) error {
+  if err := testWithStateDB(func(tx storage.Transaction,sdb StateDB) error {
     // snapshot the genesis state
     genesis := sdb.Snapshot()
 
@@ -148,7 +148,7 @@ func TestCopySnapshot(t *testing.T) {
 
 
 func TestSnapshotEmpty(t *testing.T) {
-  if err := testWithStateDB(func(sdb StateDB) error {
+  if err := testWithStateDB(func(tx storage.Transaction,sdb StateDB) error {
     sdb.RevertToSnapshot(sdb.Snapshot())
     return nil
   }); err != nil  {t.Errorf( err.Error() )}
@@ -157,7 +157,7 @@ func TestSnapshotEmpty(t *testing.T) {
 
 func TestSnapshot2(t *testing.T) {
 
-  if err := testWithStateDB(func(s StateDB) error {
+  if err := testWithStateDB(func(tx storage.Transaction, s StateDB) error {
     sdb := s.(*stateDB)
     stateobjaddr0 := common.BytesToAddress([]byte("so0"))
     stateobjaddr1 := common.BytesToAddress([]byte("so1"))

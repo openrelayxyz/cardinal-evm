@@ -80,7 +80,7 @@ var eip2200Tests = []struct {
 	{1, 2307, "0x6001600055", 806, 0, nil},                                     // 1 -> 1 (2301 sentry + 2xPUSH)
 }
 
-func testWithStateDB(fn func(sdb state.StateDB) error) error {
+func testWithStateDB(fn func(tx storage.Transaction, sdb state.StateDB) error) error {
   sdb := state.NewMemStateDB(1, 128)
   sdb.Storage.AddBlock(
     types.HexToHash("a"),
@@ -101,7 +101,7 @@ func testWithStateDB(fn func(sdb state.StateDB) error) error {
 
 func TestEIP2200(t *testing.T) {
 	for i, tt := range eip2200Tests {
-		testWithStateDB(func(statedb state.StateDB) error {
+		testWithStateDB(func(tx storage.Transaction, statedb state.StateDB) error {
 			address := common.BytesToAddress([]byte("contract"))
 
 			statedb.CreateAccount(address)
