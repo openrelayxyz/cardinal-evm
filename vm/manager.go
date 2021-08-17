@@ -20,6 +20,10 @@ type EVMManager struct{
   chaincfg *params.ChainConfig
 }
 
+func (mgr *EVMManager) View(h ctypes.Hash, fn func(storage.Transaction, state.StateDB) error) error {
+  return mgr.sdbm.View(h, fn)
+}
+
 func (mgr *EVMManager) ViewEVM(h ctypes.Hash, from common.Address, gasPrice *big.Int, fn func(storage.Transaction, state.StateDB, *EVM) error) error {
   return mgr.sdbm.View(h, func (tx storage.Transaction, statedb state.StateDB) error {
     header := &types.Header{}
