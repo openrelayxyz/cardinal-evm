@@ -261,6 +261,14 @@ var (
 	TestRules       = TestChainConfig.Rules(new(big.Int))
 )
 
+var ChainLookup = map[int64]*ChainConfig{
+	1: MainnetChainConfig,
+	3: RopstenChainConfig,
+	4: RinkebyChainConfig,
+	5: GoerliChainConfig,
+	123: CalaverasChainConfig,
+}
+
 // TrustedCheckpoint represents a set of post-processed trie roots (CHT and
 // BloomTrie) associated with the appropriate section index and head hash. It is
 // used to start light syncing from this checkpoint and avoid downloading the

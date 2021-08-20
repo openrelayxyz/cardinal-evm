@@ -82,7 +82,7 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
       hash = &h
     } else {
       h := mgr.sdbm.Storage.LatestHash()
-      log.Info("No hash provided. Using latest", "hash", h)
+      log.Debug("No hash provided. Using latest", "hash", h)
       hash = &h
     }
     return *hash
@@ -114,7 +114,6 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
       headerPos = i
     case statedbType:
       needsTx = true
-      needsHeader = true
       needsState = true
       statePos = i
     case evmType:

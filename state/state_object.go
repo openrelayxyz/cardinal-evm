@@ -124,7 +124,11 @@ func (s *stateObject) loadAccount(tx storage.Transaction, chainid int64) bool {
       s.account = &account
       return nil
     })
-    if err == storage.ErrNotFound { return false }
+    if err == storage.ErrNotFound {
+      // TODO: Some discrepancy between here and badgerdb storage
+      log.Debug("Account not found", "key", string(schema.AccountData(chainid, s.address.Bytes())))
+      return false
+    }
     if err != nil {
       log.Error("Error parsing account", "addr", s.address, "err", err)
       return false
@@ -136,8 +140,7 @@ func (s *stateObject) loadAccount(tx storage.Transaction, chainid int64) bool {
 func (s *stateObject) loadCode(tx storage.Transaction, chainid int64) bool {
   if s.deleted { return false }
   if s.code != nil { return true }
-  s.loadAccount(tx, chainid)
-  if s.account != nil && bytes.Equal(s.account.CodeHash, emptyCode.Bytes()) {
+  if !s.loadAccount(tx, chainid) || (s.account != nil && bytes.Equal(s.account.CodeHash, emptyCode.Bytes())) {
     s.code = &codeEntry{
       code: []byte{},
       hash: emptyCode,
