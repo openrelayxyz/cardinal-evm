@@ -35,7 +35,8 @@ func main() {
     os.Exit(1)
   }
   mgr := vm.NewEVMManager(s, int64(chainid), vm.Config{}, chaincfg)
-  tm.Register("eth", api.NewPublicBlockChainAPI(s, mgr, int64(chainid)))
+  tm.Register("eth", api.NewETHAPI(s, mgr, int64(chainid)))
+  tm.Register("web3", &api.Web3API{})
   if err := tm.Run(); err != nil {
     log.Error("Critical Error. Shutting down.", "error", err)
     db.Close()

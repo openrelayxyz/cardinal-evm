@@ -23,8 +23,9 @@ import (
   "github.com/openrelayxyz/cardinal-storage/db/mem"
   "github.com/openrelayxyz/cardinal-storage"
   "github.com/openrelayxyz/cardinal-evm/common"
+  "github.com/openrelayxyz/cardinal-evm/crypto"
   "github.com/openrelayxyz/cardinal-evm/types"
-  // log "github.com/inconshreveable/log15"
+  log "github.com/inconshreveable/log15"
   ctypes "github.com/openrelayxyz/cardinal-types"
 )
 
@@ -188,12 +189,24 @@ func (sdb *stateDB) GetCommittedState(addr common.Address, storage ctypes.Hash) 
 }
 func (sdb *stateDB) GetState(addr common.Address, storage ctypes.Hash) ctypes.Hash {
   sobj := sdb.getAccount(addr)
-  return sobj.getState(sdb.tx, sdb.chainid, storage)
+  data := sobj.getState(sdb.tx, sdb.chainid, crypto.Keccak256Hash(storage.Bytes()))
+  log.Debug("Got state", "addr", addr, "hashaddr", crypto.Keccak256Hash(addr.Bytes()), "storage", storage, "data", data)
+  return data
 }
 func (sdb *stateDB) SetState(addr common.Address, storage, data ctypes.Hash) {
   sobj := sdb.getAccount(addr)
-  sdb.journal = append(sdb.journal, sobj.setState(storage, data))
+  sdb.journal = append(sdb.journal, sobj.setState(crypto.Keccak256Hash(storage.Bytes()), data))
 }
+func (sdb *stateDB) SetStorage(addr common.Address, storage map[ctypes.Hash]ctypes.Hash) {
+  sobj := sdb.getAccount(addr)
+  sdb.journal = append(sdb.journal, sobj.setStorage(storage))
+}
+func (sdb *stateDB) SetBalance(addr common.Address, balance *big.Int) {
+  sobj := sdb.getAccount(addr)
+  sdb.journal = append(sdb.journal, sobj.setBalance(balance))
+}
+
+
 func (sdb *stateDB) Suicide(addr common.Address) bool {
   sobj := sdb.getAccount(addr)
   ok, je := sobj.suicide()

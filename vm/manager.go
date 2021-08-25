@@ -25,6 +25,7 @@ var (
   statedbType = reflect.TypeOf((*state.StateDB)(nil)).Elem()
   evmType = reflect.TypeOf((*EVM)(nil))
   storageTxType = reflect.TypeOf((*storage.Transaction)(nil)).Elem()
+  evmFnType = reflect.TypeOf((*func(sdb state.StateDB) *EVM)(nil)).Elem()
 )
 
 type EVMManager struct{
@@ -60,6 +61,8 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
       ctx = v
     case common.Address:
       sender = v
+    case *common.Address:
+      if v != nil { sender = *v }
     case *big.Int:
       gasPrice = v
     case *Config:
@@ -89,14 +92,9 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
   }
 
   sig := callback.Type()
-  needsTx := false
-  needsState := false
-  needsHeader := false
-  txPos := -1
-  statePos := -1
-  headerPos := -1
-  evmPos := -1
-  numPos := -1
+  needsTx, needsState, needsHeader := false, false, false
+  txPos, statePos, headerPos, evmPos, evmfnPos, numPos := -1, -1, -1, -1, -1, -1
+
   argVals := make([]reflect.Value, sig.NumIn())
   for i := 0; i < sig.NumIn(); i++ {
     switch intype := sig.In(i); intype {
@@ -121,6 +119,11 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
       needsHeader = true
       needsState = true
       evmPos = i
+    case evmFnType:
+      needsTx = true
+      needsHeader = true
+      needsState = true
+      evmfnPos = i
     default:
       return fmt.Errorf("unknown input in callback argument %v", i)
     }
@@ -159,62 +162,34 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
         if vmcfg == nil { vmcfg = &mgr.vmcfg }
         argVals[evmPos] = reflect.ValueOf(NewEVM(blockCtx, TxContext{sender, gasPrice}, statedb, mgr.chaincfg, *vmcfg))
       }
+      if evmfnPos >= 0 {
+        argVals[evmfnPos] = reflect.ValueOf(func(sdb state.StateDB) *EVM {
+          blockCtx := BlockContext{
+            GetHash:     tx.NumberToHash,
+            Coinbase:    header.Coinbase,
+            GasLimit:    header.GasLimit,
+            BlockNumber: header.Number,
+            Time:        new(big.Int).SetUint64(header.Time),
+            Difficulty:  header.Difficulty,
+            BaseFee:     header.BaseFee,
+          }
+          if gasPrice == nil { gasPrice = header.BaseFee }
+          if vmcfg == nil { vmcfg = &mgr.vmcfg }
+          return NewEVM(blockCtx, TxContext{sender, gasPrice}, sdb, mgr.chaincfg, *vmcfg)
+        })
+      }
       out = callback.Call(argVals)
       return nil
     }); err != nil { return err }
   }
   if len(out) == 0 { return nil }
-  switch v := out[0].Interface().(type) {
+  outval := out[0].Interface()
+  if outval == nil { return nil }
+  switch v := outval.(type) {
   case error:
     return v
   default:
-    log.Warn("Unexpected return type in view function")
+    log.Warn("Unexpected return type in view function", "type", reflect.TypeOf(out[0].Interface()))
     return nil
   }
 }
-
-// func (mgr *EVMManager) View(h BlockNumberOrHash, fn func(storage.Transaction, state.StateDB, ctypes.Hash) error) error {
-//   hash, ok := h.Hash()
-//   if !ok {
-//     num, _ := h.Number()
-//     if num >= 0 {
-//       var err error
-//       hash, err = mgr.sdbm.storage.NumberToHash(uint64(num))
-//       if err != nil { return err }
-//     } else {
-//       hash = mgr.sdbm.storage.LatestHash()
-//     }
-//   }
-//   return mgr.sdbm.View(hash, func(tx storage.Transaction, sdb state.StateDB) error {
-//     return fn(tx, sdb, hash)
-//   })
-// }
-//
-// func (mgr *EVMManager) ViewEVM(h BlockNumberOrHash, from common.Address, gasPrice *big.Int, vmcfg *Config, fn func(storage.Transaction, state.StateDB, *EVM, *types.Header) error) error {
-//   if vmcfg == nil { vmcfg = &mgr.vmcfg }
-//   return mgr.View(h, func (tx storage.Transaction, statedb state.StateDB, hash ctypes.Hash) error {
-//     header := &types.Header{}
-//     if err := tx.ZeroCopyGet(schema.BlockHeader(mgr.sdbm.Chainid, hash.Bytes()), func(data []byte) error {
-//       return rlp.DecodeBytes(data, &header)
-//     }); err != nil { return err }
-//
-//     blockCtx := BlockContext{
-//       GetHash:     tx.NumberToHash,
-//       Coinbase:    header.Coinbase,
-//       GasLimit:    header.GasLimit,
-//       BlockNumber: header.Number,
-//       Time:        new(big.Int).SetUint64(header.Time),
-//       Difficulty:  header.Difficulty,
-//       BaseFee:     header.BaseFee,
-//     }
-//
-//     evm := NewEVM(blockCtx, TxContext{from, gasPrice}, statedb, mgr.chaincfg, *vmcfg)
-//
-//     return fn(
-//       tx,
-//       statedb,
-//       evm,
-//       header,
-//     )
-//   })
-// }

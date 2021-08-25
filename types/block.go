@@ -13,7 +13,7 @@ type Header struct {
 	Root        types.Hash
 	TxHash      types.Hash
 	ReceiptHash types.Hash
-	Bloom       [2048]byte
+	Bloom       [256]byte
 	Difficulty  *big.Int
 	Number      *big.Int
 	GasLimit    uint64

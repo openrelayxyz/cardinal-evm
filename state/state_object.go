@@ -44,6 +44,7 @@ type stateObject struct{
   suicided     bool
   deleted      bool
   nonce        *uint64
+  fakeBalance  *big.Int
 }
 
 func (s *stateObject) kv(chainid int64) []storage.KeyValue {
@@ -182,11 +183,18 @@ func (s *stateObject) getBalance() *big.Int {
   var balance *big.Int
   delta := s.balanceDelta
   if delta == nil { delta = new(big.Int) }
-  if s.account != nil {
+  if s.fakeBalance != nil {
+    balance = s.fakeBalance
+  } else if s.account != nil {
     balance = s.account.Balance
   }
   if balance == nil { balance = new(big.Int)}
   return new(big.Int).Add(delta, balance)
+}
+func (s *stateObject) setBalance(balance *big.Int) journalEntry {
+  old := s.fakeBalance
+  s.fakeBalance = balance
+  return journalEntry{&s.address, func(sdb *stateDB) { sdb.getAccount(s.address).fakeBalance = old }}
 }
 
 func (s *stateObject) getNonce(tx storage.Transaction, chainid int64) uint64 {
@@ -241,6 +249,11 @@ func (s *stateObject) setState(storage, data types.Hash) journalEntry {
   }
   s.dirty[storage] = data
   return journalEntry{&s.address, func(sdb *stateDB) { delete(sdb.getAccount(s.address).dirty, storage) }}
+}
+func (s *stateObject) setStorage(storage map[types.Hash]types.Hash) journalEntry {
+  old := s.dirty
+  s.dirty = storage
+  return journalEntry{&s.address, func(sdb *stateDB) { sdb.getAccount(s.address).dirty = old }}
 }
 
 func (s *stateObject) suicide() (bool, *journalEntry) {
