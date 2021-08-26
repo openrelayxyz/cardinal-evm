@@ -455,8 +455,7 @@ func (s *PublicBlockChainAPI) CreateAccessList(ctx context.Context, args Transac
 // If the accesslist creation fails an error is returned.
 // If the transaction itself fails, an vmErr is returned.
 func AccessList(ctx context.Context, db state.StateDB, header *types.Header, chaincfg *params.ChainConfig, getEVM func(state.StateDB, *vm.Config) *vm.EVM, blockNrOrHash vm.BlockNumberOrHash, args TransactionArgs) (acl types.AccessList, gasUsed uint64, vmErr error, err error) {
-	// If the gas amount is not set, extract this as it will depend on access
-	// lists and we'll need to reestimate every time
+	noGas := args.Gas == nil
 	if err := args.setDefaults(ctx, getEVM, db, header, blockNrOrHash); err != nil {
 		return nil, 0, nil, err
 	}
@@ -482,7 +481,17 @@ func AccessList(ctx context.Context, db state.StateDB, header *types.Header, cha
 		return nil, 0, nil, fmt.Errorf("failed to apply transaction: err: %v", err)
 	}
 	tracer = vm.NewAccessListTracer(tracer.AccessList(), args.from(), to, precompiles)
-	msg = NewMessage(args.from(), args.To, uint64(*args.Nonce), args.Value.ToInt(), uint64(*args.Gas), args.GasPrice.ToInt(), big.NewInt(0), big.NewInt(0), args.data(), tracer.AccessList(), false)
+
+	gas := uint64(*args.Gas)
+	if noGas {
+		// In fairly simple transactions, gas estimations tend to be low because
+		// the `ACCESS_LIST_ADDRESS_COST` (EIP-2930) is higher than any gas savings
+		// from the access list. The difference will (almost?) always be < 2400, so
+		// adding 2400 will ensure we have enough gas for the next call to
+		// complete.
+		gas += 2400
+	}
+	msg = NewMessage(args.from(), args.To, uint64(*args.Nonce), args.Value.ToInt(), uint64(*args.Gas) + 2400, args.GasPrice.ToInt(), big.NewInt(0), big.NewInt(0), args.data(), tracer.AccessList(), false)
 	res, err := ApplyMessage(getEVM(db.Copy(), &vm.Config{Tracer: tracer, Debug: true, NoBaseFee: true}), msg, new(GasPool).AddGas(msg.Gas()))
 	if err != nil {
 		return nil, 0, nil, fmt.Errorf("failed to apply transaction: err: %v", err)
