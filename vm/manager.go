@@ -25,7 +25,8 @@ var (
   statedbType = reflect.TypeOf((*state.StateDB)(nil)).Elem()
   evmType = reflect.TypeOf((*EVM)(nil))
   storageTxType = reflect.TypeOf((*storage.Transaction)(nil)).Elem()
-  evmFnType = reflect.TypeOf((*func(sdb state.StateDB) *EVM)(nil)).Elem()
+  evmFnType = reflect.TypeOf((*func(sdb state.StateDB, cfg *Config) *EVM)(nil)).Elem()
+	chainConfigType = reflect.TypeOf((*params.ChainConfig)(nil))
 )
 
 type EVMManager struct{
@@ -100,6 +101,8 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
     switch intype := sig.In(i); intype {
     case hashType:
       argVals[i] = reflect.ValueOf(getHash())
+    case chainConfigType:
+			argVals[i] = reflect.ValueOf(mgr.chaincfg)
     case storageTxType:
       needsTx = true
       txPos = i
@@ -163,7 +166,7 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
         argVals[evmPos] = reflect.ValueOf(NewEVM(blockCtx, TxContext{sender, gasPrice}, statedb, mgr.chaincfg, *vmcfg))
       }
       if evmfnPos >= 0 {
-        argVals[evmfnPos] = reflect.ValueOf(func(sdb state.StateDB) *EVM {
+        argVals[evmfnPos] = reflect.ValueOf(func(sdb state.StateDB, cvmcfg *Config) *EVM {
           blockCtx := BlockContext{
             GetHash:     tx.NumberToHash,
             Coinbase:    header.Coinbase,
@@ -175,7 +178,8 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
           }
           if gasPrice == nil { gasPrice = header.BaseFee }
           if vmcfg == nil { vmcfg = &mgr.vmcfg }
-          return NewEVM(blockCtx, TxContext{sender, gasPrice}, sdb, mgr.chaincfg, *vmcfg)
+					if cvmcfg == nil { cvmcfg = vmcfg }
+          return NewEVM(blockCtx, TxContext{sender, gasPrice}, sdb, mgr.chaincfg, *cvmcfg)
         })
       }
       out = callback.Call(argVals)

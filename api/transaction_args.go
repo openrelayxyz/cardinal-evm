@@ -17,13 +17,16 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"math/big"
 
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-evm/common/math"
+	"github.com/openrelayxyz/cardinal-evm/state"
 	"github.com/openrelayxyz/cardinal-evm/types"
+	"github.com/openrelayxyz/cardinal-evm/vm"
 	log "github.com/inconshreveable/log15"
 )
 
@@ -139,3 +142,121 @@ func (args *TransactionArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (M
 	msg := NewMessage(addr, args.To, 0, value, gas, gasPrice, gasFeeCap, gasTipCap, data, accessList, false)
 	return msg, nil
 }
+
+// setDefaults provides values such that transactions will execute
+// successfully. Unlike the go-ethereum verson of this method, this is not
+// intended to be sane recommendations for gas prices based on mempool.
+func (args *TransactionArgs) setDefaults(ctx context.Context, getEVM func(state.StateDB, *vm.Config) *vm.EVM, db state.StateDB, header *types.Header, blockNrOrHash vm.BlockNumberOrHash) error {
+	if args.From == nil {
+		args.From = &(common.Address{})
+	}
+	// if args.GasPrice != nil && (args.MaxFeePerGas != nil || args.MaxPriorityFeePerGas != nil) {
+	// 	return errors.New("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
+	// }
+	// if args.MaxFeePerGas == nil {
+	// 	args.MaxFeePerGas = (*hexutil.Big)(header.BaseFee)
+	// }
+	if args.GasPrice == nil {
+		args.GasPrice = (*hexutil.Big)(header.BaseFee)
+	}
+	if args.Value == nil {
+		args.Value = new(hexutil.Big)
+	}
+	if args.Nonce == nil {
+		nonce := db.GetNonce(*args.From)
+		args.Nonce = (*hexutil.Uint64)(&nonce)
+	}
+	if args.Gas == nil {
+		gas, _, err := DoEstimateGas(ctx, getEVM, header, *args, &PreviousState{db.ALCalcCopy(), header}, blockNrOrHash, header.GasLimit, true)
+		if err != nil { return err }
+		args.Gas = &gas
+	}
+	return nil
+}
+
+
+//
+// // setDefaults fills in default values for unspecified tx fields.
+// func (args *TransactionArgs) setDefaults(ctx context.Context, b Backend) error {
+// 	// After london, default to 1559 unless gasPrice is set
+// 	head := b.CurrentHeader()
+// 	if b.ChainConfig().IsLondon(head.Number) && args.GasPrice == nil {
+// 		if args.MaxPriorityFeePerGas == nil {
+// 			tip, err := b.SuggestGasTipCap(ctx)
+// 			if err != nil {
+// 				return err
+// 			}
+// 			args.MaxPriorityFeePerGas = (*hexutil.Big)(tip)
+// 		}
+// 		if args.MaxFeePerGas == nil {
+// 			gasFeeCap := new(big.Int).Add(
+// 				(*big.Int)(args.MaxPriorityFeePerGas),
+// 				new(big.Int).Mul(head.BaseFee, big.NewInt(2)),
+// 			)
+// 			args.MaxFeePerGas = (*hexutil.Big)(gasFeeCap)
+// 		}
+// 		if args.MaxFeePerGas.ToInt().Cmp(args.MaxPriorityFeePerGas.ToInt()) < 0 {
+// 			return fmt.Errorf("maxFeePerGas (%v) < maxPriorityFeePerGas (%v)", args.MaxFeePerGas, args.MaxPriorityFeePerGas)
+// 		}
+// 	} else {
+// 		if args.MaxFeePerGas != nil || args.MaxPriorityFeePerGas != nil {
+// 			return errors.New("maxFeePerGas or maxPriorityFeePerGas specified but london is not active yet")
+// 		}
+// 		if args.GasPrice == nil {
+// 			price, err := b.SuggestGasTipCap(ctx)
+// 			if err != nil {
+// 				return err
+// 			}
+// 			if b.ChainConfig().IsLondon(head.Number) {
+// 				// The legacy tx gas price suggestion should not add 2x base fee
+// 				// because all fees are consumed, so it would result in a spiral
+// 				// upwards.
+// 				price.Add(price, head.BaseFee)
+// 			}
+// 			args.GasPrice = (*hexutil.Big)(price)
+// 		}
+// 	}
+// 	if args.Value == nil {
+// 		args.Value = new(hexutil.Big)
+// 	}
+// 	if args.Nonce == nil {
+// 		nonce, err := b.GetPoolNonce(ctx, args.from())
+// 		if err != nil {
+// 			return err
+// 		}
+// 		args.Nonce = (*hexutil.Uint64)(&nonce)
+// 	}
+// 	if args.Data != nil && args.Input != nil && !bytes.Equal(*args.Data, *args.Input) {
+// 		return errors.New(`both "data" and "input" are set and not equal. Please use "input" to pass transaction call data`)
+// 	}
+// 	if args.To == nil && len(args.data()) == 0 {
+// 		return errors.New(`contract creation without any data provided`)
+// 	}
+// 	// Estimate the gas usage if necessary.
+// 	if args.Gas == nil {
+// 		// These fields are immutable during the estimation, safe to
+// 		// pass the pointer directly.
+// 		callArgs := TransactionArgs{
+// 			From:                 args.From,
+// 			To:                   args.To,
+// 			GasPrice:             args.GasPrice,
+// 			MaxFeePerGas:         args.MaxFeePerGas,
+// 			MaxPriorityFeePerGas: args.MaxPriorityFeePerGas,
+// 			Value:                args.Value,
+// 			Data:                 args.Data,
+// 			AccessList:           args.AccessList,
+// 		}
+// 		pendingBlockNr := rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
+// 		estimated, err := DoEstimateGas(ctx, b, callArgs, pendingBlockNr, b.RPCGasCap())
+// 		if err != nil {
+// 			return err
+// 		}
+// 		args.Gas = &estimated
+// 		log.Trace("Estimate gas usage automatically", "gas", args.Gas)
+// 	}
+// 	if args.ChainID == nil {
+// 		id := (*hexutil.Big)(b.ChainConfig().ChainID)
+// 		args.ChainID = id
+// 	}
+// 	return nil
+// }

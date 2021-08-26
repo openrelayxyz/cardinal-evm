@@ -41,6 +41,7 @@ type stateDB struct {
   chainid int64
   refund uint64
   accessList *accessList
+  alcalc bool
 }
 
 func NewStateDB(tx storage.Transaction, chainid int64) StateDB {
@@ -95,6 +96,12 @@ func (sdb *stateDB) Copy() StateDB {
     refund: sdb.refund,
     accessList: sdb.accessList.Copy(),
   }
+}
+
+func (sdb *stateDB) ALCalcCopy() StateDB {
+  copy := sdb.Copy().(*stateDB)
+  copy.alcalc = true
+  return copy
 }
 
 func (sdb *stateDB) Finalise() {
@@ -252,8 +259,13 @@ func (sdb *stateDB) PrepareAccessList(sender common.Address, dst *common.Address
   }
 }
 
-func (sdb *stateDB) AddressInAccessList(addr common.Address) bool { return sdb.accessList.ContainsAddress(addr)}
-func (sdb *stateDB) SlotInAccessList(addr common.Address, slot ctypes.Hash) (addressOk bool, slotOk bool) { return sdb.accessList.Contains(addr, slot) }
+func (sdb *stateDB) AddressInAccessList(addr common.Address) bool { return sdb.alcalc || sdb.accessList.ContainsAddress(addr)}
+func (sdb *stateDB) SlotInAccessList(addr common.Address, slot ctypes.Hash) (addressOk bool, slotOk bool) {
+  if sdb.alcalc {
+    return true, true
+  }
+  return sdb.accessList.Contains(addr, slot)
+}
 
 // AddAddressToAccessList adds the given address to the access list. This operation is safe to perform
 // even if the feature/fork is not active yet

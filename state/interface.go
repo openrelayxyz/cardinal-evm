@@ -61,6 +61,7 @@ type StateDB interface {
 	AddLog(*types.Log)
 	AddPreimage(ctypes.Hash, []byte)
 	Copy() StateDB
+	ALCalcCopy() StateDB
 	Finalise()
 
 	// ForEachStorage(common.Address, func(ctypes.Hash, ctypes.Hash) bool) error
