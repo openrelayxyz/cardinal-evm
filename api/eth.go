@@ -59,8 +59,8 @@ func NewETHAPI(s storage.Storage, evmmgr *vm.EVMManager, chainid int64) *PublicB
 
 
 // ChainId is the EIP-155 replay-protection chain id for the current ethereum chain config.
-func (api *PublicBlockChainAPI) ChainId() (*hexutil.Big, error) {
-	return (*hexutil.Big)(new(big.Int).SetInt64(api.chainid)), nil
+func (api *PublicBlockChainAPI) ChainId() (*hexutil.Big) {
+	return (*hexutil.Big)(new(big.Int).SetInt64(api.chainid))
 }
 
 // BlockNumber returns the block number of the chain head.
