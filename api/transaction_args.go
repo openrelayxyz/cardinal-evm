@@ -146,7 +146,7 @@ func (args *TransactionArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (M
 // setDefaults provides values such that transactions will execute
 // successfully. Unlike the go-ethereum verson of this method, this is not
 // intended to be sane recommendations for gas prices based on mempool.
-func (args *TransactionArgs) setDefaults(ctx context.Context, getEVM func(state.StateDB, *vm.Config) *vm.EVM, db state.StateDB, header *types.Header, blockNrOrHash vm.BlockNumberOrHash) error {
+func (args *TransactionArgs) setDefaults(ctx context.Context, getEVM func(state.StateDB, *vm.Config, common.Address) *vm.EVM, db state.StateDB, header *types.Header, blockNrOrHash vm.BlockNumberOrHash) error {
 	if args.From == nil {
 		args.From = &(common.Address{})
 	}
@@ -167,7 +167,7 @@ func (args *TransactionArgs) setDefaults(ctx context.Context, getEVM func(state.
 		args.Nonce = (*hexutil.Uint64)(&nonce)
 	}
 	if args.Gas == nil {
-		gas, _, err := DoEstimateGas(ctx, getEVM, header, *args, &PreviousState{db.ALCalcCopy(), header}, blockNrOrHash, header.GasLimit, true)
+		gas, _, err := DoEstimateGas(ctx, getEVM, *args, &PreviousState{db.ALCalcCopy(), header}, blockNrOrHash, header.GasLimit, true)
 		if err != nil { return err }
 		args.Gas = &gas
 	}

@@ -25,7 +25,7 @@ var (
   statedbType = reflect.TypeOf((*state.StateDB)(nil)).Elem()
   evmType = reflect.TypeOf((*EVM)(nil))
   storageTxType = reflect.TypeOf((*storage.Transaction)(nil)).Elem()
-  evmFnType = reflect.TypeOf((*func(sdb state.StateDB, cfg *Config) *EVM)(nil)).Elem()
+  evmFnType = reflect.TypeOf((*func(state.StateDB, *Config, common.Address) *EVM)(nil)).Elem()
 	chainConfigType = reflect.TypeOf((*params.ChainConfig)(nil))
 )
 
@@ -166,7 +166,7 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
         argVals[evmPos] = reflect.ValueOf(NewEVM(blockCtx, TxContext{sender, gasPrice}, statedb, mgr.chaincfg, *vmcfg))
       }
       if evmfnPos >= 0 {
-        argVals[evmfnPos] = reflect.ValueOf(func(sdb state.StateDB, cvmcfg *Config) *EVM {
+        argVals[evmfnPos] = reflect.ValueOf(func(sdb state.StateDB, cvmcfg *Config, sender common.Address) *EVM {
           blockCtx := BlockContext{
             GetHash:     tx.NumberToHash,
             Coinbase:    header.Coinbase,

@@ -169,7 +169,7 @@ func (diff *StateOverride) Apply(state state.StateDB) error {
 	return nil
 }
 
-func DoCall(ctx context.Context, getEVM func(state.StateDB, *vm.Config) *vm.EVM, args TransactionArgs, prevState *PreviousState, blockNrOrHash vm.BlockNumberOrHash, overrides *StateOverride, timeout time.Duration, globalGasCap uint64) (*ExecutionResult, *PreviousState, error) {
+func DoCall(ctx context.Context, getEVM func(state.StateDB, *vm.Config, common.Address) *vm.EVM, args TransactionArgs, prevState *PreviousState, blockNrOrHash vm.BlockNumberOrHash, overrides *StateOverride, timeout time.Duration, globalGasCap uint64) (*ExecutionResult, *PreviousState, error) {
 	defer func(start time.Time) { log.Debug("Executing EVM call finished", "runtime", time.Since(start)) }(time.Now())
 	if prevState == nil || prevState.header == nil || prevState.state == nil {
 		return nil, nil, fmt.Errorf("both header and state must be set")
@@ -194,7 +194,7 @@ func DoCall(ctx context.Context, getEVM func(state.StateDB, *vm.Config) *vm.EVM,
 	if err != nil {
 		return nil, nil, err
 	}
-	evm := getEVM(prevState.state, nil)
+	evm := getEVM(prevState.state, nil, args.from())
 	// Wait for the context to be done and cancel the evm. Even if the
 	// EVM has finished, cancelling may be done (repeatedly)
 	go func() {
@@ -265,7 +265,7 @@ func (s *PublicBlockChainAPI) Call(ctx context.Context, args TransactionArgs, bl
 		timeout = 5 * time.Second
 	}
 	var res hexutil.Bytes
-	err := s.evmmgr.View(blockNrOrHash, args.From, &vm.Config{NoBaseFee: true}, func(statedb state.StateDB, header *types.Header, evmFn func(state.StateDB, *vm.Config) *vm.EVM) error {
+	err := s.evmmgr.View(blockNrOrHash, args.From, &vm.Config{NoBaseFee: true}, func(statedb state.StateDB, header *types.Header, evmFn func(state.StateDB, *vm.Config, common.Address) *vm.EVM) error {
 		result, _, err := DoCall(ctx, evmFn, args, &PreviousState{statedb, header}, blockNrOrHash, overrides, timeout, header.GasLimit * 2)
 		if err != nil {
 			return err
@@ -299,7 +299,7 @@ func (e estimateGasError) Error() string {
 }
 
 
-func DoEstimateGas(ctx context.Context, getEVM func(state.StateDB, *vm.Config) *vm.EVM, header *types.Header, args TransactionArgs, prevState *PreviousState, blockNrOrHash vm.BlockNumberOrHash, gasCap uint64, approx bool) (hexutil.Uint64, *PreviousState, error) {
+func DoEstimateGas(ctx context.Context, getEVM func(state.StateDB, *vm.Config, common.Address) *vm.EVM, args TransactionArgs, prevState *PreviousState, blockNrOrHash vm.BlockNumberOrHash, gasCap uint64, approx bool) (hexutil.Uint64, *PreviousState, error) {
 	// Binary search the gas requirement, as it may be higher than the amount used
 	var (
 		lo        uint64 = params.TxGas - 1
@@ -319,7 +319,7 @@ func DoEstimateGas(ctx context.Context, getEVM func(state.StateDB, *vm.Config) *
 		hi = uint64(*args.Gas)
 	} else {
 		// Retrieve the block to act as the gas ceiling
-		hi = header.GasLimit
+		hi = prevState.header.GasLimit
 	}
 	// Recap the highest gas limit with account's available balance.
 	if args.GasPrice != nil && args.GasPrice.ToInt().BitLen() != 0 {
@@ -413,9 +413,9 @@ func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args TransactionA
 		bNrOrHash = *blockNrOrHash
 	}
 	var gas hexutil.Uint64
-	err := s.evmmgr.View(bNrOrHash, args.From, &vm.Config{NoBaseFee: true}, func(statedb state.StateDB, header *types.Header, evmFn func(state.StateDB, *vm.Config) *vm.EVM) error {
+	err := s.evmmgr.View(bNrOrHash, args.From, &vm.Config{NoBaseFee: true}, func(statedb state.StateDB, header *types.Header, evmFn func(state.StateDB, *vm.Config, common.Address) *vm.EVM) error {
 		var err error
-		gas, _, err = DoEstimateGas(ctx, evmFn, header, args, &PreviousState{statedb, header}, bNrOrHash, header.GasLimit * 2, false)
+		gas, _, err = DoEstimateGas(ctx, evmFn, args, &PreviousState{statedb, header}, bNrOrHash, header.GasLimit * 2, false)
 		return err
 	})
 	return gas, err
@@ -437,7 +437,7 @@ func (s *PublicBlockChainAPI) CreateAccessList(ctx context.Context, args Transac
 		bNrOrHash = *blockNrOrHash
 	}
 	var result *accessListResult
-	err := s.evmmgr.View(bNrOrHash, args.From, func(header *types.Header, statedb state.StateDB, evmFn func(state.StateDB, *vm.Config) *vm.EVM, chaincfg *params.ChainConfig ) error {
+	err := s.evmmgr.View(bNrOrHash, args.From, func(header *types.Header, statedb state.StateDB, evmFn func(state.StateDB, *vm.Config, common.Address) *vm.EVM, chaincfg *params.ChainConfig ) error {
 		acl, gasUsed, vmerr, err := AccessList(ctx, statedb, header, chaincfg, evmFn, bNrOrHash, args)
 		if err != nil {
 			return err
@@ -454,7 +454,7 @@ func (s *PublicBlockChainAPI) CreateAccessList(ctx context.Context, args Transac
 // AccessList creates an access list for the given transaction.
 // If the accesslist creation fails an error is returned.
 // If the transaction itself fails, an vmErr is returned.
-func AccessList(ctx context.Context, db state.StateDB, header *types.Header, chaincfg *params.ChainConfig, getEVM func(state.StateDB, *vm.Config) *vm.EVM, blockNrOrHash vm.BlockNumberOrHash, args TransactionArgs) (acl types.AccessList, gasUsed uint64, vmErr error, err error) {
+func AccessList(ctx context.Context, db state.StateDB, header *types.Header, chaincfg *params.ChainConfig, getEVM func(state.StateDB, *vm.Config, common.Address) *vm.EVM, blockNrOrHash vm.BlockNumberOrHash, args TransactionArgs) (acl types.AccessList, gasUsed uint64, vmErr error, err error) {
 	noGas := args.Gas == nil
 	if err := args.setDefaults(ctx, getEVM, db, header, blockNrOrHash); err != nil {
 		return nil, 0, nil, err
@@ -476,7 +476,7 @@ func AccessList(ctx context.Context, db state.StateDB, header *types.Header, cha
 	// Get a copy of the statedb primed for calculating the access list
 	msg := NewMessage(args.from(), args.To, uint64(*args.Nonce), args.Value.ToInt(), uint64(*args.Gas), args.GasPrice.ToInt(), big.NewInt(0), big.NewInt(0), args.data(), tracer.AccessList(), false)
 
-	_, err = ApplyMessage(getEVM(db.ALCalcCopy(), &vm.Config{Tracer: tracer, Debug: true, NoBaseFee: true}), msg, new(GasPool).AddGas(msg.Gas()))
+	_, err = ApplyMessage(getEVM(db.ALCalcCopy(), &vm.Config{Tracer: tracer, Debug: true, NoBaseFee: true}, args.from()), msg, new(GasPool).AddGas(msg.Gas()))
 	if err != nil {
 		return nil, 0, nil, fmt.Errorf("failed to apply transaction: err: %v", err)
 	}
@@ -492,88 +492,74 @@ func AccessList(ctx context.Context, db state.StateDB, header *types.Header, cha
 		gas += 2400
 	}
 	msg = NewMessage(args.from(), args.To, uint64(*args.Nonce), args.Value.ToInt(), uint64(*args.Gas) + 2400, args.GasPrice.ToInt(), big.NewInt(0), big.NewInt(0), args.data(), tracer.AccessList(), false)
-	res, err := ApplyMessage(getEVM(db.Copy(), &vm.Config{Tracer: tracer, Debug: true, NoBaseFee: true}), msg, new(GasPool).AddGas(msg.Gas()))
+	res, err := ApplyMessage(getEVM(db.Copy(), &vm.Config{Tracer: tracer, Debug: true, NoBaseFee: true}, args.from()), msg, new(GasPool).AddGas(msg.Gas()))
 	if err != nil {
 		return nil, 0, nil, fmt.Errorf("failed to apply transaction: err: %v", err)
 	}
 	return tracer.AccessList(), res.UsedGas, res.Err, nil
 }
-//
-// // PublicTransactionPoolAPI exposes methods for the RPC interface
-// type PublicTransactionPoolAPI struct {
-// 	b         Backend
-// 	nonceLock *AddrLocker
-// 	signer    types.Signer
-// }
-//
-// // NewPublicTransactionPoolAPI creates a new RPC service with methods specific for the transaction pool.
-// func NewPublicTransactionPoolAPI(b Backend, nonceLock *AddrLocker) *PublicTransactionPoolAPI {
-// 	// The signer used by the API should always be the 'latest' known one because we expect
-// 	// signers to be backwards-compatible with old transactions.
-// 	signer := types.LatestSigner(b.ChainConfig())
-// 	return &PublicTransactionPoolAPI{b, nonceLock, signer}
-// }
-//
-// // TODO:
-// // FillTransaction fills the defaults (nonce, gas, gasPrice or 1559 fields)
-// // on a given unsigned transaction, and returns it to the caller for further
-// // processing (signing + broadcast).
-// func (s *PublicTransactionPoolAPI) FillTransaction(ctx context.Context, args TransactionArgs) (*SignTransactionResult, error) {
-// 	// Set some sanity defaults and terminate on failure
-// 	if err := args.setDefaults(ctx, s.b); err != nil {
-// 		return nil, err
-// 	}
-// 	// Assemble the transaction and obtain rlp
-// 	tx := args.toTransaction()
-// 	data, err := tx.MarshalBinary()
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return &SignTransactionResult{data, tx}, nil
-// }
-//
-// // TODO: Send off to the masters via Kafka
-// // SendRawTransaction will add the signed transaction to the transaction pool.
-// // The sender is responsible for signing the transaction and using the correct nonce.
-// func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, input hexutil.Bytes) (ctypes.Hash, error) {
-// 	tx := new(types.Transaction)
-// 	if err := tx.UnmarshalBinary(input); err != nil {
-// 		return ctypes.Hash{}, err
-// 	}
-// 	return SubmitTransaction(ctx, s.b, tx)
-// }
-//
-// // SignTransactionResult represents a RLP encoded signed transaction.
-// type SignTransactionResult struct {
-// 	Raw hexutil.Bytes      `json:"raw"`
-// 	Tx  *types.Transaction `json:"tx"`
-// }
-//
-// // PublicNetAPI offers network related RPC methods
-// type PublicNetAPI struct {
-// 	net            *p2p.Server
-// 	networkVersion uint64
-// }
-//
-// // NewPublicNetAPI creates a new net API instance.
-// func NewPublicNetAPI(net *p2p.Server, networkVersion uint64) *PublicNetAPI {
-// 	return &PublicNetAPI{net, networkVersion}
-// }
-//
-// // TODO:
-// // Listening returns an indication if the node is listening for network connections.
-// func (s *PublicNetAPI) Listening() bool {
-// 	return true // always listening
-// }
-//
-// // TODO:
-// // PeerCount returns the number of connected peers
-// func (s *PublicNetAPI) PeerCount() hexutil.Uint {
-// 	return hexutil.Uint(s.net.PeerCount())
-// }
-//
-// // TODO:
-// // Version returns the current ethereum protocol version.
-// func (s *PublicNetAPI) Version() string {
-// 	return fmt.Sprintf("%d", s.networkVersion)
-// }
+
+
+type TransactionEmitter interface{
+	Emit(*types.Transaction) error
+}
+
+type PublicTransactionPoolAPI struct{
+	emitter TransactionEmitter
+	evmmgr  *vm.EVMManager
+}
+
+func NewPublicTransactionPoolAPI(emitter TransactionEmitter, evmmgr *vm.EVMManager) *PublicTransactionPoolAPI {
+	return &PublicTransactionPoolAPI{emitter, evmmgr}
+}
+
+// SendRawTransaction will add the signed transaction to the transaction pool.
+// The sender is responsible for signing the transaction and using the correct nonce.
+func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, input hexutil.Bytes) (ctypes.Hash, error) {
+	tx := new(types.Transaction)
+	if err := tx.UnmarshalBinary(input); err != nil {
+		return ctypes.Hash{}, err
+	}
+	return tx.Hash(), s.evmmgr.View(func(currentState state.StateDB, header *types.Header, chaincfg *params.ChainConfig) error{
+		if ctx != nil { if err := ctx.Err(); err != nil { return err } }
+		if s.emitter == nil {
+			return errors.New("This api is not configured for accepting transactions")
+		}
+		msg, err := tx.AsMessage(types.MakeSigner(chaincfg, header.Number), header.BaseFee)
+		if err != nil {
+			return err
+		}
+		if n := currentState.GetNonce(msg.From()); n > tx.Nonce() {
+			return ErrNonceTooLow
+		}
+
+		// Check the transaction doesn't exceed the current
+		// block limit gas.
+		if header.GasLimit < tx.Gas() {
+			return ErrGasLimit
+		}
+
+		// Transactions can't be negative. This may never happen
+		// using RLP decoded transactions but may occur if you create
+		// a transaction using the RPC for example.
+		if tx.Value().Sign() < 0 {
+			return ErrNegativeValue
+		}
+
+		// Transactor should have enough funds to cover the costs
+		// cost == V + GP * GL
+		if b := currentState.GetBalance(msg.From()); b.Cmp(tx.Cost()) < 0 {
+			return ErrInsufficientFunds
+		}
+
+		// Should supply enough intrinsic gas
+		gas, err := IntrinsicGas(tx.Data(), tx.AccessList(), tx.To() == nil, true, chaincfg.IsIstanbul(header.Number))
+		if err != nil {
+			return err
+		}
+		if tx.Gas() < gas {
+			return ErrIntrinsicGas
+		}
+		return s.emitter.Emit(tx)
+	})
+}
