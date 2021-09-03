@@ -267,10 +267,10 @@ var (
 )
 
 var ChainLookup = map[int64]*ChainConfig{
-	1: MainnetChainConfig,
-	3: RopstenChainConfig,
-	4: RinkebyChainConfig,
-	5: GoerliChainConfig,
+	1:   MainnetChainConfig,
+	3:   RopstenChainConfig,
+	4:   RinkebyChainConfig,
+	5:   GoerliChainConfig,
 	123: CalaverasChainConfig,
 }
 
@@ -279,7 +279,7 @@ var ChainLookup = map[int64]*ChainConfig{
 // used to start light syncing from this checkpoint and avoid downloading the
 // entire header chain while still being able to securely access old headers/logs.
 type TrustedCheckpoint struct {
-	SectionIndex uint64      `json:"sectionIndex"`
+	SectionIndex uint64     `json:"sectionIndex"`
 	SectionHead  types.Hash `json:"sectionHead"`
 	CHTRoot      types.Hash `json:"chtRoot"`
 	BloomRoot    types.Hash `json:"bloomRoot"`
@@ -328,7 +328,7 @@ type CheckpointOracleConfig struct {
 // that any network, identified by its genesis block, can have its own
 // set of configuration options.
 type ChainConfig struct {
-	ChainID *big.Int `json:"chainId"` // chainId identifies the current chain and is used for replay protection
+	ChainID   *big.Int `json:"chainId"`   // chainId identifies the current chain and is used for replay protection
 	NetworkID *big.Int `json:"networkId"` // the networkId for the current chain. Usually matches ChainID
 
 	HomesteadBlock *big.Int `json:"homesteadBlock,omitempty"` // Homestead switch block (nil = no fork, 0 = already homestead)
@@ -337,7 +337,7 @@ type ChainConfig struct {
 	DAOForkSupport bool     `json:"daoForkSupport,omitempty"` // Whether the nodes supports or opposes the DAO hard-fork
 
 	// EIP150 implements the Gas price changes (https://github.com/ethereum/EIPs/issues/150)
-	EIP150Block *big.Int    `json:"eip150Block,omitempty"` // EIP150 HF block (nil = no fork)
+	EIP150Block *big.Int   `json:"eip150Block,omitempty"` // EIP150 HF block (nil = no fork)
 	EIP150Hash  types.Hash `json:"eip150Hash,omitempty"`  // EIP150 HF hash (needed for header only clients as only gas pricing changed)
 
 	EIP155Block *big.Int `json:"eip155Block,omitempty"` // EIP155 HF block

@@ -30,10 +30,10 @@ import (
 	"math/big"
 	"os"
 
-	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/common/math"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
+	"github.com/openrelayxyz/cardinal-types"
 	"golang.org/x/crypto/sha3"
 )
 

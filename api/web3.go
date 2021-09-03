@@ -1,17 +1,19 @@
 package api
 
 import (
-	"runtime"
-	"github.com/openrelayxyz/cardinal-types/hexutil"
-	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/build"
+	"github.com/openrelayxyz/cardinal-evm/crypto"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
+	"runtime"
 )
 
-type Web3API struct {}
+type Web3API struct{}
 
 func (s *Web3API) ClientVersion() string {
 	version := build.Version
-	if version == "" { version = "unset-use-make-to-build"}
+	if version == "" {
+		version = "unset-use-make-to-build"
+	}
 	name := "CardinalEVM"
 	name += "/" + version
 	name += "/" + runtime.GOOS + "-" + runtime.GOARCH

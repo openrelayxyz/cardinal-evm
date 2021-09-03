@@ -20,10 +20,10 @@ import (
 	"bytes"
 	"sync"
 
-	ctypes "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
+	ctypes "github.com/openrelayxyz/cardinal-types"
 	"golang.org/x/crypto/sha3"
 )
 

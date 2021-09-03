@@ -19,10 +19,10 @@ package vm
 import (
 	"errors"
 
-	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/common/math"
 	"github.com/openrelayxyz/cardinal-evm/params"
+	"github.com/openrelayxyz/cardinal-types"
 )
 
 func makeGasSStoreFunc(clearingRefund uint64) gasFunc {

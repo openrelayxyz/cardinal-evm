@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/openrelayxyz/cardinal-evm/params"
 	"github.com/holiman/uint256"
+	"github.com/openrelayxyz/cardinal-evm/params"
 )
 
 var activators = map[int]func(*JumpTable){

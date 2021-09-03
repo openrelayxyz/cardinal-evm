@@ -24,16 +24,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/holiman/uint256"
 	"github.com/openrelayxyz/cardinal-evm/common"
-	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-evm/common/math"
+	"github.com/openrelayxyz/cardinal-evm/params"
 	"github.com/openrelayxyz/cardinal-evm/types"
 	ctypes "github.com/openrelayxyz/cardinal-types"
-	"github.com/openrelayxyz/cardinal-evm/params"
-	"github.com/holiman/uint256"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 )
 
 type Storage map[ctypes.Hash]ctypes.Hash
+
 // Storage represents a contract's storage.
 
 // Copy duplicates the current storage.

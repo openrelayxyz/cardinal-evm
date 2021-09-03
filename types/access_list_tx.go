@@ -19,8 +19,8 @@ package types
 import (
 	"math/big"
 
-	ctypes "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-evm/common"
+	ctypes "github.com/openrelayxyz/cardinal-types"
 )
 
 //go:generate gencodec -type AccessTuple -out gen_access_tuple.go

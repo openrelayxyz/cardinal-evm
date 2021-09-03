@@ -1,9 +1,9 @@
 package types
 
 import (
-  "math/big"
-  "github.com/openrelayxyz/cardinal-types"
-  "github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-types"
+	"math/big"
 )
 
 type Header struct {
@@ -22,5 +22,5 @@ type Header struct {
 	Extra       []byte
 	MixDigest   types.Hash
 	Nonce       [8]byte
-	BaseFee *big.Int
+	BaseFee     *big.Int
 }

@@ -1,12 +1,11 @@
 package api
 
-
 import (
-	"math/big"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
+	"math/big"
 )
 
-type NetAPI struct{
+type NetAPI struct {
 	NetVersion *big.Int
 }
 

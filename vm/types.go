@@ -10,7 +10,6 @@ import (
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 )
 
-
 type BlockNumber int64
 
 const (
@@ -60,7 +59,7 @@ func (bn BlockNumber) Int64() int64 {
 
 type BlockNumberOrHash struct {
 	BlockNumber      *BlockNumber `json:"blockNumber,omitempty"`
-	BlockHash        *types.Hash `json:"blockHash,omitempty"`
+	BlockHash        *types.Hash  `json:"blockHash,omitempty"`
 	RequireCanonical bool         `json:"requireCanonical,omitempty"`
 }
 
@@ -132,7 +131,6 @@ func (bnh *BlockNumberOrHash) Hash() (types.Hash, bool) {
 	}
 	return types.Hash{}, false
 }
-
 
 func BlockNumberOrHashWithNumber(blockNr BlockNumber) BlockNumberOrHash {
 	return BlockNumberOrHash{

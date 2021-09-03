@@ -23,10 +23,10 @@ import (
 
 	"github.com/openrelayxyz/cardinal-evm/common"
 	cmath "github.com/openrelayxyz/cardinal-evm/common/math"
+	"github.com/openrelayxyz/cardinal-evm/params"
+	"github.com/openrelayxyz/cardinal-evm/state"
 	"github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/vm"
-	"github.com/openrelayxyz/cardinal-evm/state"
-	"github.com/openrelayxyz/cardinal-evm/params"
 )
 
 /*

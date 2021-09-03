@@ -25,11 +25,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	ctypes "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/common/math"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
+	ctypes "github.com/openrelayxyz/cardinal-types"
 )
 
 var (

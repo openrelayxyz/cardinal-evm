@@ -17,11 +17,11 @@
 package vm
 
 import (
+	"github.com/holiman/uint256"
 	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-evm/params"
 	"github.com/openrelayxyz/cardinal-evm/types"
 	ctypes "github.com/openrelayxyz/cardinal-types"
-	"github.com/openrelayxyz/cardinal-evm/params"
-	"github.com/holiman/uint256"
 	"golang.org/x/crypto/sha3"
 )
 

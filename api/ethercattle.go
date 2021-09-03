@@ -1,19 +1,17 @@
 package api
 
 import (
- "context"
- "github.com/openrelayxyz/cardinal-types/hexutil"
- "github.com/openrelayxyz/cardinal-evm/vm"
- "github.com/openrelayxyz/cardinal-evm/state"
- "github.com/openrelayxyz/cardinal-evm/types"
- "github.com/openrelayxyz/cardinal-evm/common"
-
+	"context"
+	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-evm/state"
+	"github.com/openrelayxyz/cardinal-evm/types"
+	"github.com/openrelayxyz/cardinal-evm/vm"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 )
 
 type EtherCattleBlockChainAPI struct {
 	evmmgr *vm.EVMManager
 }
-
 
 func NewEtherCattleBlockChainAPI(evmmgr *vm.EVMManager) *EtherCattleBlockChainAPI {
 	return &EtherCattleBlockChainAPI{evmmgr}
@@ -35,7 +33,9 @@ func (s *EtherCattleBlockChainAPI) EstimateGasList(ctx context.Context, argsList
 		for idx, args := range argsList {
 			gas, stateData, err = DoEstimateGas(ctx, evmFn, args, stateData, blockNrOrHash, gasCap, fast)
 			// DoEstimateGas(ctx, s.b, args, stateData, blockNrOrHash, gasCap, fast)
-			if err != nil { return err }
+			if err != nil {
+				return err
+			}
 			gasCap -= uint64(gas)
 			returnVals[idx] = gas
 		}

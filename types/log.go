@@ -19,10 +19,10 @@ package types
 import (
 	"io"
 
-	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-evm/common"
-	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
+	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 )
 
 //go:generate gencodec -type Log -field-override logMarshaling -out gen_log_json.go

@@ -27,8 +27,8 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -41,7 +41,6 @@ const (
 var (
 	addressT = reflect.TypeOf(Address{})
 )
-
 
 /////////// Address
 

@@ -19,10 +19,10 @@ package vm
 import (
 	"errors"
 
-	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/common/math"
 	"github.com/openrelayxyz/cardinal-evm/params"
+	"github.com/openrelayxyz/cardinal-types"
 )
 
 // memoryGasCost calculates the quadratic gas for memory expansion. It does so

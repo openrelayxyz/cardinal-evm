@@ -19,9 +19,9 @@ package vm
 import (
 	"math/big"
 
-	"github.com/openrelayxyz/cardinal-types"
-	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/holiman/uint256"
+	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-types"
 )
 
 // ContractRef is a reference to the contract's backing object
@@ -52,7 +52,7 @@ type Contract struct {
 	self          ContractRef
 
 	jumpdests map[types.Hash]bitvec // Aggregated result of JUMPDEST analysis.
-	analysis  bitvec                 // Locally cached result of JUMPDEST analysis
+	analysis  bitvec                // Locally cached result of JUMPDEST analysis
 
 	Code     []byte
 	CodeHash types.Hash

@@ -17,11 +17,11 @@
 package vm
 
 import (
+	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-evm/types"
+	ctypes "github.com/openrelayxyz/cardinal-types"
 	"math/big"
 	"time"
-	ctypes "github.com/openrelayxyz/cardinal-types"
-	"github.com/openrelayxyz/cardinal-evm/types"
-	"github.com/openrelayxyz/cardinal-evm/common"
 )
 
 // accessList is an accumulator for the set of accounts and storage slots an EVM

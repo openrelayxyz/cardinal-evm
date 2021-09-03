@@ -20,21 +20,22 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/state"
+	"github.com/openrelayxyz/cardinal-types"
 	// "github.com/ethereum/go-ethereum/core/state"
-	"github.com/openrelayxyz/cardinal-evm/params"
 	"github.com/holiman/uint256"
+	"github.com/openrelayxyz/cardinal-evm/params"
 )
 
 type dummyContractRef struct {
 	calledForEach bool
 }
 
-func (dummyContractRef) Address() common.Address     { return common.Address{} }
-func (dummyContractRef) Value() *big.Int             { return new(big.Int) }
+func (dummyContractRef) Address() common.Address    { return common.Address{} }
+func (dummyContractRef) Value() *big.Int            { return new(big.Int) }
 func (dummyContractRef) SetCode(types.Hash, []byte) {}
+
 // func (d *dummyContractRef) ForEachStorage(callback func(key, value types.Hash) bool) {
 // 	d.calledForEach = true
 // }

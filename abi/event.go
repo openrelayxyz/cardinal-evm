@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"strings"
 
-	ctypes "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
+	ctypes "github.com/openrelayxyz/cardinal-types"
 )
 
 // Event is an event potentially triggered by the EVM's LOG mechanism. The Event

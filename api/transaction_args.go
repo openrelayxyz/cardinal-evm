@@ -21,13 +21,13 @@ import (
 	"errors"
 	"math/big"
 
+	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
-	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-evm/common/math"
 	"github.com/openrelayxyz/cardinal-evm/state"
 	"github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/vm"
-	log "github.com/inconshreveable/log15"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 )
 
 // TransactionArgs represents the arguments to construct a new transaction
@@ -168,12 +168,13 @@ func (args *TransactionArgs) setDefaults(ctx context.Context, getEVM func(state.
 	}
 	if args.Gas == nil {
 		gas, _, err := DoEstimateGas(ctx, getEVM, *args, &PreviousState{db.ALCalcCopy(), header}, blockNrOrHash, header.GasLimit, true)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		args.Gas = &gas
 	}
 	return nil
 }
-
 
 //
 // // setDefaults fills in default values for unspecified tx fields.

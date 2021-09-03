@@ -23,8 +23,8 @@ import (
 	"fmt"
 	"io"
 
-	ctypes "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
+	ctypes "github.com/openrelayxyz/cardinal-types"
 )
 
 // The ABI holds information about a contract's context and available

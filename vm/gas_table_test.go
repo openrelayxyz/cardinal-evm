@@ -23,12 +23,12 @@ import (
 
 	// "github.com/openrelayxyz/cardinal-types/hexutil"
 	// "github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/openrelayxyz/cardinal-evm/state"
 	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-evm/params"
+	"github.com/openrelayxyz/cardinal-evm/state"
+	"github.com/openrelayxyz/cardinal-storage"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
-	"github.com/openrelayxyz/cardinal-storage"
-	"github.com/openrelayxyz/cardinal-evm/params"
 )
 
 func TestMemoryGasCost(t *testing.T) {
@@ -81,22 +81,22 @@ var eip2200Tests = []struct {
 }
 
 func testWithStateDB(fn func(tx storage.Transaction, sdb state.StateDB) error) error {
-  sdb := state.NewMemStateDB(1, 128)
-  sdb.Storage.AddBlock(
-    types.HexToHash("a"),
-    types.Hash{},
-    1,
-    big.NewInt(1),
-    []storage.KeyValue{
-      storage.KeyValue{Key: []byte("/a/Data"), Value: []byte("Something")},
-      storage.KeyValue{Key: []byte("/a/Data2"), Value: []byte("Something Else")},
-      storage.KeyValue{Key: []byte("a"), Value: []byte("1")},
-      storage.KeyValue{Key: []byte("b"), Value: []byte("2")},
-    },
-    [][]byte{},
-    []byte("0"),
-  )
-  return sdb.View(types.HexToHash("a"), fn)
+	sdb := state.NewMemStateDB(1, 128)
+	sdb.Storage.AddBlock(
+		types.HexToHash("a"),
+		types.Hash{},
+		1,
+		big.NewInt(1),
+		[]storage.KeyValue{
+			{Key: []byte("/a/Data"), Value: []byte("Something")},
+			{Key: []byte("/a/Data2"), Value: []byte("Something Else")},
+			{Key: []byte("a"), Value: []byte("1")},
+			{Key: []byte("b"), Value: []byte("2")},
+		},
+		[][]byte{},
+		[]byte("0"),
+	)
+	return sdb.View(types.HexToHash("a"), fn)
 }
 
 func TestEIP2200(t *testing.T) {

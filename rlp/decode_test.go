@@ -1009,19 +1009,31 @@ func TestReuseSourceBytes(t *testing.T) {
 	input := unhex("8D6162636465666768696A6B6C6D")
 	val := []byte{}
 	err := DecodeBytes(input, &val)
-	if err != nil { t.Errorf("Error decoding: %v", err.Error()) }
-	if !bytes.Equal(val, []byte("abcdefghijklm")) { t.Errorf("Unexpected decoding output") }
+	if err != nil {
+		t.Errorf("Error decoding: %v", err.Error())
+	}
+	if !bytes.Equal(val, []byte("abcdefghijklm")) {
+		t.Errorf("Unexpected decoding output")
+	}
 	copy(input[:], unhex("FFFFFFFFFFFFFFFFFFFFFFFFFFFF"))
-	if !bytes.Equal(val, []byte("abcdefghijklm")) { t.Errorf("Decoded output changed") }
+	if !bytes.Equal(val, []byte("abcdefghijklm")) {
+		t.Errorf("Decoded output changed")
+	}
 }
 func TestReuseSourceSlice(t *testing.T) {
 	input := unhex("8D6162636465666768696A6B6C6D")
 	val := []byte{}
 	err := DecodeBytes(input, &val)
-	if err != nil { t.Errorf("Error decoding: %v", err.Error()) }
-	if !bytes.Equal(val, []byte("abcdefghijklm")) { t.Errorf("Unexpected decoding output") }
+	if err != nil {
+		t.Errorf("Error decoding: %v", err.Error())
+	}
+	if !bytes.Equal(val, []byte("abcdefghijklm")) {
+		t.Errorf("Unexpected decoding output")
+	}
 	copy(input[:], unhex("FFFFFFFFFFFFFFFFFFFFFFFFFFFF"))
-	if !bytes.Equal(val, []byte("abcdefghijklm")) { t.Errorf("Decoded output changed") }
+	if !bytes.Equal(val, []byte("abcdefghijklm")) {
+		t.Errorf("Decoded output changed")
+	}
 }
 
 func ExampleDecode() {

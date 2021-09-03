@@ -23,11 +23,11 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/openrelayxyz/cardinal-types"
+	"github.com/holiman/uint256"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/params"
-	"github.com/holiman/uint256"
+	"github.com/openrelayxyz/cardinal-types"
 )
 
 type TwoOperandTestcase struct {

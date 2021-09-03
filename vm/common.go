@@ -17,9 +17,9 @@
 package vm
 
 import (
+	"github.com/holiman/uint256"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/common/math"
-	"github.com/holiman/uint256"
 )
 
 // calcMemSize64 calculates the required memory size, and returns

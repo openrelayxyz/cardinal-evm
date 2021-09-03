@@ -23,8 +23,8 @@ import (
 	"testing"
 
 	"github.com/openrelayxyz/cardinal-evm/common"
-	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-evm/common/math"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 )
 
 var (

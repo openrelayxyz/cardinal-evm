@@ -22,10 +22,10 @@ import (
 	"fmt"
 	"math/big"
 
-	ctypes "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/params"
+	ctypes "github.com/openrelayxyz/cardinal-types"
 )
 
 var ErrInvalidChainId = errors.New("invalid chain id for signer")

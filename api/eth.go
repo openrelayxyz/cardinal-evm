@@ -24,17 +24,17 @@ import (
 	// "strings"
 	"time"
 
-	ctypes "github.com/openrelayxyz/cardinal-types"
-	"github.com/openrelayxyz/cardinal-storage"
-	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-evm/abi"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/common/math"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
-	"github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/params"
 	"github.com/openrelayxyz/cardinal-evm/state"
+	"github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/vm"
+	"github.com/openrelayxyz/cardinal-storage"
+	ctypes "github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 	// "github.com/openrelayxyz/cardinal-evm/crypto"
 	log "github.com/inconshreveable/log15"
 	// "github.com/openrelayxyz/cardinal-evm/params"
@@ -42,13 +42,11 @@ import (
 	// "github.com/tyler-smith/go-bip39"
 )
 
-
-
 // PublicBlockChainAPI provides an API to access the Ethereum blockchain.
 // It offers only methods that operate on public data that is freely available to anyone.
 type PublicBlockChainAPI struct {
 	storage storage.Storage
-	evmmgr     *vm.EVMManager
+	evmmgr  *vm.EVMManager
 	chainid int64
 }
 
@@ -57,9 +55,8 @@ func NewETHAPI(s storage.Storage, evmmgr *vm.EVMManager, chainid int64) *PublicB
 	return &PublicBlockChainAPI{storage: s, evmmgr: evmmgr, chainid: chainid}
 }
 
-
 // ChainId is the EIP-155 replay-protection chain id for the current ethereum chain config.
-func (api *PublicBlockChainAPI) ChainId() (*hexutil.Big) {
+func (api *PublicBlockChainAPI) ChainId() *hexutil.Big {
 	return (*hexutil.Big)(new(big.Int).SetInt64(api.chainid))
 }
 
@@ -68,7 +65,9 @@ func (api *PublicBlockChainAPI) BlockNumber() (hexutil.Uint64, error) {
 	var result hexutil.Uint64
 	if err := api.evmmgr.View(func(num uint64) {
 		result = hexutil.Uint64(num)
-	}); err != nil { return hexutil.Uint64(0), err }
+	}); err != nil {
+		return hexutil.Uint64(0), err
+	}
 	return result, nil
 }
 
@@ -79,7 +78,9 @@ func (s *PublicBlockChainAPI) GetBalance(ctx context.Context, address common.Add
 	var result *hexutil.Big
 	if err := s.evmmgr.View(blockNrOrHash, func(statedb state.StateDB) {
 		result = (*hexutil.Big)(statedb.GetBalance(address))
-	}); err != nil { return nil, err }
+	}); err != nil {
+		return nil, err
+	}
 	return result, nil
 }
 
@@ -88,7 +89,9 @@ func (s *PublicBlockChainAPI) GetCode(ctx context.Context, address common.Addres
 	var result hexutil.Bytes
 	if err := s.evmmgr.View(blockNrOrHash, func(statedb state.StateDB) {
 		result = hexutil.Bytes(statedb.GetCode(address))
-	}); err != nil { return nil, err }
+	}); err != nil {
+		return nil, err
+	}
 	return result, nil
 }
 
@@ -99,7 +102,9 @@ func (s *PublicBlockChainAPI) GetStorageAt(ctx context.Context, address common.A
 	var result hexutil.Bytes
 	if err := s.evmmgr.View(blockNrOrHash, func(statedb state.StateDB) {
 		result = hexutil.Bytes(statedb.GetState(address, ctypes.HexToHash(key)).Bytes())
-	}); err != nil { return nil, err }
+	}); err != nil {
+		return nil, err
+	}
 	return result, nil
 }
 
@@ -121,12 +126,17 @@ type PreviousState struct {
 	state  state.StateDB
 	header *types.Header
 }
+
 func (prevState *PreviousState) copy() *PreviousState {
-	if prevState == nil { return nil }
+	if prevState == nil {
+		return nil
+	}
 	state := prevState.state
-	if state != nil { state = state.Copy() }
+	if state != nil {
+		state = state.Copy()
+	}
 	return &PreviousState{
-		state: state,
+		state:  state,
 		header: prevState.header,
 	}
 }
@@ -259,14 +269,14 @@ func (e *revertError) ErrorData() interface{} {
 func (s *PublicBlockChainAPI) Call(ctx context.Context, args TransactionArgs, blockNrOrHash vm.BlockNumberOrHash, overrides *StateOverride) (hexutil.Bytes, error) {
 	var timeout time.Duration
 	if args.Gas != nil {
-		timeout = time.Duration(*args.Gas / 10000000) * time.Second
+		timeout = time.Duration(*args.Gas/10000000) * time.Second
 	}
-	if timeout < 5 * time.Second {
+	if timeout < 5*time.Second {
 		timeout = 5 * time.Second
 	}
 	var res hexutil.Bytes
 	err := s.evmmgr.View(blockNrOrHash, args.From, &vm.Config{NoBaseFee: true}, func(statedb state.StateDB, header *types.Header, evmFn func(state.StateDB, *vm.Config, common.Address) *vm.EVM) error {
-		result, _, err := DoCall(ctx, evmFn, args, &PreviousState{statedb, header}, blockNrOrHash, overrides, timeout, header.GasLimit * 2)
+		result, _, err := DoCall(ctx, evmFn, args, &PreviousState{statedb, header}, blockNrOrHash, overrides, timeout, header.GasLimit*2)
 		if err != nil {
 			return err
 		}
@@ -280,6 +290,7 @@ func (s *PublicBlockChainAPI) Call(ctx context.Context, args TransactionArgs, bl
 	})
 	return res, err
 }
+
 //
 type estimateGasError struct {
 	error  string // Concrete error type if it's failed to estimate gas usage
@@ -297,7 +308,6 @@ func (e estimateGasError) Error() string {
 	}
 	return errMsg
 }
-
 
 func DoEstimateGas(ctx context.Context, getEVM func(state.StateDB, *vm.Config, common.Address) *vm.EVM, args TransactionArgs, prevState *PreviousState, blockNrOrHash vm.BlockNumberOrHash, gasCap uint64, approx bool) (hexutil.Uint64, *PreviousState, error) {
 	// Binary search the gas requirement, as it may be higher than the amount used
@@ -383,7 +393,9 @@ func DoEstimateGas(ctx context.Context, getEVM func(state.StateDB, *vm.Config, c
 		} else {
 			hi = mid
 		}
-		if approx && (hi - lo) < (hi / 100) { break }
+		if approx && (hi-lo) < (hi/100) {
+			break
+		}
 	}
 	// Reject the transaction as invalid if it still fails at the highest allowance
 	if hi == cap {
@@ -415,11 +427,12 @@ func (s *PublicBlockChainAPI) EstimateGas(ctx context.Context, args TransactionA
 	var gas hexutil.Uint64
 	err := s.evmmgr.View(bNrOrHash, args.From, &vm.Config{NoBaseFee: true}, func(statedb state.StateDB, header *types.Header, evmFn func(state.StateDB, *vm.Config, common.Address) *vm.EVM) error {
 		var err error
-		gas, _, err = DoEstimateGas(ctx, evmFn, args, &PreviousState{statedb, header}, bNrOrHash, header.GasLimit * 2, false)
+		gas, _, err = DoEstimateGas(ctx, evmFn, args, &PreviousState{statedb, header}, bNrOrHash, header.GasLimit*2, false)
 		return err
 	})
 	return gas, err
 }
+
 // accessListResult returns an optional accesslist
 // Its the result of the `debug_createAccessList` RPC call.
 // It contains an error if the transaction itself failed.
@@ -437,7 +450,7 @@ func (s *PublicBlockChainAPI) CreateAccessList(ctx context.Context, args Transac
 		bNrOrHash = *blockNrOrHash
 	}
 	var result *accessListResult
-	err := s.evmmgr.View(bNrOrHash, args.From, func(header *types.Header, statedb state.StateDB, evmFn func(state.StateDB, *vm.Config, common.Address) *vm.EVM, chaincfg *params.ChainConfig ) error {
+	err := s.evmmgr.View(bNrOrHash, args.From, func(header *types.Header, statedb state.StateDB, evmFn func(state.StateDB, *vm.Config, common.Address) *vm.EVM, chaincfg *params.ChainConfig) error {
 		acl, gasUsed, vmerr, err := AccessList(ctx, statedb, header, chaincfg, evmFn, bNrOrHash, args)
 		if err != nil {
 			return err
@@ -491,7 +504,7 @@ func AccessList(ctx context.Context, db state.StateDB, header *types.Header, cha
 		// complete.
 		gas += 2400
 	}
-	msg = NewMessage(args.from(), args.To, uint64(*args.Nonce), args.Value.ToInt(), uint64(*args.Gas) + 2400, args.GasPrice.ToInt(), big.NewInt(0), big.NewInt(0), args.data(), tracer.AccessList(), false)
+	msg = NewMessage(args.from(), args.To, uint64(*args.Nonce), args.Value.ToInt(), uint64(*args.Gas)+2400, args.GasPrice.ToInt(), big.NewInt(0), big.NewInt(0), args.data(), tracer.AccessList(), false)
 	res, err := ApplyMessage(getEVM(db.Copy(), &vm.Config{Tracer: tracer, Debug: true, NoBaseFee: true}, args.from()), msg, new(GasPool).AddGas(msg.Gas()))
 	if err != nil {
 		return nil, 0, nil, fmt.Errorf("failed to apply transaction: err: %v", err)
@@ -499,12 +512,11 @@ func AccessList(ctx context.Context, db state.StateDB, header *types.Header, cha
 	return tracer.AccessList(), res.UsedGas, res.Err, nil
 }
 
-
-type TransactionEmitter interface{
+type TransactionEmitter interface {
 	Emit(*types.Transaction) error
 }
 
-type PublicTransactionPoolAPI struct{
+type PublicTransactionPoolAPI struct {
 	emitter TransactionEmitter
 	evmmgr  *vm.EVMManager
 }
@@ -520,8 +532,12 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, input
 	if err := tx.UnmarshalBinary(input); err != nil {
 		return ctypes.Hash{}, err
 	}
-	return tx.Hash(), s.evmmgr.View(func(currentState state.StateDB, header *types.Header, chaincfg *params.ChainConfig) error{
-		if ctx != nil { if err := ctx.Err(); err != nil { return err } }
+	return tx.Hash(), s.evmmgr.View(func(currentState state.StateDB, header *types.Header, chaincfg *params.ChainConfig) error {
+		if ctx != nil {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+		}
 		if s.emitter == nil {
 			return errors.New("This api is not configured for accepting transactions")
 		}

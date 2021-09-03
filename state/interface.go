@@ -1,6 +1,5 @@
 package state
 
-
 import (
 	"math/big"
 

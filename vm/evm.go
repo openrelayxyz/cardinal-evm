@@ -21,12 +21,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/holiman/uint256"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/params"
 	"github.com/openrelayxyz/cardinal-evm/state"
 	"github.com/openrelayxyz/cardinal-types"
-	"github.com/holiman/uint256"
 )
 
 // emptyCodeHash is used by create to ensure deployment is disallowed to already
@@ -88,7 +88,6 @@ func defaultTransfer(db state.StateDB, sender, recipient common.Address, amount 
 	db.AddBalance(recipient, amount)
 }
 
-
 // TxContext provides the EVM with information about a transaction.
 // All fields can change between transactions.
 type TxContext struct {
@@ -137,8 +136,12 @@ type EVM struct {
 // NewEVM returns a new EVM. The returned EVM is not thread safe and should
 // only ever be used *once*.
 func NewEVM(blockCtx BlockContext, txCtx TxContext, statedb state.StateDB, chainConfig *params.ChainConfig, config Config) *EVM {
-	if blockCtx.CanTransfer == nil { blockCtx.CanTransfer = defaultCanTransfer }
-	if blockCtx.Transfer == nil { blockCtx.Transfer = defaultTransfer }
+	if blockCtx.CanTransfer == nil {
+		blockCtx.CanTransfer = defaultCanTransfer
+	}
+	if blockCtx.Transfer == nil {
+		blockCtx.Transfer = defaultTransfer
+	}
 	evm := &EVM{
 		Context:     blockCtx,
 		TxContext:   txCtx,

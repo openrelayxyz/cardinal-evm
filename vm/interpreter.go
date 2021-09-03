@@ -20,10 +20,10 @@ import (
 	"hash"
 	"sync/atomic"
 
-	"github.com/openrelayxyz/cardinal-types"
+	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/common/math"
-	log "github.com/inconshreveable/log15"
+	"github.com/openrelayxyz/cardinal-types"
 )
 
 // Config are the configuration options for the Interpreter
@@ -61,7 +61,7 @@ type EVMInterpreter struct {
 	cfg Config
 
 	hasher    keccakState // Keccak256 hasher instance shared across opcodes
-	hasherBuf types.Hash // Keccak256 hasher result array shared aross opcodes
+	hasherBuf types.Hash  // Keccak256 hasher result array shared aross opcodes
 
 	readOnly   bool   // Whether to throw on stateful modifications
 	returnData []byte // Last CALL's return data for subsequent reuse

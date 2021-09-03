@@ -5,6 +5,6 @@ import (
 )
 
 type TransactionProducer interface {
-  Emit(marshall(*types.Transaction)) error
-  Close()
+	Emit(marshall *types.Transaction) error
+	Close()
 }
