@@ -108,6 +108,7 @@ func (sdb *stateDB) Finalise() {
   for _, sobj := range sdb.state {
     sobj.finalise()
   }
+  sdb.accessList = newAccessList()
   sdb.refund = 0
 }
 
