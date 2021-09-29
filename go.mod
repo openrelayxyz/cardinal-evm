@@ -11,11 +11,10 @@ require (
 	github.com/holiman/uint256 v1.2.0
 	github.com/inconshreveable/log15 v0.0.0-20201112154412-8562bdadbbac
 	github.com/jedisct1/go-minisign v0.0.0-20190909160543-45766022959e
-	github.com/mattn/go-isatty v0.0.5-0.20180830101745-3fb116b82035 // indirect
-	github.com/openrelayxyz/cardinal-rpc v0.0.1
-	github.com/openrelayxyz/cardinal-storage v0.0.2
-	github.com/openrelayxyz/cardinal-streams v0.0.1
-	github.com/openrelayxyz/cardinal-types v0.0.1
+	github.com/openrelayxyz/cardinal-rpc v0.0.3
+	github.com/openrelayxyz/cardinal-storage v0.0.3
+	github.com/openrelayxyz/cardinal-streams v0.0.2
+	github.com/openrelayxyz/cardinal-types v0.0.2
 	github.com/openrelayxyz/plugeth-utils v0.0.7
 	github.com/stretchr/testify v1.7.0
 	github.com/xdg/stringprep v1.0.3 // indirect
