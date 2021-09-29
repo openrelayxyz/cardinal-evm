@@ -9,4 +9,4 @@ build/plugins/cardinal-evm.so: tidy
 
 clean:
 	rm -f build/bin/cardinal-rpc-evm
-all: build/bin/cardinal-rpc-evm
+all: build/bin/cardinal-rpc-evm build/plugins/cardinal-evm.so
