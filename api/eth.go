@@ -284,7 +284,7 @@ func (s *PublicBlockChainAPI) Call(ctx context.Context, args TransactionArgs, bl
 		if len(result.Revert()) > 0 {
 			return newRevertError(result)
 		}
-		log.Info("EVM result", "result", result)
+		log.Debug("EVM result", "result", result)
 		res = result.Return()
 		return result.Err
 	})

@@ -19,6 +19,7 @@ import (
 var (
 	log core.Logger
 	ready sync.WaitGroup
+	backend restricted.Backend
 	config *params.ChainConfig
 	chainid int64
 	producer transports.Producer
@@ -40,6 +41,7 @@ func Initialize(ctx *cli.Context, loader core.PluginLoader, logger core.Logger) 
 }
 
 func InitializeNode(stack core.Node, b restricted.Backend) {
+	backend = b
 	defer ready.Done()
 	config = b.ChainConfig()
 	chainid = config.ChainID.Int64()
@@ -58,8 +60,8 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 			map[string]string{
 				fmt.Sprintf("c/%x/a/", chainid): *stateTopic,
 				fmt.Sprintf("c/%x/c/", chainid): *codeTopic,
-				fmt.Sprintf("c/%x/b/[0-9a-z]+/h/", chainid): *blockTopic,
-				fmt.Sprintf("c/%x/b/[0-9a-z]+/d/", chainid): *blockTopic,
+				fmt.Sprintf("c/%x/b/[0-9a-z]+/h", chainid): *blockTopic,
+				fmt.Sprintf("c/%x/b/[0-9a-z]+/d", chainid): *blockTopic,
 				fmt.Sprintf("c/%x/n/", chainid): *blockTopic,
 				fmt.Sprintf("c/%x/b/[0-9a-z]+/t/", chainid): *txTopic,
 				fmt.Sprintf("c/%x/b/[0-9a-z]+/r/", chainid): *receiptTopic,
@@ -68,8 +70,6 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 			},
 		)
 		if err != nil { panic(err.Error()) }
-	} else {
-		panic("Unknown broker protocol. Please set --cardinal.broker.url ''" + *brokerURL)
 	}
 	log.Info("Cardinal EVM plugin initialized")
 }
@@ -84,7 +84,10 @@ type receiptMeta struct {
 	LogOffset uint
 }
 
-func BlockUpdates(block *types.Block, td *big.Int, logs []*types.Log, receipts types.Receipts, destructs map[core.Hash]struct{}, accounts map[core.Hash][]byte, storage map[core.Hash]map[core.Hash][]byte, code map[core.Hash][]byte) {
+func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, destructs map[core.Hash]struct{}, accounts map[core.Hash][]byte, storage map[core.Hash]map[core.Hash][]byte, code map[core.Hash][]byte) {
+	if producer == nil {
+		panic("Unknown broker. Please set --cardinal.broker.url")
+	}
 	ready.Wait()
 	hash := block.Hash()
 	headerBytes, err := rlp.EncodeToBytes(block.Header())
@@ -93,12 +96,12 @@ func BlockUpdates(block *types.Block, td *big.Int, logs []*types.Log, receipts t
 		return
 	}
 	updates := map[string][]byte{
-		fmt.Sprintf("c/%x/b/%x/h", chainid, hash): headerBytes,
-		fmt.Sprintf("c/%x/b/%x/d", chainid, hash): td.Bytes(),
+		fmt.Sprintf("c/%x/b/%x/h", chainid, hash.Bytes()): headerBytes,
+		fmt.Sprintf("c/%x/b/%x/d", chainid, hash.Bytes()): td.Bytes(),
 		fmt.Sprintf("c/%x/n/%x", chainid, block.Number().Int64()): hash[:],
 	}
 	for i, tx := range block.Transactions() {
-		updates[fmt.Sprintf("c/%x/b/%x/t/%x", chainid, hash, i)], err = tx.MarshalBinary()
+		updates[fmt.Sprintf("c/%x/b/%x/t/%x", chainid, hash.Bytes(), i)], err = tx.MarshalBinary()
 		if err != nil {
 			log.Error("Error marshalling tx", "block", block.Hash(), "tx", i, "err", err)
 			return
@@ -114,14 +117,14 @@ func BlockUpdates(block *types.Block, td *big.Int, logs []*types.Log, receipts t
 		if rmeta.LogCount > 0 {
 			rmeta.LogOffset = receipts[i].Logs[0].Index
 		}
-		updates[fmt.Sprintf("c/%x/b/%x/r/%x", chainid, hash, i)], err = rlp.EncodeToBytes(rmeta)
+		updates[fmt.Sprintf("c/%x/b/%x/r/%x", chainid, hash.Bytes(), i)], err = rlp.EncodeToBytes(rmeta)
 		if err != nil {
 			log.Error("Error marshalling tx receipt", "block", block.Hash(), "tx", i, "err", err)
 			return
 		}
 
 		for _, logRecord := range receipts[i].Logs {
-			updates[fmt.Sprintf("c/%x/b/%x/l/%x/%x", chainid, hash, i, logRecord.Index)], err = rlp.EncodeToBytes(logRecord)
+			updates[fmt.Sprintf("c/%x/b/%x/l/%x/%x", chainid, hash.Bytes(), i, logRecord.Index)], err = rlp.EncodeToBytes(logRecord)
 			if err != nil {
 				log.Error("Error unmarshalling log record", "block", block.Hash(), "tx", i, "")
 			}
@@ -138,9 +141,9 @@ func BlockUpdates(block *types.Block, td *big.Int, logs []*types.Log, receipts t
 		deletes[fmt.Sprintf("c/%x/a/%x", chainid, hashedAddr)] = struct{}{}
 	}
 	batches := map[string]ctypes.Hash{
-		fmt.Sprintf("c/%x/s", chainid): ctypes.Hash(hash),
+		fmt.Sprintf("c/%x/s", chainid): ctypes.Hash{},
 	}
-	log.Info("Producing block to kafka", "block", hash)
+	log.Info("Producing block to kafka", "hash", hash, "number", block.NumberU64())
 	if err := producer.AddBlock(
 		block.Number().Int64(),
 		ctypes.Hash(hash),
@@ -159,7 +162,7 @@ func BlockUpdates(block *types.Block, td *big.Int, logs []*types.Log, receipts t
 			batchUpdates[fmt.Sprintf("c/%x/a/%x/s/%x", chainid, addrHash, k)] = v
 		}
 	}
-	if err := producer.SendBatch(ctypes.Hash(hash), []string{}, batchUpdates); err != nil {
+	if err := producer.SendBatch(ctypes.Hash{}, []string{}, batchUpdates); err != nil {
 		log.Error("Failed to send state batch", "block", hash, "err", err)
 		return
 	}
