@@ -8,5 +8,5 @@ build/plugins/cardinal-evm.so: tidy
 	go build -buildmode=plugin -o build/plugins/cardinal-evm.so plugin/main.go
 
 clean:
-	rm -f build/bin/cardinal-rpc-evm
+	rm -f build/bin/cardinal-rpc-evm build/plugins/cardinal-evm.so
 all: build/bin/cardinal-rpc-evm build/plugins/cardinal-evm.so
