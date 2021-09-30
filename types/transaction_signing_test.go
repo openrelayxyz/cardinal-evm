@@ -20,6 +20,7 @@ import (
 	"math/big"
 	"testing"
 
+	"crypto/ecdsa"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
@@ -113,6 +114,12 @@ func TestEIP155SigningVitalik(t *testing.T) {
 		}
 
 	}
+}
+
+func defaultTestKey() (*ecdsa.PrivateKey, common.Address) {
+	key, _ := crypto.HexToECDSA("45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8")
+	addr := crypto.PubkeyToAddress(key.PublicKey)
+	return key, addr
 }
 
 func TestChainId(t *testing.T) {
