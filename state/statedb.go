@@ -198,7 +198,7 @@ func (sdb *stateDB) SubRefund(amount uint64) {
 func (sdb *stateDB) GetRefund() uint64 { return sdb.refund }
 func (sdb *stateDB) GetCommittedState(addr common.Address, storage ctypes.Hash) ctypes.Hash {
 	sobj := sdb.getAccount(addr)
-	return sobj.getCommittedState(sdb.tx, sdb.chainid, storage)
+	return sobj.getCommittedState(sdb.tx, sdb.chainid, crypto.Keccak256Hash(storage.Bytes()))
 }
 func (sdb *stateDB) GetState(addr common.Address, storage ctypes.Hash) ctypes.Hash {
 	sobj := sdb.getAccount(addr)
