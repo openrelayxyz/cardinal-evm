@@ -21,6 +21,7 @@ import (
 	"reflect"
 	"testing"
 
+	ctypes "github.com/openrelayxyz/cardinal-types"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/openrelayxyz/cardinal-evm/common"
 )
@@ -249,7 +250,7 @@ func TestTypeCheck(t *testing.T) {
 		{"bytes1", nil, [1]byte{}, ""},
 		{"bytes32", nil, [33]byte{}, "abi: cannot use [33]uint8 as type [32]uint8 as argument"},
 		{"bytes32", nil, ctypes.Hash{1}, ""},
-		{"bytes31", nil, ctypes.Hash{1}, "abi: cannot use ctypes.Hash as type [31]uint8 as argument"},
+		{"bytes31", nil, ctypes.Hash{1}, "abi: cannot use types.Hash as type [31]uint8 as argument"},
 		{"bytes31", nil, [32]byte{}, "abi: cannot use [32]uint8 as type [31]uint8 as argument"},
 		{"bytes", nil, []byte{0, 1}, ""},
 		{"bytes", nil, [2]byte{0, 1}, "abi: cannot use array as type slice as argument"},

@@ -26,6 +26,7 @@ import (
 	"strings"
 	"testing"
 
+	ctypes "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/stretchr/testify/require"
 )
@@ -644,7 +645,7 @@ func TestUnmarshal(t *testing.T) {
 		t.Error(err)
 	}
 
-	helloHash := common.BytesToHash(common.RightPadBytes([]byte("hello"), 32))
+	helloHash := ctypes.BytesToHash(common.RightPadBytes([]byte("hello"), 32))
 	if hash != helloHash {
 		t.Errorf("Expected %x to equal %x", hash, helloHash)
 	}
