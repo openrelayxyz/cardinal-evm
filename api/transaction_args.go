@@ -17,7 +17,6 @@
 package api
 
 import (
-	"context"
 	"errors"
 	"math/big"
 
@@ -27,6 +26,7 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/state"
 	"github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/vm"
+	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 )
 
@@ -146,7 +146,7 @@ func (args *TransactionArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (M
 // setDefaults provides values such that transactions will execute
 // successfully. Unlike the go-ethereum verson of this method, this is not
 // intended to be sane recommendations for gas prices based on mempool.
-func (args *TransactionArgs) setDefaults(ctx context.Context, getEVM func(state.StateDB, *vm.Config, common.Address) *vm.EVM, db state.StateDB, header *types.Header, blockNrOrHash vm.BlockNumberOrHash) error {
+func (args *TransactionArgs) setDefaults(ctx *rpc.CallContext, getEVM func(state.StateDB, *vm.Config, common.Address) *vm.EVM, db state.StateDB, header *types.Header, blockNrOrHash vm.BlockNumberOrHash) error {
 	if args.From == nil {
 		args.From = &(common.Address{})
 	}

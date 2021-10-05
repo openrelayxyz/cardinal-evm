@@ -26,9 +26,9 @@ func main() {
 	home, _ := os.UserHomeDir()
 	port := flag.Int64("http.port", 8000, "HTTP port")
 	concurrency := flag.Int("concurrency", runtime.NumCPU()*4, "How many concurrent requests to support (additional requests will be queued)")
-	reorgThreshold := flag.Int64("reorg.threshold", 128, "Number of blocks to be able to support for quick reorgs")
-	dataDir := flag.String("datadir", path.Join(home, ".cardinal", "evm"), "Directory for Cardinal data and configuration")
 	chainid := flag.Int64("chainid", 1, "The web3 chainid for this network")
+	reorgThreshold := flag.Int64("reorg.threshold", 128, "Number of blocks to be able to support for quick reorgs")
+	dataDir := flag.String("datadir", "", "Directory for Cardinal data and configuration")
 	rollback := flag.Int64("rollback", 5000, "The number of messages to roll back when resuming message processing")
 	transactionTopic := flag.String("topic.transactions", "", "The topic for broadcasting transactions to the network")
 	whitelistString := flag.String("whitelist", "", "A comma separated list mapping block numbers to specific hashes. eg. 1234=0x1a03...8cbf - Used to force Cardinal to the right side of a chain split, even if the wrong side is heavier")
@@ -45,6 +45,10 @@ func main() {
 	stateTopic := flag.String("state.topic", "", "Topic for Cardinal state data")
 
 	flag.CommandLine.Parse(os.Args[1:])
+
+	if *dataDir == "" {
+		*dataDir = path.Join(home, ".cardinal", "evm", strconv.Itoa(int(*chainid)))
+	}
 
 	var logLvl log.Lvl
 	switch *logLevel {

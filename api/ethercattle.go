@@ -1,11 +1,11 @@
 package api
 
 import (
-	"context"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/state"
 	"github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/vm"
+	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 )
 
@@ -19,7 +19,7 @@ func NewEtherCattleBlockChainAPI(evmmgr *vm.EVMManager) *EtherCattleBlockChainAP
 
 // EstimateGasList returns an estimate of the amount of gas needed to execute list of
 // given transactions against the current pending block.
-func (s *EtherCattleBlockChainAPI) EstimateGasList(ctx context.Context, argsList []TransactionArgs, precise *bool) ([]hexutil.Uint64, error) {
+func (s *EtherCattleBlockChainAPI) EstimateGasList(ctx *rpc.CallContext, argsList []TransactionArgs, precise *bool) ([]hexutil.Uint64, error) {
 	fast := precise == nil || !*precise
 	blockNrOrHash := vm.BlockNumberOrHashWithNumber(vm.PendingBlockNumber)
 	returnVals := make([]hexutil.Uint64, len(argsList))

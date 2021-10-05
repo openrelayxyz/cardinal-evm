@@ -13,6 +13,7 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/schema"
 	"github.com/openrelayxyz/cardinal-evm/state"
 	"github.com/openrelayxyz/cardinal-evm/types"
+	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-storage"
 	ctypes "github.com/openrelayxyz/cardinal-types"
 )
@@ -51,6 +52,7 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
 	var sender common.Address
 	var gasPrice *big.Int
 	var vmcfg *Config
+	var callMeta *rpc.CallMetadata
 	for i, input := range inputs {
 		switch v := input.(type) {
 		case ctypes.Hash:
@@ -74,6 +76,10 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
 			gasPrice = v
 		case *Config:
 			vmcfg = v
+		case *rpc.CallMetadata:
+			callMeta = v
+		case *rpc.CallContext:
+			callMeta = v.Metadata()
 		default:
 			val := reflect.ValueOf(input)
 			if val.Kind() == reflect.Func {
@@ -102,6 +108,9 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
 			hash = &h
 		}
 		return *hash
+	}
+	if callMeta != nil {
+		callMeta.Hash = getHash()
 	}
 
 	sig := callback.Type()
