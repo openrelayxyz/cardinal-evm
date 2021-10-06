@@ -23,7 +23,7 @@ func (s *EtherCattleBlockChainAPI) EstimateGasList(ctx *rpc.CallContext, argsLis
 	fast := precise == nil || !*precise
 	blockNrOrHash := vm.BlockNumberOrHashWithNumber(vm.PendingBlockNumber)
 	returnVals := make([]hexutil.Uint64, len(argsList))
-	err := s.evmmgr.View(blockNrOrHash, &vm.Config{NoBaseFee: true}, func(statedb state.StateDB, header *types.Header, evmFn func(state.StateDB, *vm.Config, common.Address) *vm.EVM) error {
+	err := s.evmmgr.View(blockNrOrHash, &vm.Config{NoBaseFee: true}, ctx, func(statedb state.StateDB, header *types.Header, evmFn func(state.StateDB, *vm.Config, common.Address) *vm.EVM) error {
 		var (
 			gas       hexutil.Uint64
 			err       error
