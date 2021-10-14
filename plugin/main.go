@@ -62,6 +62,7 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 				fmt.Sprintf("c/%x/c/", chainid): *codeTopic,
 				fmt.Sprintf("c/%x/b/[0-9a-z]+/h", chainid): *blockTopic,
 				fmt.Sprintf("c/%x/b/[0-9a-z]+/d", chainid): *blockTopic,
+				fmt.Sprintf("c/%x/b/[0-9a-z]+/u/", chainid): *blockTopic,
 				fmt.Sprintf("c/%x/n/", chainid): *blockTopic,
 				fmt.Sprintf("c/%x/b/[0-9a-z]+/t/", chainid): *txTopic,
 				fmt.Sprintf("c/%x/b/[0-9a-z]+/r/", chainid): *receiptTopic,
@@ -131,17 +132,28 @@ func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, dest
 		}
 	}
 	for hashedAddr, acctRLP := range accounts {
-		updates[fmt.Sprintf("c/%x/a/%x/d", chainid, hashedAddr)] = acctRLP
+		updates[fmt.Sprintf("c/%x/a/%x/d", chainid, hashedAddr.Bytes())] = acctRLP
 	}
 	for codeHash, codeBytes := range code {
 		updates[fmt.Sprintf("c/%x/c/%x", chainid, codeHash)] = codeBytes
 	}
 	deletes := make(map[string]struct{})
 	for hashedAddr := range destructs {
-		deletes[fmt.Sprintf("c/%x/a/%x", chainid, hashedAddr)] = struct{}{}
+		deletes[fmt.Sprintf("c/%x/a/%x", chainid, hashedAddr.Bytes())] = struct{}{}
 	}
 	batches := map[string]ctypes.Hash{
 		fmt.Sprintf("c/%x/s", chainid): ctypes.Hash{},
+	}
+	if len(block.Uncles()) > 0 {
+		// If uncles == 0, we can figure that out from the hash without having to
+		// send an empty list across the wire
+		for i, uncle := range block.Uncles() {
+			updates[fmt.Sprintf("c/%x/b/%x/u/%x", chainid, hash.Bytes(), i)], err = rlp.EncodeToBytes(uncle)
+			if err != nil {
+				log.Error("Error marshalling uncles list", "block", block.Hash(), "err", err)
+				return
+			}
+		}
 	}
 	log.Info("Producing block to kafka", "hash", hash, "number", block.NumberU64())
 	if err := producer.AddBlock(
@@ -159,7 +171,7 @@ func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, dest
 	batchUpdates := make(map[string][]byte)
 	for addrHash, updates := range storage {
 		for k, v := range updates {
-			batchUpdates[fmt.Sprintf("c/%x/a/%x/s/%x", chainid, addrHash, k)] = v
+			batchUpdates[fmt.Sprintf("c/%x/a/%x/s/%x", chainid, addrHash.Bytes(), k)] = v
 		}
 	}
 	if err := producer.SendBatch(ctypes.Hash{}, []string{}, batchUpdates); err != nil {

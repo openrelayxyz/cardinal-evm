@@ -94,7 +94,7 @@ var (
 			})
 			headerBytes, err := rlp.EncodeToBytes(header)
 			if err != nil { panic(err.Error()) }
-			jsonStream.Encode(output{Key: fmt.Sprintf("c/%x/b/%x/h", chainID, header.Hash()), Value: hexutil.Bytes(headerBytes)})
+			jsonStream.Encode(output{Key: fmt.Sprintf("c/%x/b/%x/h", chainID, header.Hash().Bytes()), Value: hexutil.Bytes(headerBytes)})
 			log.Info("Dumping state for block", "num", blockno, "hash", header.Hash())
 			for acctIter.Next() {
 				if len(acctIter.Key()) != 33 { continue }
