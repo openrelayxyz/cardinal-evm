@@ -16,6 +16,8 @@ import (
 	"sync"
 )
 
+// TODO: Large reorg handling
+
 var (
 	log core.Logger
 	ready sync.WaitGroup
@@ -73,6 +75,8 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 		if err != nil { panic(err.Error()) }
 	}
 	log.Info("Cardinal EVM plugin initialized")
+
+	// TODO: Setup NewTxsEvent subscription
 }
 
 type receiptMeta struct {

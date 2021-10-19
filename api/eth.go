@@ -36,11 +36,7 @@ import (
 	"github.com/openrelayxyz/cardinal-storage"
 	ctypes "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
-	// "github.com/openrelayxyz/cardinal-evm/crypto"
 	log "github.com/inconshreveable/log15"
-	// "github.com/openrelayxyz/cardinal-evm/params"
-	// "github.com/openrelayxyz/cardinal-evm/rlp"
-	// "github.com/tyler-smith/go-bip39"
 )
 
 // PublicBlockChainAPI provides an API to access the Ethereum blockchain.
@@ -88,7 +84,7 @@ func (s *PublicBlockChainAPI) GetBalance(ctx *rpc.CallContext, address common.Ad
 // GetCode returns the code stored at the given address in the state for the given block number.
 func (s *PublicBlockChainAPI) GetCode(ctx *rpc.CallContext, address common.Address, blockNrOrHash vm.BlockNumberOrHash) (hexutil.Bytes, error) {
 	var result hexutil.Bytes
-	if err := s.evmmgr.View(blockNrOrHash, func(statedb state.StateDB) {
+	if err := s.evmmgr.View(blockNrOrHash, ctx, func(statedb state.StateDB) {
 		result = hexutil.Bytes(statedb.GetCode(address))
 	}); err != nil {
 		return nil, err
