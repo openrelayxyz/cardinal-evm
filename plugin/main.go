@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"math/big"
+	"github.com/Shopify/sarama"
 	ctypes "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-streams/transports"
 	"github.com/openrelayxyz/plugeth-utils/core"
@@ -26,6 +27,7 @@ var (
 	chainid int64
 	producer transports.Producer
 	Flags = *flag.NewFlagSet("cardinal-plugin", flag.ContinueOnError)
+	txPoolTopic = Flags.String("cardinal.txpool.topic", "", "Topic for mempool transaction data")
 	brokerURL = Flags.String("cardinal.broker.url", "x", "URL of the Cardinal Broker")
 	defaultTopic = Flags.String("cardinal.default.topic", "", "Default topic for Cardinal broker")
 	blockTopic = Flags.String("cardinal.block.topic", "", "Topic for Cardinal block data")
@@ -40,6 +42,10 @@ func Initialize(ctx *cli.Context, loader core.PluginLoader, logger core.Logger) 
 	ready.Add(1)
 	log = logger
 	log.Info("Cardinal EVM plugin initializing")
+}
+
+func strPtr(x string) *string {
+	return &x
 }
 
 func InitializeNode(stack core.Node, b restricted.Backend) {
@@ -75,6 +81,47 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 		if err != nil { panic(err.Error()) }
 	}
 	log.Info("Cardinal EVM plugin initialized")
+
+	if *txPoolTopic != "" {
+		go func() {
+			// TODO: we should probably do something within Cardinal streams to
+			// generalize this so it's not Kafka specific and can work with other
+			// transports.
+			ch := make(chan core.NewTxsEvent, 1000)
+			sub := b.SubscribeNewTxsEvent(ch)
+			brokers, config := transports.ParseKafkaURL(strings.TrimPrefix(*brokerURL, "kafka://"))
+			configEntries := make(map[string]*string)
+			configEntries["retention.ms"] = strPtr("3600000")
+			if err := transports.CreateTopicIfDoesNotExist(strings.TrimPrefix(*brokerURL, "kafka://"), *txPoolTopic, 0, configEntries); err != nil {
+				panic(fmt.Sprintf("Could not create topic %v on broker %v: %v", *txPoolTopic, *brokerURL, err.Error()))
+			}
+			// This is about twice the size of the largest possible transaction if
+			// all gas in a block were zero bytes in a transaction's data. It should
+			// be very rare for messages to even approach this size.
+			config.Producer.MaxMessageBytes = 10000024
+			producer, err := sarama.NewAsyncProducer(brokers, config)
+			if err != nil {
+				panic(fmt.Sprintf("Could not setup producer: %v", err.Error()))
+			}
+			for {
+				select {
+				case txEvent := <-ch:
+					for _, tx := range txEvent.Txs {
+						select {
+						case producer.Input() <- &sarama.ProducerMessage{Topic: *txPoolTopic, Value: sarama.ByteEncoder(tx)}:
+						case err := <-producer.Errors():
+							log.Error("Error emitting: %v", "err", err.Error())
+						}
+					}
+				case err := <-sub.Err():
+					log.Error("Error processing event transactions", "error", err)
+					close(ch)
+					sub.Unsubscribe()
+					return
+				}
+			}
+		}()
+	}
 
 	// TODO: Setup NewTxsEvent subscription
 }
