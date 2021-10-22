@@ -1,0 +1,93 @@
+version: 2.1
+jobs:
+  test:
+    docker:
+      - image: cimg/go:1.17.2
+    steps:
+      - checkout
+      - run:
+          name: Prep env
+          command: |
+            mkdir -p /home/circleci/go/src
+            mkdir artifacts
+            go mod tidy
+
+      - run:
+          name: test abi
+          command: go test ./abi/
+      - run:
+          name: test common
+          command: go test ./common/
+      - run:
+          name: test crypto
+          command: go test ./crypto/
+      - run:
+          name: test params
+          command: go test ./params/
+      - run:
+          name: test rlp
+          command: go test ./rlp/
+      - run:
+          name: test state
+          command: go test ./state/
+      - run:
+          name: test types
+          command: go test ./types/
+      - run:
+          name: test vm
+          command: go test ./vm/
+  build_geth_push:
+    docker: # run the steps with Docker
+      - image: cimg/go:1.17.2 # ...with this image as the primary container
+      # this is where all `steps` will run
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: Prep env
+          command: |
+            mkdir -p /home/circleci/go/src
+            mkdir artifacts
+            go mod tidy
+      - run:
+          name: build geth binaries
+          command: |
+            sudo apt update
+            sudo apt install gcc-aarch64-linux-gnu libc6-dev-arm64-cross wget -y
+            PLUGETH_UTILS_VERSION=$(grep "github.com/openrelayxyz/plugeth-utils v" go.mod | cut -d ' ' -f 2)
+            export GOPATH=$HOME/go
+            export GOARCH=amd64
+            export PLUGETH_UTILS_VERSION=$(grep "github.com/openrelayxyz/plugeth-utils v" go.mod | cut -d ' ' -f 2)
+            go build -ldflags="-X 'github.com/openrelayxyz/cardinal-evm/build.Version=${CIRCLE_TAG}'" -o ./artifacts/cardinal-rpc-evm-linux-amd64-${CIRCLE_TAG} cmd/cardinal-evm-rpc/main.go
+            CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOARCH=arm64 go build -ldflags="-X 'github.com/openrelayxyz/cardinal-evm/build.Version=${CIRCLE_TAG}'" -o ./artifacts/cardinal-rpc-evm-linux-arm64-${CIRCLE_TAG} cmd/cardinal-evm-rpc/main.go
+            go build -buildmode=plugin -o ./artifacts/cardinal-evm-linux-amd64-$PLUGETH_UTILS_VERSION-${CIRCLE_TAG}.so plugin/main.go
+            CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOARCH=arm64 go build -buildmode=plugin -o ./artifacts/cardinal-evm-linux-arm64-$PLUGETH_UTILS_VERSION-${CIRCLE_TAG}.so plugin/main.go
+      - run:
+          name: "Publish Release on GitHub"
+          command: |
+            go get github.com/tcnksm/ghr
+            PLUGETH_UTILS_VERSION=$(grep "github.com/openrelayxyz/plugeth-utils v" go.mod | cut -d ' ' -f 2)
+            NAME=plugeth-$PLUGETH_UTILS_VERSION-${CIRCLE_TAG}
+            VERSION=${CIRCLE_TAG}
+            ghr  -draft -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -name $NAME -delete ${VERSION} ./artifacts/
+
+
+workflows:
+  version: 2
+  test:
+    jobs:
+      - test:
+          filters:
+            tags:
+              ignore: /^v.*/
+  build_and_test:
+    jobs:
+      - test:
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
+      - build_geth_push:
+          requires:
+            - test
