@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"math/big"
@@ -27,6 +28,9 @@ var (
 	chainid int64
 	producer transports.Producer
 	startBlock uint64
+	reorgTarget *core.Hash
+	reorgDone func()
+
 	Flags = *flag.NewFlagSet("cardinal-plugin", flag.ContinueOnError)
 	txPoolTopic = Flags.String("cardinal.txpool.topic", "", "Topic for mempool transaction data")
 	brokerURL = Flags.String("cardinal.broker.url", "x", "URL of the Cardinal Broker")
@@ -38,6 +42,7 @@ var (
 	codeTopic = Flags.String("cardinal.code.topic", "", "Topic for Cardinal contract code")
 	stateTopic = Flags.String("cardinal.state.topic", "", "Topic for Cardinal state data")
 	startBlockOverride = Flags.Uint64("cardinal.start.block", 0, "The first block to emit")
+	reorgThreshold = Flags.Int("cardinal.reorg.threshold", 0, "The number of blocks for clients to support quick reorgs")
 )
 
 func Initialize(ctx *cli.Context, loader core.PluginLoader, logger core.Logger) {
@@ -148,6 +153,27 @@ type receiptMeta struct {
 	LogOffset uint
 }
 
+func BUPreReorg(common core.Hash, oldChain []core.Hash, newChain []core.Hash) {
+	blockRLP, err := backend.BlockByHash(context.Background(), common)
+	if err != nil {
+		log.Error("Could not get block for reorg", "hash", common, "err", err)
+		return
+	}
+	var block types.Block
+	if err := rlp.DecodeBytes(blockRLP, &block); err != nil {
+		log.Error("Could not decode block during reorg", "hash", common, "err", err)
+		return
+	}
+	if len(oldChain) > *reorgThreshold && len(newChain) > 0{
+		reorgTarget = &newChain[len(newChain) - 1]
+		reorgDone, err = producer.Reorg(int64(block.NumberU64()), ctypes.Hash(common))
+		if err != nil {
+			log.Error("Could not start producer reorg", "block", common, "num", block.NumberU64(), "err", err)
+			reorgTarget = nil
+		}
+	}
+}
+
 func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, destructs map[core.Hash]struct{}, accounts map[core.Hash][]byte, storage map[core.Hash]map[core.Hash][]byte, code map[core.Hash][]byte) {
 	if producer == nil {
 		panic("Unknown broker. Please set --cardinal.broker.url")
@@ -156,6 +182,13 @@ func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, dest
 	hash := block.Hash()
 	if block.NumberU64() < startBlock {
 		log.Debug("Skipping block production", "current", block.NumberU64(), "start", startBlock)
+		return
+	}
+	if reorgTarget != nil && hash == *reorgTarget && reorgDone != nil {
+		defer func() {
+			reorgDone()
+			reorgTarget = nil
+		}()
 	}
 	headerBytes, err := rlp.EncodeToBytes(block.Header())
 	if err != nil {
