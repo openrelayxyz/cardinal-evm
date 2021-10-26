@@ -26,6 +26,7 @@ var (
 	config *params.ChainConfig
 	chainid int64
 	producer transports.Producer
+	startBlock uint64
 	Flags = *flag.NewFlagSet("cardinal-plugin", flag.ContinueOnError)
 	txPoolTopic = Flags.String("cardinal.txpool.topic", "", "Topic for mempool transaction data")
 	brokerURL = Flags.String("cardinal.broker.url", "x", "URL of the Cardinal Broker")
@@ -36,6 +37,7 @@ var (
 	receiptTopic = Flags.String("cardinal.receipt.topic", "", "Topic for Cardinal receipt data")
 	codeTopic = Flags.String("cardinal.code.topic", "", "Topic for Cardinal contract code")
 	stateTopic = Flags.String("cardinal.state.topic", "", "Topic for Cardinal state data")
+	startBlockOverride = Flags.Uint64("cardinal.start.block", 0, "The first block to emit")
 )
 
 func Initialize(ctx *cli.Context, loader core.PluginLoader, logger core.Logger) {
@@ -79,6 +81,16 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 			},
 		)
 		if err != nil { panic(err.Error()) }
+	}
+	if *startBlockOverride > 0 {
+		startBlock = *startBlockOverride
+	} else {
+		v, err := producer.LatestBlockFromFeed()
+		if err != nil {
+			log.Error("Error getting start block", "err", err)
+		} else {
+			startBlock = uint64(v)
+		}
 	}
 	log.Info("Cardinal EVM plugin initialized")
 
@@ -142,6 +154,9 @@ func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, dest
 	}
 	ready.Wait()
 	hash := block.Hash()
+	if block.NumberU64() < startBlock {
+		log.Debug("Skipping block production", "current", block.NumberU64(), "start", startBlock)
+	}
 	headerBytes, err := rlp.EncodeToBytes(block.Header())
 	if err != nil {
 		log.Error("Error parsing header", "block", block.Hash(), "err", err)
