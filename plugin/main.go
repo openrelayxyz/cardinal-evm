@@ -28,8 +28,7 @@ var (
 	chainid int64
 	producer transports.Producer
 	startBlock uint64
-	reorgTarget *core.Hash
-	reorgDone func()
+	pendingReorgs map[core.Hash]func()
 
 	Flags = *flag.NewFlagSet("cardinal-plugin", flag.ContinueOnError)
 	txPoolTopic = Flags.String("cardinal.txpool.topic", "", "Topic for mempool transaction data")
@@ -42,13 +41,14 @@ var (
 	codeTopic = Flags.String("cardinal.code.topic", "", "Topic for Cardinal contract code")
 	stateTopic = Flags.String("cardinal.state.topic", "", "Topic for Cardinal state data")
 	startBlockOverride = Flags.Uint64("cardinal.start.block", 0, "The first block to emit")
-	reorgThreshold = Flags.Int("cardinal.reorg.threshold", 0, "The number of blocks for clients to support quick reorgs")
+	reorgThreshold = Flags.Int("cardinal.reorg.threshold", 128, "The number of blocks for clients to support quick reorgs")
 )
 
 func Initialize(ctx *cli.Context, loader core.PluginLoader, logger core.Logger) {
 	ready.Add(1)
 	log = logger
 	log.Info("Cardinal EVM plugin initializing")
+	pendingReorgs = make(map[core.Hash]func())
 }
 
 func strPtr(x string) *string {
@@ -97,8 +97,6 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 			startBlock = uint64(v)
 		}
 	}
-	log.Info("Cardinal EVM plugin initialized")
-
 	if *txPoolTopic != "" {
 		go func() {
 			// TODO: we should probably do something within Cardinal streams to
@@ -139,8 +137,8 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 			}
 		}()
 	}
+	log.Info("Cardinal EVM plugin initialized")
 
-	// TODO: Setup NewTxsEvent subscription
 }
 
 type receiptMeta struct {
@@ -164,13 +162,18 @@ func BUPreReorg(common core.Hash, oldChain []core.Hash, newChain []core.Hash) {
 		log.Error("Could not decode block during reorg", "hash", common, "err", err)
 		return
 	}
-	if len(oldChain) > *reorgThreshold && len(newChain) > 0{
-		reorgTarget = &newChain[len(newChain) - 1]
-		reorgDone, err = producer.Reorg(int64(block.NumberU64()), ctypes.Hash(common))
+	if len(oldChain) > *reorgThreshold && len(newChain) > 0 {
+		pendingReorgs[common], err = producer.Reorg(int64(block.NumberU64()), ctypes.Hash(common))
 		if err != nil {
 			log.Error("Could not start producer reorg", "block", common, "num", block.NumberU64(), "err", err)
-			reorgTarget = nil
 		}
+	}
+}
+
+func BUPostReorg(common core.Hash, oldChain []core.Hash, newChain []core.Hash) {
+	if done, ok := pendingReorgs[common]; ok {
+		done()
+		delete(pendingReorgs, common)
 	}
 }
 
@@ -183,12 +186,6 @@ func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, dest
 	if block.NumberU64() < startBlock {
 		log.Debug("Skipping block production", "current", block.NumberU64(), "start", startBlock)
 		return
-	}
-	if reorgTarget != nil && hash == *reorgTarget && reorgDone != nil {
-		defer func() {
-			reorgDone()
-			reorgTarget = nil
-		}()
 	}
 	headerBytes, err := rlp.EncodeToBytes(block.Header())
 	if err != nil {

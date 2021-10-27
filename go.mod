@@ -13,12 +13,11 @@ require (
 	github.com/jedisct1/go-minisign v0.0.0-20190909160543-45766022959e
 	github.com/klauspost/compress v1.13.6 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
-	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/openrelayxyz/cardinal-rpc v0.0.5
 	github.com/openrelayxyz/cardinal-storage v0.0.3
-	github.com/openrelayxyz/cardinal-streams v0.0.2
+	github.com/openrelayxyz/cardinal-streams v0.0.7
 	github.com/openrelayxyz/cardinal-types v0.0.2
-	github.com/openrelayxyz/plugeth-utils v0.0.8
+	github.com/openrelayxyz/plugeth-utils v0.0.9
 	github.com/stretchr/testify v1.7.0
 	github.com/xdg/stringprep v1.0.3 // indirect
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
