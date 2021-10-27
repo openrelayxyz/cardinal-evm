@@ -38,9 +38,6 @@ func main() {
 
 	defaultTopic := flag.String("default.topic", "", "Default topic for Cardinal broker")
 	blockTopic := flag.String("block.topic", "", "Topic for Cardinal block data")
-	// logTopic := flag.String("logs.topic", "", "Topic for Cardinal log data")
-	// txTopic := flag.String("tx.topic", "", "Topic for Cardinal transaction data")
-	// receiptTopic := flag.String("receipt.topic", "", "Topic for Cardinal receipt data")
 	codeTopic := flag.String("code.topic", "", "Topic for Cardinal contract code")
 	stateTopic := flag.String("state.topic", "", "Topic for Cardinal state data")
 
@@ -70,9 +67,6 @@ func main() {
 	brokerURL := flag.CommandLine.Args()[0]
 	if *defaultTopic == "" { *defaultTopic = fmt.Sprintf("cardinal-%v", *chainid) }
 	if *blockTopic == "" { *blockTopic = fmt.Sprintf("%v-block", *defaultTopic) }
-	// if *logTopic == "" { *logTopic = fmt.Sprintf("%v-logs", *defaultTopic) }
-	// if *txTopic == "" { *txTopic = fmt.Sprintf("%v-tx", *defaultTopic) }
-	// if *receiptTopic == "" { *receiptTopic = fmt.Sprintf("%v-receipt", *defaultTopic) }
 	if *codeTopic == "" { *codeTopic = fmt.Sprintf("%v-code", *defaultTopic) }
 	if *stateTopic == "" { *stateTopic = fmt.Sprintf("%v-state", *defaultTopic) }
 
