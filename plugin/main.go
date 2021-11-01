@@ -262,6 +262,7 @@ func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, dest
 		batches,
 	); err != nil {
 		log.Error("Failed to send block", "block", hash, "err", err)
+		panic(err.Error())
 		return
 	}
 	batchUpdates := make(map[string][]byte)

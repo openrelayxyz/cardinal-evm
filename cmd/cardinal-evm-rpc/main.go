@@ -132,7 +132,10 @@ func main() {
 		tm.Register("debug", sm.API())
 	}
 	log.Debug("Starting stream")
-	sm.Start()
+	if err := sm.Start(); err != nil {
+		log.Error("Error starting stream", "error", err)
+		os.Exit(1)
+	}
 	log.Debug("Waiting for stream to be ready")
 	<-sm.Ready()
 	log.Debug("Stream ready")
