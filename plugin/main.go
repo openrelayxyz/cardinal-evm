@@ -74,6 +74,7 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 			*defaultTopic,
 			map[string]string{
 				fmt.Sprintf("c/%x/a/", chainid): *stateTopic,
+				fmt.Sprintf("c/%x/s", chainid): *stateTopic,
 				fmt.Sprintf("c/%x/c/", chainid): *codeTopic,
 				fmt.Sprintf("c/%x/b/[0-9a-z]+/h", chainid): *blockTopic,
 				fmt.Sprintf("c/%x/b/[0-9a-z]+/d", chainid): *blockTopic,
