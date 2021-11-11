@@ -141,12 +141,14 @@ func main() {
 	log.Debug("Stream ready")
 	if *exitWhenSynced {
 		sm.Close()
+		s.Close()
 		db.Close()
 		os.Exit(0)
 	}
 	if err := tm.Run(); err != nil {
 		log.Error("Critical Error. Shutting down.", "error", err)
 		sm.Close()
+		s.Close()
 		db.Close()
 		os.Exit(1)
 	}
