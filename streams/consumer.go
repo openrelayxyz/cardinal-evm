@@ -23,6 +23,7 @@ func NewStreamManager(brokerURL, defaultTopic string, topics []string, rollback,
 	lastHash, lastNumber, lastWeight, resumption := s.LatestBlock()
 	trackedPrefixes := []*regexp.Regexp{
 		regexp.MustCompile("c/[0-9a-z]+/a/"),
+		regexp.MustCompile("c/[0-9a-z]+/s"),
 		regexp.MustCompile("c/[0-9a-z]+/c/"),
 		regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/h"),
 		regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/d"),
