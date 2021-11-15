@@ -65,6 +65,7 @@ var (
 	emptyCode = crypto.Keccak256(nil)
 	Subcommands = map[string]func(*cli.Context, []string) error {
 		"statedump": func(*cli.Context, []string) error {
+			log.Info("Starting state dump")
 			db := backend.ChainDb()
 			snaprootbytes, _ := db.Get(snapRootKey)
 			snaproot := core.BytesToHash(snaprootbytes)
