@@ -88,55 +88,57 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 		)
 		if err != nil { panic(err.Error()) }
 	}
-	if *startBlockOverride > 0 {
-		startBlock = *startBlockOverride
-	} else {
-		v, err := producer.LatestBlockFromFeed()
-		if err != nil {
-			log.Error("Error getting start block", "err", err)
+	if *brokerURL != "" {
+		if *startBlockOverride > 0 {
+			startBlock = *startBlockOverride
 		} else {
-			startBlock = uint64(v)
-		}
-	}
-	if *txPoolTopic != "" {
-		go func() {
-			// TODO: we should probably do something within Cardinal streams to
-			// generalize this so it's not Kafka specific and can work with other
-			// transports.
-			ch := make(chan core.NewTxsEvent, 1000)
-			sub := b.SubscribeNewTxsEvent(ch)
-			brokers, config := transports.ParseKafkaURL(strings.TrimPrefix(*brokerURL, "kafka://"))
-			configEntries := make(map[string]*string)
-			configEntries["retention.ms"] = strPtr("3600000")
-			if err := transports.CreateTopicIfDoesNotExist(strings.TrimPrefix(*brokerURL, "kafka://"), *txPoolTopic, 0, configEntries); err != nil {
-				panic(fmt.Sprintf("Could not create topic %v on broker %v: %v", *txPoolTopic, *brokerURL, err.Error()))
-			}
-			// This is about twice the size of the largest possible transaction if
-			// all gas in a block were zero bytes in a transaction's data. It should
-			// be very rare for messages to even approach this size.
-			config.Producer.MaxMessageBytes = 10000024
-			producer, err := sarama.NewAsyncProducer(brokers, config)
+			v, err := producer.LatestBlockFromFeed()
 			if err != nil {
-				panic(fmt.Sprintf("Could not setup producer: %v", err.Error()))
+				log.Error("Error getting start block", "err", err)
+			} else {
+				startBlock = uint64(v)
 			}
-			for {
-				select {
-				case txEvent := <-ch:
-					for _, tx := range txEvent.Txs {
-						select {
-						case producer.Input() <- &sarama.ProducerMessage{Topic: *txPoolTopic, Value: sarama.ByteEncoder(tx)}:
-						case err := <-producer.Errors():
-							log.Error("Error emitting: %v", "err", err.Error())
-						}
-					}
-				case err := <-sub.Err():
-					log.Error("Error processing event transactions", "error", err)
-					close(ch)
-					sub.Unsubscribe()
-					return
+		}
+		if *txPoolTopic != "" {
+			go func() {
+				// TODO: we should probably do something within Cardinal streams to
+				// generalize this so it's not Kafka specific and can work with other
+				// transports.
+				ch := make(chan core.NewTxsEvent, 1000)
+				sub := b.SubscribeNewTxsEvent(ch)
+				brokers, config := transports.ParseKafkaURL(strings.TrimPrefix(*brokerURL, "kafka://"))
+				configEntries := make(map[string]*string)
+				configEntries["retention.ms"] = strPtr("3600000")
+				if err := transports.CreateTopicIfDoesNotExist(strings.TrimPrefix(*brokerURL, "kafka://"), *txPoolTopic, 0, configEntries); err != nil {
+					panic(fmt.Sprintf("Could not create topic %v on broker %v: %v", *txPoolTopic, *brokerURL, err.Error()))
 				}
-			}
-		}()
+				// This is about twice the size of the largest possible transaction if
+				// all gas in a block were zero bytes in a transaction's data. It should
+				// be very rare for messages to even approach this size.
+				config.Producer.MaxMessageBytes = 10000024
+				producer, err := sarama.NewAsyncProducer(brokers, config)
+				if err != nil {
+					panic(fmt.Sprintf("Could not setup producer: %v", err.Error()))
+				}
+				for {
+					select {
+					case txEvent := <-ch:
+						for _, tx := range txEvent.Txs {
+							select {
+							case producer.Input() <- &sarama.ProducerMessage{Topic: *txPoolTopic, Value: sarama.ByteEncoder(tx)}:
+							case err := <-producer.Errors():
+								log.Error("Error emitting: %v", "err", err.Error())
+							}
+						}
+					case err := <-sub.Err():
+						log.Error("Error processing event transactions", "error", err)
+						close(ch)
+						sub.Unsubscribe()
+						return
+					}
+				}
+			}()
+		}
 	}
 	log.Info("Cardinal EVM plugin initialized")
 
