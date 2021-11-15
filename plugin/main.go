@@ -32,7 +32,7 @@ var (
 
 	Flags = *flag.NewFlagSet("cardinal-plugin", flag.ContinueOnError)
 	txPoolTopic = Flags.String("cardinal.txpool.topic", "", "Topic for mempool transaction data")
-	brokerURL = Flags.String("cardinal.broker.url", "x", "URL of the Cardinal Broker")
+	brokerURL = Flags.String("cardinal.broker.url", "", "URL of the Cardinal Broker")
 	defaultTopic = Flags.String("cardinal.default.topic", "", "Default topic for Cardinal broker")
 	blockTopic = Flags.String("cardinal.block.topic", "", "Topic for Cardinal block data")
 	logTopic = Flags.String("cardinal.logs.topic", "", "Topic for Cardinal log data")
