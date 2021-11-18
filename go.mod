@@ -24,4 +24,5 @@ require (
 	golang.org/x/net v0.0.0-20210614182718-04defd469f4e // indirect
 	golang.org/x/sys v0.0.0-20210816183151-1e6c022a8912
 	gopkg.in/urfave/cli.v1 v1.20.0
+	gopkg.in/yaml.v2 v2.2.2
 )
