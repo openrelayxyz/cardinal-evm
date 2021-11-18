@@ -117,11 +117,16 @@ func main() {
 		db.Close()
 		os.Exit(0)
 	}
-	if err := tm.Run(); err != nil {
+	tm.RegisterHealthCheck(cfg.HealthChecks)
+	if err := tm.Run(cfg.HealthCheckPort); err != nil {
 		log.Error("Critical Error. Shutting down.", "error", err)
 		sm.Close()
 		s.Close()
 		db.Close()
 		os.Exit(1)
 	}
+	tm.Stop()
+	sm.Close()
+	s.Close()
+	db.Close()
 }

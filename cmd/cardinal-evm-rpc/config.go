@@ -7,17 +7,10 @@ import (
 	"strconv"
 	"gopkg.in/yaml.v2"
 	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-rpc"
 	"io/ioutil"
 	"os"
 )
-
-type checks struct {
-	Frequency int64 `yaml:"frequency"`
-	Payload string  `yaml:"payload"`
-	Method string   `yaml:"method"`
-	MaxHeavyResponseTime int64 `yaml:"max_heavy_response_time_ms"`
-	MaxNormalResponseTime int64 `yaml:"max_normal_response_time_ms"`
-}
 
 type broker struct {
 	URL string `yaml:"url"`
@@ -38,7 +31,8 @@ type Config struct {
 	Whitelist map[uint64]types.Hash `yaml:"whitelist"`
 	LogLevel int `yaml:"log.level"`
 	Brokers []broker `yaml:"brokers"`
-	HealthChecks []checks `yaml:"checks"`
+	HealthChecks rpc.Checks `yaml:"checks"`
+	HealthCheckPort int64 `yaml:"hc.port"`
 }
 
 func LoadConfig(fname string) (*Config, error) {
@@ -72,6 +66,9 @@ func LoadConfig(fname string) (*Config, error) {
 	}
 	if cfg.LogLevel == 0 {
 		cfg.LogLevel = 2
+	}
+	if cfg.HealthCheckPort == 0 {
+		cfg.HealthCheckPort = 9999
 	}
 	if len(cfg.Brokers) == 0 {
 		return nil, fmt.Errorf("Config must specify at least one broker")
