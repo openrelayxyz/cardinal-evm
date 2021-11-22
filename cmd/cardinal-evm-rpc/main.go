@@ -118,6 +118,7 @@ func main() {
 		os.Exit(0)
 	}
 	tm.RegisterHealthCheck(cfg.HealthChecks)
+	cfg.HealthChecks.Start(tm.Caller())
 	if err := tm.Run(cfg.HealthCheckPort); err != nil {
 		log.Error("Critical Error. Shutting down.", "error", err)
 		sm.Close()
