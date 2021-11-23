@@ -17,7 +17,7 @@
 package state
 
 import (
-	log "github.com/inconshreveable/log15"
+	// log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/types"
@@ -203,7 +203,7 @@ func (sdb *stateDB) GetCommittedState(addr common.Address, storage ctypes.Hash) 
 func (sdb *stateDB) GetState(addr common.Address, storage ctypes.Hash) ctypes.Hash {
 	sobj := sdb.getAccount(addr)
 	data := sobj.getState(sdb.tx, sdb.chainid, crypto.Keccak256Hash(storage.Bytes()))
-	log.Debug("Got state", "addr", addr, "hashaddr", crypto.Keccak256Hash(addr.Bytes()), "storage", storage, "data", data)
+	// log.Debug("Got state", "addr", addr, "hashaddr", crypto.Keccak256Hash(addr.Bytes()), "storage", storage, "data", data)
 	return data
 }
 func (sdb *stateDB) SetState(addr common.Address, storage, data ctypes.Hash) {

@@ -25,3 +25,5 @@ require (
 	golang.org/x/sys v0.0.0-20210816183151-1e6c022a8912
 	gopkg.in/urfave/cli.v1 v1.20.0
 )
+
+replace github.com/dgraph-io/ristretto v0.1.0 => github.com/46bit/ristretto v0.1.0-with-arm-fix
