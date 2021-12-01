@@ -3,6 +3,7 @@ package state
 import (
 	// "fmt"
 	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-storage"
 	"github.com/openrelayxyz/cardinal-types"
 	"math/big"
@@ -56,17 +57,38 @@ func TestNull(t *testing.T) {
 func TestPreLoadedSnapshot(t *testing.T) {
 	stateobjaddr := common.BytesToAddress([]byte("aa"))
 	var storageaddr types.Hash
+	data1 := types.BytesToHash([]byte{42})
 	data2 := types.BytesToHash([]byte{43})
+	data3 := types.BytesToHash([]byte{44})
 	if err := testLoadedWithStateDB([]storage.KeyValue{
 		{common.FromHex("632f312f612f366566626666643066343866316532393463613964343166633938333263323231393935343833363931393239363136636139613263663835346432643733372f64"), common.FromHex("c0")},
 		{common.FromHex("632f312f612f366566626666643066343866316532393463613964343166633938333263323231393935343833363931393239363136636139613263663835346432643733372f732f32393064656364393534386236326138643630333435613938383338366663383462613662633935343834303038663633363266393331363065663365353633"), common.FromHex("000000000000000000000000000000000000000000000000000000000000002b")},
 	},
-		func(tx storage.Transaction, sdb StateDB) error {
-			if v := sdb.GetState(stateobjaddr, storageaddr); v != data2 {
-				t.Errorf("wrong storage value %v, want %v", v, data2)
-			}
-			return nil
-		}); err != nil {
+	func(tx storage.Transaction, sdb StateDB) error {
+		if v := sdb.GetState(stateobjaddr, storageaddr); v != data2 {
+			t.Errorf("wrong storage value %v, want %v", v, data2)
+		}
+		sdb.SetState(stateobjaddr, storageaddr, data1)
+		if v := sdb.GetCommittedState(stateobjaddr, storageaddr); v != data2 {
+			t.Errorf("wrong committed storage value %v, want %v", v, data2)
+		}
+		if v := sdb.GetState(stateobjaddr, storageaddr); v != data1 {
+			t.Errorf("wrong updated storage value %v, want %v", v, data1)
+		}
+		storageaddrhash := crypto.Keccak256Hash(storageaddr.Bytes())
+		sobj := sdb.(*stateDB).getAccount(stateobjaddr)
+		if val, ok := sobj.clean[storageaddrhash]; !ok || val != data2 {
+			t.Errorf("wrong clean storage value %v, want %v", val, data2)
+		}
+		if val, ok := sobj.dirty[storageaddrhash]; !ok || val != data1 {
+			t.Errorf("wrong dirty storage value %v, want %v", val, data1)
+		}
+		sobj.clean[storageaddrhash] = data3
+		if v := sdb.GetCommittedState(stateobjaddr, storageaddr); v != data3 {
+			t.Errorf("wrong updated committed storage value %v, want %v", v, data3)
+		}
+		return nil
+	}); err != nil {
 		t.Errorf(err.Error())
 	}
 }
