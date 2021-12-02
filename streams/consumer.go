@@ -7,7 +7,6 @@ import (
 	"github.com/openrelayxyz/cardinal-types"
 	"fmt"
 	"regexp"
-	"strings"
 	log "github.com/inconshreveable/log15"
 )
 
@@ -19,7 +18,7 @@ type StreamManager struct{
 	ready    chan struct{}
 }
 
-func NewStreamManager(brokerURL, defaultTopic string, topics []string, rollback, reorgThreshold, chainid int64, s storage.Storage, whitelist map[uint64]types.Hash) (*StreamManager, error) {
+func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, chainid int64, s storage.Storage, whitelist map[uint64]types.Hash) (*StreamManager, error) {
 	lastHash, lastNumber, lastWeight, resumption := s.LatestBlock()
 	trackedPrefixes := []*regexp.Regexp{
 		regexp.MustCompile("c/[0-9a-z]+/a/"),
@@ -31,11 +30,7 @@ func NewStreamManager(brokerURL, defaultTopic string, topics []string, rollback,
 	}
 	var consumer transports.Consumer
 	var err error
-	if strings.HasPrefix(brokerURL, "kafka://") {
-		consumer, err = transports.NewKafkaConsumer(brokerURL, defaultTopic, topics, resumption, rollback, int64(lastNumber), lastHash, lastWeight, reorgThreshold, trackedPrefixes, whitelist)
-	} else if strings.HasPrefix(brokerURL, "null://") {
-		consumer = transports.NewNullConsumer()
-	}
+	consumer, err = transports.ResolveMuxConsumer(brokerParams, resumption, int64(lastNumber), lastHash, lastWeight, reorgThreshold, trackedPrefixes, whitelist)
 	if err != nil { return nil, err }
 	return &StreamManager{
 		consumer: consumer,

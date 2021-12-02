@@ -8,6 +8,7 @@ import (
 	"gopkg.in/yaml.v2"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-rpc"
+	"github.com/openrelayxyz/cardinal-streams/transports"
 	"io/ioutil"
 	"os"
 )
@@ -18,6 +19,7 @@ type broker struct {
 	BlockTopic string `yaml:"block.topic"`
 	CodeTopic string `yaml:"code.topic"`
 	StateTopic string `yaml:"state.topic"`
+	Rollback int64 `yaml:"rollback"`
 }
 
 type Config struct {
@@ -26,13 +28,13 @@ type Config struct {
 	Chainid int64 `yaml:"chainid"`
 	ReorgThreshold int64 `yaml:"reorg.threshold"`
 	DataDir string `yaml:"datadir"`
-	Rollback int64 `yaml:"rollback"`
 	TransactionTopic string `yaml:"topic.transactions"`
 	Whitelist map[uint64]types.Hash `yaml:"whitelist"`
 	LogLevel int `yaml:"log.level"`
 	Brokers []broker `yaml:"brokers"`
 	HealthChecks rpc.Checks `yaml:"checks"`
 	HealthCheckPort int64 `yaml:"hc.port"`
+	brokers []transports.BrokerParams
 }
 
 func LoadConfig(fname string) (*Config, error) {
@@ -58,9 +60,6 @@ func LoadConfig(fname string) (*Config, error) {
 	if cfg.DataDir == "" {
 		cfg.DataDir = path.Join(home, ".cardinal", "evm", strconv.Itoa(int(cfg.Chainid)))
 	}
-	if cfg.Rollback == 0 {
-		cfg.Rollback = 128
-	}
 	if cfg.Whitelist == nil {
 		cfg.Whitelist = make(map[uint64]types.Hash)
 	}
@@ -73,6 +72,7 @@ func LoadConfig(fname string) (*Config, error) {
 	if len(cfg.Brokers) == 0 {
 		return nil, fmt.Errorf("Config must specify at least one broker")
 	}
+	cfg.brokers = make([]transports.BrokerParams, len(cfg.Brokers))
 	for i := range cfg.Brokers {
 		if cfg.Brokers[i].DefaultTopic == "" {
 			cfg.Brokers[i].DefaultTopic = fmt.Sprintf("cardinal-%v", cfg.Chainid)
@@ -85,6 +85,20 @@ func LoadConfig(fname string) (*Config, error) {
 		}
 		if cfg.Brokers[i].StateTopic == "" {
 			cfg.Brokers[i].StateTopic = fmt.Sprintf("%v-state", cfg.Brokers[i].DefaultTopic)
+		}
+		if cfg.Brokers[i].Rollback == 0 {
+			cfg.Brokers[i].Rollback = 5000
+		}
+		cfg.brokers[i] = transports.BrokerParams{
+			URL: cfg.Brokers[i].URL,
+			DefaultTopic: cfg.Brokers[i].DefaultTopic,
+			Topics: []string{
+				cfg.Brokers[i].DefaultTopic,
+				cfg.Brokers[i].BlockTopic,
+				cfg.Brokers[i].CodeTopic,
+				cfg.Brokers[i].StateTopic,
+			},
+			Rollback: cfg.Brokers[i].Rollback,
 		}
 	}
 	return &cfg, nil

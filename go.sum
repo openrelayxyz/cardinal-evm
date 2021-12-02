@@ -1,4 +1,6 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
+github.com/46bit/ristretto v0.1.0-with-arm-fix h1:jcjBpelxSNRlrGUo5jZnJNESgCsiJzDfCPQTugh6al0=
+github.com/46bit/ristretto v0.1.0-with-arm-fix/go.mod h1:fux0lOrBhrVCJd3lcTHsIJhq1T2rokOu6v9Vcb3Q9ug=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/NYTimes/gziphandler v1.1.1 h1:ZUDjpQae29j0ryrS0u/B8HZfJBtBQHjqw2rQ2cqUQ3I=
 github.com/NYTimes/gziphandler v1.1.1/go.mod h1:n/CVRwUEOgIxrgPvAQhUUr9oeUtvrhMomdKFjzJNB0c=
@@ -158,6 +160,8 @@ github.com/openrelayxyz/cardinal-streams v0.0.10 h1:jPjZv3jtfhVP3vjNUALPzO+OfB28
 github.com/openrelayxyz/cardinal-streams v0.0.10/go.mod h1:aCKrT8rkDKCWuf+AgwigQK8NYv63ZXPBgvPEpPG1o3E=
 github.com/openrelayxyz/cardinal-types v0.0.2 h1:TJji/dIaOtqYLv70NidT35B/XWaS1X/ujZH1CJWdZNQ=
 github.com/openrelayxyz/cardinal-types v0.0.2/go.mod h1:PEbimhE1ZWP5ZAYwjZjnSaKcDY+E+yJrIl0ckU5GMeo=
+github.com/openrelayxyz/cardinal-types v0.0.3 h1:IK9vrF/53nz+1Xp+Hl2/m6mqtnzrbBF8gxt6AkZNhLM=
+github.com/openrelayxyz/cardinal-types v0.0.3/go.mod h1:PEbimhE1ZWP5ZAYwjZjnSaKcDY+E+yJrIl0ckU5GMeo=
 github.com/openrelayxyz/drumline v0.4.0 h1:dy//XNdRV0aO63f/mg2j0/gJmZmsed3Bl5oUlphIcsE=
 github.com/openrelayxyz/drumline v0.4.0/go.mod h1:tuP4gn2CYgrEIpVJSfwePU1mVBJfppApZZUU731OOkk=
 github.com/openrelayxyz/plugeth-utils v0.0.9 h1:Rz0nwzirHSpGa6TfTuPl9/0W0TSN5vsYW+DtQH8QLIc=

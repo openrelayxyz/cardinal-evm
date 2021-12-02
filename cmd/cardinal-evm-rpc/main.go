@@ -71,10 +71,7 @@ func main() {
 		os.Exit(1)
 	}
 	sm, err := streams.NewStreamManager(
-		broker.URL,
-		broker.DefaultTopic,
-		[]string{broker.DefaultTopic, broker.BlockTopic, broker.CodeTopic, broker.StateTopic},
-		cfg.Rollback,
+		cfg.brokers,
 		cfg.ReorgThreshold,
 		cfg.Chainid,
 		s,
