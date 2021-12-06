@@ -16,7 +16,7 @@ require (
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/openrelayxyz/cardinal-rpc v0.0.8
 	github.com/openrelayxyz/cardinal-storage v0.0.5
-	github.com/openrelayxyz/cardinal-streams v0.0.12
+	github.com/openrelayxyz/cardinal-streams v0.0.13-muxer-0
 	github.com/openrelayxyz/cardinal-types v0.0.3
 	github.com/openrelayxyz/plugeth-utils v0.0.9
 	github.com/stretchr/testify v1.7.0
@@ -29,5 +29,3 @@ require (
 )
 
 replace github.com/dgraph-io/ristretto v0.1.0 => github.com/46bit/ristretto v0.1.0-with-arm-fix
-
-replace github.com/openrelayxyz/cardinal-streams => ../cardinal-streams
