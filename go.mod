@@ -6,7 +6,6 @@ require (
 	github.com/Shopify/sarama v1.28.0
 	github.com/btcsuite/btcd v0.22.0-beta
 	github.com/davecgh/go-spew v1.1.1
-	github.com/dgraph-io/badger/v3 v3.2103.1 // indirect
 	github.com/google/gofuzz v1.1.1-0.20200604201612-c04b05f3adfa
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d // indirect
 	github.com/holiman/uint256 v1.2.0

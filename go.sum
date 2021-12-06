@@ -42,8 +42,6 @@ github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSs
 github.com/decred/dcrd/lru v1.0.0/go.mod h1:mxKOwFd7lFjN2GZYsiz/ecgqR6kkYAl+0pz0tEMk218=
 github.com/dgraph-io/badger/v3 v3.2103.1 h1:zaX53IRg7ycxVlkd5pYdCeFp1FynD6qBGQoQql3R3Hk=
 github.com/dgraph-io/badger/v3 v3.2103.1/go.mod h1:dULbq6ehJ5K0cGW/1TQ9iSfUk0gbSiToDWmWmTsJ53E=
-github.com/dgraph-io/ristretto v0.1.0 h1:Jv3CGQHp9OjuMBSne1485aDpUkTKEcUqF+jm/LuerPI=
-github.com/dgraph-io/ristretto v0.1.0/go.mod h1:fux0lOrBhrVCJd3lcTHsIJhq1T2rokOu6v9Vcb3Q9ug=
 github.com/dgryski/go-farm v0.0.0-20190423205320-6a90982ecee2 h1:tdlZCpZ/P9DhczCTSixgIKmwPv6+wP5DGjqLYw5SUiA=
 github.com/dgryski/go-farm v0.0.0-20190423205320-6a90982ecee2/go.mod h1:SqUrOPUnsFjfmXRMNPybcSiG0BgUW2AuFH8PAnS2iTw=
 github.com/dustin/go-humanize v1.0.0 h1:VSnTsYCnlFHaM2/igO1h6X3HA71jcobQuxemgkq4zYo=
@@ -156,9 +154,8 @@ github.com/openrelayxyz/cardinal-rpc v0.0.8 h1:V1CuXmvN0zVBO+i5rbWT28WP15b7UKhgo
 github.com/openrelayxyz/cardinal-rpc v0.0.8/go.mod h1:KlJmoN8ClqZIJsuLbvPS271T+IT+WCX2HO5blrUlPrk=
 github.com/openrelayxyz/cardinal-storage v0.0.5 h1:XnveJ/Z4JWtx8J3QxNA2czujGF0QIcBoSQcVYrV7oRA=
 github.com/openrelayxyz/cardinal-storage v0.0.5/go.mod h1:R62NHDzI3TA7d1X4W5gVZ5F9v65jgz56j3MoNpG1DgQ=
-github.com/openrelayxyz/cardinal-streams v0.0.10 h1:jPjZv3jtfhVP3vjNUALPzO+OfB283ULvUpZyqQamZW0=
-github.com/openrelayxyz/cardinal-streams v0.0.10/go.mod h1:aCKrT8rkDKCWuf+AgwigQK8NYv63ZXPBgvPEpPG1o3E=
-github.com/openrelayxyz/cardinal-types v0.0.2 h1:TJji/dIaOtqYLv70NidT35B/XWaS1X/ujZH1CJWdZNQ=
+github.com/openrelayxyz/cardinal-streams v0.0.13-muxer-0 h1:0f/0IzJlDYwqe3Mn12G4TGIWijHxDQI/DVOYcPIohBE=
+github.com/openrelayxyz/cardinal-streams v0.0.13-muxer-0/go.mod h1:So7C/eKHgR/+m2fue0gUzQ0JT35iceBddiCfOrpZZCs=
 github.com/openrelayxyz/cardinal-types v0.0.2/go.mod h1:PEbimhE1ZWP5ZAYwjZjnSaKcDY+E+yJrIl0ckU5GMeo=
 github.com/openrelayxyz/cardinal-types v0.0.3 h1:IK9vrF/53nz+1Xp+Hl2/m6mqtnzrbBF8gxt6AkZNhLM=
 github.com/openrelayxyz/cardinal-types v0.0.3/go.mod h1:PEbimhE1ZWP5ZAYwjZjnSaKcDY+E+yJrIl0ckU5GMeo=
