@@ -22,6 +22,22 @@ type broker struct {
 	Rollback int64 `yaml:"rollback"`
 }
 
+type statsdOpts struct {
+	Address  string `yaml:"address"`
+	Port     string `yaml:"port"`
+	Prefix   string `yaml:"prefix"`
+	Interval int64  `yaml:"interval.sec"`
+	Minor    bool   `yaml:"include.minor"`
+}
+
+type cloudwatchOpts struct {
+	Namespace   string            `yaml:"namespace"`
+	Dimensions  map[string]string `yaml:"dimensions"`
+	Interval    int64             `yaml:"interval.sec"`
+	Percentiles []float64         `yaml:"percentiles"`
+	Minor       bool              `yaml:"include.minor"`
+}
+
 type Config struct {
 	HttpPort int64 `yaml:"http.port"`
 	Concurrency int `yaml:"concurrency"`
@@ -34,6 +50,8 @@ type Config struct {
 	Brokers []broker `yaml:"brokers"`
 	HealthChecks rpc.Checks `yaml:"checks"`
 	HealthCheckPort int64 `yaml:"hc.port"`
+	Statsd *statsdOpts `yaml:"statsd"`
+	CloudWatch *cloudwatchOpts `yaml:"cloudwatch"`
 	brokers []transports.BrokerParams
 }
 

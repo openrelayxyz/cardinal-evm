@@ -5,9 +5,14 @@ import (
 	"github.com/openrelayxyz/cardinal-streams/transports"
 	"github.com/openrelayxyz/cardinal-storage"
 	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-types/metrics"
 	"fmt"
 	"regexp"
 	log "github.com/inconshreveable/log15"
+)
+
+var (
+	heightGauge = metrics.NewMajorGauge("/evm/height")
 )
 
 type StreamManager struct{
@@ -76,6 +81,7 @@ func (m *StreamManager) Start() error {
 					); err != nil {
 						log.Error("Error adding block", "block", pb.Hash, "number", pb.Number, "error", err)
 					}
+					heightGauge.Update(pb.Number)
 					pb.Done()
 				}
 			case reorg := <-reorgCh:

@@ -1,18 +1,25 @@
 package main
 
 import (
+	"net"
 	_ "net/http/pprof"
 	"net/http"
 	"flag"
+	"fmt"
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/api"
 	"github.com/openrelayxyz/cardinal-evm/params"
 	"github.com/openrelayxyz/cardinal-evm/txemitter"
 	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-evm/streams"
+	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-rpc/transports"
 	"github.com/openrelayxyz/cardinal-storage/current"
 	"github.com/openrelayxyz/cardinal-storage/db/badgerdb"
+	"github.com/savaki/cloudmetrics"
+	"github.com/pubnub/go-metrics-statsd"
+	"strconv"
+	"time"
 	"os"
 )
 
@@ -43,6 +50,67 @@ func main() {
 		logLvl = log.LvlInfo
 	}
 	log.Root().SetHandler(log.LvlFilterHandler(logLvl, log.Root().GetHandler()))
+
+	if cfg.Statsd != nil && cfg.Statsd.Port != "" {
+		addr := "127.0.0.1:" + cfg.Statsd.Port
+		if cfg.Statsd.Address != "" {
+			addr = fmt.Sprintf("%v:%v", cfg.Statsd.Address, cfg.Statsd.Port)
+		}
+		udpAddr, err := net.ResolveUDPAddr("udp", addr)
+		if err != nil {
+			log.Error("Invalid Address. Statsd will not be configured.", "error", err.Error())
+		}
+		interval := time.Duration(cfg.Statsd.Interval) * time.Second
+		if cfg.Statsd.Interval == 0 {
+			interval = time.Second
+		}
+		prefix := cfg.Statsd.Prefix
+		if prefix == "" {
+			prefix = "cardinal.evm"
+		}
+		go statsd.StatsD(
+			metrics.MajorRegistry,
+			interval,
+			prefix,
+			udpAddr,
+		)
+		if cfg.Statsd.Minor {
+			go statsd.StatsD(
+				metrics.MinorRegistry,
+				interval,
+				prefix,
+				udpAddr,
+			)
+		}
+	}
+	if cfg.CloudWatch != nil {
+		namespace := cfg.CloudWatch.Namespace
+		if namespace == "" {
+			namespace = "Cardinal"
+		}
+		dimensions := []string{}
+		for k, v := range cfg.CloudWatch.Dimensions {
+			dimensions = append(dimensions, k, v)
+		}
+		if len(dimensions) == 0 {
+			dimensions = append(dimensions, "chainid", strconv.Itoa(int(cfg.Chainid)))
+		}
+		cwcfg := []func(*cloudmetrics.Publisher){
+			cloudmetrics.Dimensions(dimensions...),
+		}
+		if cfg.CloudWatch.Interval > 0 {
+			cwcfg = append(cwcfg, cloudmetrics.Interval(time.Duration(cfg.CloudWatch.Interval) * time.Second))
+		}
+		if len(cfg.CloudWatch.Percentiles) > 0 {
+			cwcfg = append(cwcfg, cloudmetrics.Percentiles(cfg.CloudWatch.Percentiles))
+		}
+		if cfg.CloudWatch.Minor {
+			go cloudmetrics.Publish(metrics.MinorRegistry,
+				namespace,
+				cwcfg...
+			)
+		}
+	}
 
 	if len(cfg.Brokers) == 0 {
 		log.Error("No brokers specified")
@@ -99,6 +167,7 @@ func main() {
 			http.ListenAndServe("localhost:6060", nil)
 		}()
 		tm.Register("debug", sm.API())
+		tm.Register("debug", &metrics.MetricsAPI{})
 	}
 	log.Debug("Starting stream")
 	if err := sm.Start(); err != nil {
