@@ -58,8 +58,8 @@ jobs:
             export GOPATH=$HOME/go
             export GOARCH=amd64
             export PLUGETH_UTILS_VERSION=$(grep "github.com/openrelayxyz/plugeth-utils v" go.mod | cut -d ' ' -f 2)
-            go build -ldflags="-X 'github.com/openrelayxyz/cardinal-evm/build.Version=${CIRCLE_TAG}'" -o ./artifacts/cardinal-rpc-evm-linux-amd64-${CIRCLE_TAG} cmd/cardinal-evm-rpc/main.go
-            CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOARCH=arm64 go build -ldflags="-X 'github.com/openrelayxyz/cardinal-evm/build.Version=${CIRCLE_TAG}'" -o ./artifacts/cardinal-rpc-evm-linux-arm64-${CIRCLE_TAG} cmd/cardinal-evm-rpc/main.go
+            go build -ldflags="-X 'github.com/openrelayxyz/cardinal-evm/build.Version=${CIRCLE_TAG}'" -o ./artifacts/cardinal-rpc-evm-linux-amd64-${CIRCLE_TAG} cmd/cardinal-evm-rpc/*.go
+            CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOARCH=arm64 go build -ldflags="-X 'github.com/openrelayxyz/cardinal-evm/build.Version=${CIRCLE_TAG}'" -o ./artifacts/cardinal-rpc-evm-linux-arm64-${CIRCLE_TAG} cmd/cardinal-evm-rpc/*.go
             go build -buildmode=plugin -o ./artifacts/cardinal-evm-linux-amd64-$PLUGETH_UTILS_VERSION-${CIRCLE_TAG}.so plugin/*.go
             CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOARCH=arm64 go build -buildmode=plugin -o ./artifacts/cardinal-evm-linux-arm64-$PLUGETH_UTILS_VERSION-${CIRCLE_TAG}.so plugin/*.go
       - run:

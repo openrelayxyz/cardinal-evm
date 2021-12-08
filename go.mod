@@ -13,10 +13,10 @@ require (
 	github.com/jedisct1/go-minisign v0.0.0-20190909160543-45766022959e
 	github.com/klauspost/compress v1.13.6 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
-	github.com/openrelayxyz/cardinal-rpc v0.0.5
-	github.com/openrelayxyz/cardinal-storage v0.0.6
-	github.com/openrelayxyz/cardinal-streams v0.0.10
-	github.com/openrelayxyz/cardinal-types v0.0.2
+	github.com/openrelayxyz/cardinal-rpc v0.0.8
+	github.com/openrelayxyz/cardinal-storage v0.0.5
+	github.com/openrelayxyz/cardinal-streams v0.0.13-muxer-0
+	github.com/openrelayxyz/cardinal-types v0.0.3
 	github.com/openrelayxyz/plugeth-utils v0.0.9
 	github.com/stretchr/testify v1.7.0
 	github.com/xdg/stringprep v1.0.3 // indirect
@@ -24,6 +24,7 @@ require (
 	golang.org/x/net v0.0.0-20210614182718-04defd469f4e // indirect
 	golang.org/x/sys v0.0.0-20210816183151-1e6c022a8912
 	gopkg.in/urfave/cli.v1 v1.20.0
+	gopkg.in/yaml.v2 v2.2.2
 )
 
 replace github.com/dgraph-io/ristretto v0.1.0 => github.com/46bit/ristretto v0.1.0-with-arm-fix
