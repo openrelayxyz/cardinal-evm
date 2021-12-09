@@ -60,27 +60,29 @@ func main() {
 		if err != nil {
 			log.Error("Invalid Address. Statsd will not be configured.", "error", err.Error())
 		}
-		interval := time.Duration(cfg.Statsd.Interval) * time.Second
-		if cfg.Statsd.Interval == 0 {
-			interval = time.Second
-		}
-		prefix := cfg.Statsd.Prefix
-		if prefix == "" {
-			prefix = "cardinal.evm"
-		}
-		go statsd.StatsD(
-			metrics.MajorRegistry,
-			interval,
-			prefix,
-			udpAddr,
-		)
-		if cfg.Statsd.Minor {
+		else {
+			interval := time.Duration(cfg.Statsd.Interval) * time.Second
+			if cfg.Statsd.Interval == 0 {
+				interval = time.Second
+			}
+			prefix := cfg.Statsd.Prefix
+			if prefix == "" {
+				prefix = "cardinal.evm"
+			}
 			go statsd.StatsD(
-				metrics.MinorRegistry,
+				metrics.MajorRegistry,
 				interval,
 				prefix,
 				udpAddr,
 			)
+			if cfg.Statsd.Minor {
+				go statsd.StatsD(
+					metrics.MinorRegistry,
+					interval,
+					prefix,
+					udpAddr,
+				)
+			}
 		}
 	}
 	if cfg.CloudWatch != nil {

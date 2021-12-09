@@ -5,20 +5,23 @@ import (
 	"flag"
 	"fmt"
 	"math/big"
+	"net"
+	"time"
 	"github.com/Shopify/sarama"
 	ctypes "github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-streams/transports"
 	"github.com/openrelayxyz/plugeth-utils/core"
 	"github.com/openrelayxyz/plugeth-utils/restricted"
 	"github.com/openrelayxyz/plugeth-utils/restricted/rlp"
 	"github.com/openrelayxyz/plugeth-utils/restricted/types"
 	"github.com/openrelayxyz/plugeth-utils/restricted/params"
+	"github.com/savaki/cloudmetrics"
+	"github.com/pubnub/go-metrics-statsd"
 	"gopkg.in/urfave/cli.v1"
 	"strings"
 	"sync"
 )
-
-// TODO: Large reorg handling
 
 var (
 	log core.Logger
@@ -29,6 +32,8 @@ var (
 	producer transports.Producer
 	startBlock uint64
 	pendingReorgs map[core.Hash]func()
+	gethHeightGauge = metrics.NewMajorGauge("cardinal/geth/height")
+	masterHeightGauge = metrics.NewMajorGauge("cardinal/master/height")
 
 	Flags = *flag.NewFlagSet("cardinal-plugin", flag.ContinueOnError)
 	txPoolTopic = Flags.String("cardinal.txpool.topic", "", "Topic for mempool transaction data")
@@ -42,6 +47,8 @@ var (
 	stateTopic = Flags.String("cardinal.state.topic", "", "Topic for Cardinal state data")
 	startBlockOverride = Flags.Uint64("cardinal.start.block", 0, "The first block to emit")
 	reorgThreshold = Flags.Int("cardinal.reorg.threshold", 128, "The number of blocks for clients to support quick reorgs")
+	statsdaddr = Flags.String("cardinal.statsd.addr", "", "UDP address for a statsd endpoint")
+	cloudwatchns = Flags.String("cardinal.cloudwatch.namespace", "", "CloudWatch Namespace for cardinal metrics")
 )
 
 func Initialize(ctx *cli.Context, loader core.PluginLoader, logger core.Logger) {
@@ -89,6 +96,25 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 		if err != nil { panic(err.Error()) }
 	}
 	if *brokerURL != "" {
+		if *statsdaddr != "" {
+			udpAddr, err := net.ResolveUDPAddr("udp", *statsdaddr)
+			if err != nil {
+				log.Error("Invalid Address. Statsd will not be configured.", "error", err.Error())
+			}
+			go statsd.StatsD(
+				metrics.MajorRegistry,
+				20 * time.Second,
+				"cardinal.geth.master",
+				udpAddr,
+			)
+		}
+		if *cloudwatchns != "" {
+			go cloudmetrics.Publish(metrics.MajorRegistry,
+				*cloudwatchns,
+				cloudmetrics.Dimensions("chainid", fmt.Sprintf("%v", chainid)),
+				cloudmetrics.Interval(30 * time.Second),
+			)
+		}
 		if *startBlockOverride > 0 {
 			startBlock = *startBlockOverride
 		} else {
@@ -255,6 +281,8 @@ func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, dest
 		}
 	}
 	log.Info("Producing block to kafka", "hash", hash, "number", block.NumberU64())
+	gethHeightGauge.Update(block.Number().Int64())
+	masterHeightGauge.Update(block.Number().Int64())
 	if err := producer.AddBlock(
 		block.Number().Int64(),
 		ctypes.Hash(hash),
