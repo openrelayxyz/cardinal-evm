@@ -104,6 +104,10 @@ func main() {
 		if len(cfg.CloudWatch.Percentiles) > 0 {
 			cwcfg = append(cwcfg, cloudmetrics.Percentiles(cfg.CloudWatch.Percentiles))
 		}
+		go cloudmetrics.Publish(metrics.MajorRegistry,
+			namespace,
+			cwcfg...
+		)
 		if cfg.CloudWatch.Minor {
 			go cloudmetrics.Publish(metrics.MinorRegistry,
 				namespace,
