@@ -59,8 +59,7 @@ func main() {
 		udpAddr, err := net.ResolveUDPAddr("udp", addr)
 		if err != nil {
 			log.Error("Invalid Address. Statsd will not be configured.", "error", err.Error())
-		}
-		else {
+		} else {
 			interval := time.Duration(cfg.Statsd.Interval) * time.Second
 			if cfg.Statsd.Interval == 0 {
 				interval = time.Second
