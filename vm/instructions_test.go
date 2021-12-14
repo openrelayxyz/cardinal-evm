@@ -21,9 +21,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"sync"
 	"testing"
 
-	"github.com/holiman/uint256"
+	// "github.com/holiman/uint256"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/params"
@@ -101,19 +102,19 @@ func testTwoOperandOp(t *testing.T, tests []TwoOperandTestcase, opFn executionFu
 	)
 
 	for i, test := range tests {
-		x := new(uint256.Int).SetBytes(common.Hex2Bytes(test.X))
-		y := new(uint256.Int).SetBytes(common.Hex2Bytes(test.Y))
-		expected := new(uint256.Int).SetBytes(common.Hex2Bytes(test.Expected))
+		x := new(Int).SetBytes(common.Hex2Bytes(test.X))
+		y := new(Int).SetBytes(common.Hex2Bytes(test.Y))
+		expected := new(Int).SetBytes(common.Hex2Bytes(test.Expected))
 		stack.push(x)
 		stack.push(y)
-		opFn(&pc, evmInterpreter, &ScopeContext{nil, stack, nil})
+		opFn(&pc, evmInterpreter, &ScopeContext{nil, stack, nil, sync.RWMutex{}})
 		if len(stack.data) != 1 {
 			t.Errorf("Expected one item on stack after %v, got %d: ", name, len(stack.data))
 		}
 		actual := stack.pop()
 
 		if actual.Cmp(expected) != 0 {
-			t.Errorf("Testcase %v %d, %v(%x, %x): expected  %x, got %x", name, i, name, x, y, expected, actual)
+			t.Errorf("Testcase %v %d, %v(%x, %x): expected  %x, got %x", name, i, name, x.Uint256(), y.Uint256(), expected.Uint256(), actual.Uint256())
 		}
 	}
 }
@@ -214,17 +215,17 @@ func TestAddMod(t *testing.T) {
 	// in 256 bit repr, fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd
 
 	for i, test := range tests {
-		x := new(uint256.Int).SetBytes(common.Hex2Bytes(test.x))
-		y := new(uint256.Int).SetBytes(common.Hex2Bytes(test.y))
-		z := new(uint256.Int).SetBytes(common.Hex2Bytes(test.z))
-		expected := new(uint256.Int).SetBytes(common.Hex2Bytes(test.expected))
+		x := new(Int).SetBytes(common.Hex2Bytes(test.x))
+		y := new(Int).SetBytes(common.Hex2Bytes(test.y))
+		z := new(Int).SetBytes(common.Hex2Bytes(test.z))
+		expected := new(Int).SetBytes(common.Hex2Bytes(test.expected))
 		stack.push(z)
 		stack.push(y)
 		stack.push(x)
-		opAddmod(&pc, evmInterpreter, &ScopeContext{nil, stack, nil})
+		opAddmod(&pc, evmInterpreter, &ScopeContext{nil, stack, nil, sync.RWMutex{}})
 		actual := stack.pop()
 		if actual.Cmp(expected) != 0 {
-			t.Errorf("Testcase %d, expected  %x, got %x", i, expected, actual)
+			t.Errorf("Testcase %d, expected  %x, got %x", i, expected.Uint256(), actual.Uint256())
 		}
 	}
 }
@@ -239,13 +240,13 @@ func getResult(args []*twoOperandParams, opFn executionFunc) []TwoOperandTestcas
 	)
 	result := make([]TwoOperandTestcase, len(args))
 	for i, param := range args {
-		x := new(uint256.Int).SetBytes(common.Hex2Bytes(param.x))
-		y := new(uint256.Int).SetBytes(common.Hex2Bytes(param.y))
+		x := new(Int).SetBytes(common.Hex2Bytes(param.x))
+		y := new(Int).SetBytes(common.Hex2Bytes(param.y))
 		stack.push(x)
 		stack.push(y)
-		opFn(&pc, interpreter, &ScopeContext{nil, stack, nil})
+		opFn(&pc, interpreter, &ScopeContext{nil, stack, nil, sync.RWMutex{}})
 		actual := stack.pop()
-		result[i] = TwoOperandTestcase{param.x, param.y, fmt.Sprintf("%064x", actual)}
+		result[i] = TwoOperandTestcase{param.x, param.y, fmt.Sprintf("%064x", actual.Uint256())}
 	}
 	return result
 }
@@ -297,11 +298,11 @@ func opBenchmark(bench *testing.B, op executionFunc, args ...string) {
 	bench.ResetTimer()
 	for i := 0; i < bench.N; i++ {
 		for _, arg := range byteArgs {
-			a := new(uint256.Int)
+			a := new(Int)
 			a.SetBytes(arg)
 			stack.push(a)
 		}
-		op(&pc, evmInterpreter, &ScopeContext{nil, stack, nil})
+		op(&pc, evmInterpreter, &ScopeContext{nil, stack, nil, sync.RWMutex{}})
 		stack.pop()
 	}
 }
@@ -526,13 +527,13 @@ func TestOpMstore(t *testing.T) {
 	mem.Resize(64)
 	pc := uint64(0)
 	v := "abcdef00000000000000abba000000000deaf000000c0de00100000000133700"
-	stack.pushN(*new(uint256.Int).SetBytes(common.Hex2Bytes(v)), *new(uint256.Int))
-	opMstore(&pc, evmInterpreter, &ScopeContext{mem, stack, nil})
+	stack.pushN(new(Int).SetBytes(common.Hex2Bytes(v)), new(Int))
+	opMstore(&pc, evmInterpreter, &ScopeContext{mem, stack, nil, sync.RWMutex{}})
 	if got := common.Bytes2Hex(mem.GetCopy(0, 32)); got != v {
 		t.Fatalf("Mstore fail, got %v, expected %v", got, v)
 	}
-	stack.pushN(*new(uint256.Int).SetUint64(0x1), *new(uint256.Int))
-	opMstore(&pc, evmInterpreter, &ScopeContext{mem, stack, nil})
+	stack.pushN(new(Int).SetUint64(0x1), new(Int))
+	opMstore(&pc, evmInterpreter, &ScopeContext{mem, stack, nil, sync.RWMutex{}})
 	if common.Bytes2Hex(mem.GetCopy(0, 32)) != "0000000000000000000000000000000000000000000000000000000000000001" {
 		t.Fatalf("Mstore failed to overwrite previous value")
 	}
@@ -549,13 +550,13 @@ func BenchmarkOpMstore(bench *testing.B) {
 	env.interpreter = evmInterpreter
 	mem.Resize(64)
 	pc := uint64(0)
-	memStart := new(uint256.Int)
-	value := new(uint256.Int).SetUint64(0x1337)
+	memStart := new(Int)
+	value := new(Int).SetUint64(0x1337)
 
 	bench.ResetTimer()
 	for i := 0; i < bench.N; i++ {
-		stack.pushN(*value, *memStart)
-		opMstore(&pc, evmInterpreter, &ScopeContext{mem, stack, nil})
+		stack.pushN(value, memStart)
+		opMstore(&pc, evmInterpreter, &ScopeContext{mem, stack, nil, sync.RWMutex{}})
 	}
 }
 
@@ -569,12 +570,12 @@ func BenchmarkOpSHA3(bench *testing.B) {
 	env.interpreter = evmInterpreter
 	mem.Resize(32)
 	pc := uint64(0)
-	start := new(uint256.Int)
+	start := new(Int)
 
 	bench.ResetTimer()
 	for i := 0; i < bench.N; i++ {
-		stack.pushN(*uint256.NewInt(32), *start)
-		opSha3(&pc, evmInterpreter, &ScopeContext{mem, stack, nil})
+		stack.pushN(NewInt(32), start)
+		opSha3(&pc, evmInterpreter, &ScopeContext{mem, stack, nil, sync.RWMutex{}})
 	}
 }
 

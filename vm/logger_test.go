@@ -24,7 +24,7 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/state"
 	"github.com/openrelayxyz/cardinal-types"
 	// "github.com/ethereum/go-ethereum/core/state"
-	"github.com/holiman/uint256"
+	// "github.com/holiman/uint256"
 	"github.com/openrelayxyz/cardinal-evm/params"
 )
 
@@ -62,8 +62,8 @@ func TestStoreCapture(t *testing.T) {
 			Contract: contract,
 		}
 	)
-	scope.Stack.push(uint256.NewInt(1))
-	scope.Stack.push(new(uint256.Int))
+	scope.Stack.push(NewInt(1))
+	scope.Stack.push(new(Int))
 	var index types.Hash
 	logger.CaptureState(env, 0, SSTORE, 0, 0, scope, nil, 0, nil)
 	if len(logger.storage[contract.Address()]) == 0 {

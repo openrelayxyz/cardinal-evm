@@ -21,6 +21,7 @@ import (
 	"io"
 	"math/big"
 	"time"
+	"github.com/holiman/uint256"
 
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/common/math"
@@ -65,7 +66,10 @@ func (l *JSONLogger) CaptureState(env *EVM, pc uint64, op OpCode, gas, cost uint
 		log.Memory = memory.Data()
 	}
 	if !l.cfg.DisableStack {
-		log.Stack = stack.data
+		log.Stack = make([]uint256.Int, len(stack.data))
+		for i, x := range stack.data {
+			log.Stack[i] = *x.Uint256()
+		}
 	}
 	if !l.cfg.DisableReturnData {
 		log.ReturnData = rData

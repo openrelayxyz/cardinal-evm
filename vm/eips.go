@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/holiman/uint256"
+	// "github.com/holiman/uint256"
 	"github.com/openrelayxyz/cardinal-evm/params"
 )
 
@@ -79,8 +79,7 @@ func enable1884(jt *JumpTable) {
 }
 
 func opSelfBalance(pc *uint64, interpreter *EVMInterpreter, scope *ScopeContext) ([]byte, error) {
-	balance, _ := uint256.FromBig(interpreter.evm.StateDB.GetBalance(scope.Contract.Address()))
-	scope.Stack.push(balance)
+	scope.Stack.push(IntFromBig(interpreter.evm.StateDB.GetBalance(scope.Contract.Address())))
 	return nil, nil
 }
 
@@ -98,8 +97,7 @@ func enable1344(jt *JumpTable) {
 
 // opChainID implements CHAINID opcode
 func opChainID(pc *uint64, interpreter *EVMInterpreter, scope *ScopeContext) ([]byte, error) {
-	chainId, _ := uint256.FromBig(interpreter.evm.chainConfig.ChainID)
-	scope.Stack.push(chainId)
+	scope.Stack.push(IntFromBig(interpreter.evm.chainConfig.ChainID))
 	return nil, nil
 }
 
@@ -170,7 +168,6 @@ func enable3198(jt *JumpTable) {
 
 // opBaseFee implements BASEFEE opcode
 func opBaseFee(pc *uint64, interpreter *EVMInterpreter, scope *ScopeContext) ([]byte, error) {
-	baseFee, _ := uint256.FromBig(interpreter.evm.Context.BaseFee)
-	scope.Stack.push(baseFee)
+	scope.Stack.push(IntFromBig(interpreter.evm.Context.BaseFee))
 	return nil, nil
 }

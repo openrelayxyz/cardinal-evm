@@ -18,6 +18,7 @@ package vm
 
 import (
 	"hash"
+	"sync"
 	"sync/atomic"
 
 	log "github.com/inconshreveable/log15"
@@ -45,6 +46,7 @@ type ScopeContext struct {
 	Memory   *Memory
 	Stack    *Stack
 	Contract *Contract
+	lock     sync.RWMutex
 }
 
 // keccakState wraps sha3.state. In addition to the usual hash methods, it also supports
