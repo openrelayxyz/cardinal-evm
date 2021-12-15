@@ -32,8 +32,8 @@ var (
 	producer transports.Producer
 	startBlock uint64
 	pendingReorgs map[core.Hash]func()
-	gethHeightGauge = metrics.NewMajorGauge("cardinal/geth/height")
-	masterHeightGauge = metrics.NewMajorGauge("cardinal/master/height")
+	gethHeightGauge = metrics.NewMajorGauge("/geth/height")
+	masterHeightGauge = metrics.NewMajorGauge("/master/height")
 
 	Flags = *flag.NewFlagSet("cardinal-plugin", flag.ContinueOnError)
 	txPoolTopic = Flags.String("cardinal.txpool.topic", "", "Topic for mempool transaction data")
