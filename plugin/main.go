@@ -33,6 +33,7 @@ var (
 	startBlock uint64
 	pendingReorgs map[core.Hash]func()
 	gethHeightGauge = metrics.NewMajorGauge("/geth/height")
+	gethPeersGauge = metrics.NewMajorGauge("/geth/peers")
 	masterHeightGauge = metrics.NewMajorGauge("/master/height")
 
 	Flags = *flag.NewFlagSet("cardinal-plugin", flag.ContinueOnError)
@@ -90,12 +91,18 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 				fmt.Sprintf("c/%x/b/[0-9a-z]+/t/", chainid): *txTopic,
 				fmt.Sprintf("c/%x/b/[0-9a-z]+/r/", chainid): *receiptTopic,
 				fmt.Sprintf("c/%x/b/[0-9a-z]+/l/", chainid): *logTopic,
-				fmt.Sprintf("c/%x/t/", chainid): *txTopic,
 			},
 		)
 		if err != nil { panic(err.Error()) }
 	}
 	if *brokerURL != "" {
+		go func() {
+			t := time.NewTicker(time.Second * 30)
+			defer t.Stop()
+			for range t.C {
+				gethPeersGauge.Update(int64(stack.Server().PeerCount()))
+			}
+		}()
 		if *statsdaddr != "" {
 			udpAddr, err := net.ResolveUDPAddr("udp", *statsdaddr)
 			if err != nil {

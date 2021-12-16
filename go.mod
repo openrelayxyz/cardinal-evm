@@ -17,7 +17,7 @@ require (
 	github.com/openrelayxyz/cardinal-rpc v0.0.11
 	github.com/openrelayxyz/cardinal-storage v0.0.8
 	github.com/openrelayxyz/cardinal-streams v0.0.15
-	github.com/openrelayxyz/cardinal-types v0.0.4
+	github.com/openrelayxyz/cardinal-types v0.0.5
 	github.com/openrelayxyz/plugeth-utils v0.0.10
 	github.com/pubnub/go-metrics-statsd v0.0.0-20170124014003-7da61f429d6b
 	github.com/savaki/cloudmetrics v0.0.0-20160314183336-c82bfea3c09e
