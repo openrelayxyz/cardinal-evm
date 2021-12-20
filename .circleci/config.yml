@@ -50,7 +50,7 @@ jobs:
             mkdir artifacts
             go mod tidy
       - run:
-          name: build geth binaries
+          name: build binaries
           command: |
             sudo apt update
             sudo apt install gcc-aarch64-linux-gnu libc6-dev-arm64-cross wget -y
@@ -62,6 +62,8 @@ jobs:
             CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOARCH=arm64 go build -ldflags="-X 'github.com/openrelayxyz/cardinal-evm/build.Version=${CIRCLE_TAG}'" -o ./artifacts/cardinal-rpc-evm-linux-arm64-${CIRCLE_TAG} cmd/cardinal-evm-rpc/*.go
             go build -buildmode=plugin -o ./artifacts/cardinal-evm-linux-amd64-$PLUGETH_UTILS_VERSION-${CIRCLE_TAG}.so plugin/*.go
             CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOARCH=arm64 go build -buildmode=plugin -o ./artifacts/cardinal-evm-linux-arm64-$PLUGETH_UTILS_VERSION-${CIRCLE_TAG}.so plugin/*.go
+            go build -o ./artifacts/tx-relay-linux-amd64-${CIRCLE_TAG} cmd/tx-relay/*.go
+            CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOARCH=arm64 go build -o ./artifacts/tx-relay-linux-arm64-${CIRCLE_TAG} cmd/tx-relay/*.go
       - run:
           name: "Publish Release on GitHub"
           command: |
