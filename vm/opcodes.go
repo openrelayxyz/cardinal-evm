@@ -32,11 +32,6 @@ func (op OpCode) IsPush() bool {
 	return false
 }
 
-// IsStaticJump specifies if an opcode is JUMP.
-func (op OpCode) IsStaticJump() bool {
-	return op == JUMP
-}
-
 // 0x0 range - arithmetic ops.
 const (
 	STOP OpCode = iota
@@ -70,7 +65,7 @@ const (
 	SHR
 	SAR
 
-	SHA3 OpCode = 0x20
+	KECCAK256 OpCode = 0x20
 )
 
 // 0x30 range - closure state.
@@ -252,7 +247,7 @@ var opCodeToString = map[OpCode]string{
 	MULMOD: "MULMOD",
 
 	// 0x20 range - crypto.
-	SHA3: "SHA3",
+	KECCAK256: "KECCAK256",
 
 	// 0x30 range - closure state.
 	ADDRESS:        "ADDRESS",
@@ -424,7 +419,7 @@ var stringToOp = map[string]OpCode{
 	"SAR":            SAR,
 	"ADDMOD":         ADDMOD,
 	"MULMOD":         MULMOD,
-	"SHA3":           SHA3,
+	"KECCAK256":      KECCAK256,
 	"ADDRESS":        ADDRESS,
 	"BALANCE":        BALANCE,
 	"ORIGIN":         ORIGIN,

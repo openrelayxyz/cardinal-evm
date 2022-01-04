@@ -32,8 +32,9 @@ var (
 	producer transports.Producer
 	startBlock uint64
 	pendingReorgs map[core.Hash]func()
-	gethHeightGauge = metrics.NewMajorGauge("cardinal/geth/height")
-	masterHeightGauge = metrics.NewMajorGauge("cardinal/master/height")
+	gethHeightGauge = metrics.NewMajorGauge("/geth/height")
+	gethPeersGauge = metrics.NewMajorGauge("/geth/peers")
+	masterHeightGauge = metrics.NewMajorGauge("/master/height")
 
 	Flags = *flag.NewFlagSet("cardinal-plugin", flag.ContinueOnError)
 	txPoolTopic = Flags.String("cardinal.txpool.topic", "", "Topic for mempool transaction data")
@@ -90,12 +91,18 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 				fmt.Sprintf("c/%x/b/[0-9a-z]+/t/", chainid): *txTopic,
 				fmt.Sprintf("c/%x/b/[0-9a-z]+/r/", chainid): *receiptTopic,
 				fmt.Sprintf("c/%x/b/[0-9a-z]+/l/", chainid): *logTopic,
-				fmt.Sprintf("c/%x/t/", chainid): *txTopic,
 			},
 		)
 		if err != nil { panic(err.Error()) }
 	}
 	if *brokerURL != "" {
+		go func() {
+			t := time.NewTicker(time.Second * 30)
+			defer t.Stop()
+			for range t.C {
+				gethPeersGauge.Update(int64(stack.Server().PeerCount()))
+			}
+		}()
 		if *statsdaddr != "" {
 			udpAddr, err := net.ResolveUDPAddr("udp", *statsdaddr)
 			if err != nil {
@@ -123,6 +130,7 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 				log.Error("Error getting start block", "err", err)
 			} else {
 				startBlock = uint64(v)
+				log.Info("Setting start block from producer", "block", startBlock)
 			}
 		}
 		if *txPoolTopic != "" {
