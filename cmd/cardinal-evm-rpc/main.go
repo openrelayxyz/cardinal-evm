@@ -183,6 +183,7 @@ func main() {
 	<-sm.Ready()
 	log.Debug("Stream ready")
 	if *exitWhenSynced {
+		log.Info("--exitwhensynced set: shutting down")
 		sm.Close()
 		s.Close()
 		db.Close()
