@@ -24,6 +24,7 @@ import (
 )
 
 func main() {
+	resumptionTime := flag.Int64("resumption.ts", -1, "Resume from a timestamp instead of the offset committed to the database")
 	exitWhenSynced := flag.Bool("exitwhensynced", false, "Automatically shutdown after syncing is complete")
 	debug := flag.Bool("debug", false, "Enable debug APIs")
 
@@ -149,6 +150,7 @@ func main() {
 		cfg.Chainid,
 		s,
 		cfg.Whitelist,
+		*resumptionTime,
 	)
 	if err != nil {
 		log.Error("Error connecting streams", "err", err)

@@ -23,7 +23,7 @@ type StreamManager struct{
 	ready    chan struct{}
 }
 
-func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, chainid int64, s storage.Storage, whitelist map[uint64]types.Hash) (*StreamManager, error) {
+func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, chainid int64, s storage.Storage, whitelist map[uint64]types.Hash, resumptionTime int64) (*StreamManager, error) {
 	lastHash, lastNumber, lastWeight, resumption := s.LatestBlock()
 	trackedPrefixes := []*regexp.Regexp{
 		regexp.MustCompile("c/[0-9a-z]+/a/"),
@@ -34,6 +34,14 @@ func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, ch
 		regexp.MustCompile("c/[0-9a-z]+/n/"),
 	}
 	var consumer transports.Consumer
+	if resumptionTime > 0 {
+		r, err := transports.ResumptionForTimestamp(brokerParams, resumptionTime)
+		if err != nil {
+			log.Warn("Failed to generate resumption from timestamp.", "err", err.Error())
+		}
+		resumption = r
+
+	}
 	var err error
 	consumer, err = transports.ResolveMuxConsumer(brokerParams, resumption, int64(lastNumber), lastHash, lastWeight, reorgThreshold, trackedPrefixes, whitelist)
 	if err != nil { return nil, err }
