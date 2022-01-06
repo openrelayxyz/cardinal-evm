@@ -38,9 +38,9 @@ func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, ch
 		r, err := transports.ResumptionForTimestamp(brokerParams, resumptionTime)
 		if err != nil {
 			log.Warn("Failed to generate resumption from timestamp.", "err", err.Error())
+		} else {
+			resumption = r
 		}
-		resumption = r
-
 	}
 	var err error
 	consumer, err = transports.ResolveMuxConsumer(brokerParams, resumption, int64(lastNumber), lastHash, lastWeight, reorgThreshold, trackedPrefixes, whitelist)
