@@ -8,14 +8,14 @@ require (
 	github.com/btcsuite/btcd v0.22.0-beta
 	github.com/davecgh/go-spew v1.1.1
 	github.com/google/gofuzz v1.1.1-0.20200604201612-c04b05f3adfa
-	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d // indirect
+	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d
 	github.com/holiman/uint256 v1.2.0
 	github.com/inconshreveable/log15 v0.0.0-20201112154412-8562bdadbbac
 	github.com/jedisct1/go-minisign v0.0.0-20190909160543-45766022959e
 	github.com/klauspost/compress v1.13.6 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/openrelayxyz/cardinal-rpc v0.0.11
-	github.com/openrelayxyz/cardinal-storage v0.0.8
+	github.com/openrelayxyz/cardinal-storage v0.0.9
 	github.com/openrelayxyz/cardinal-streams v0.0.15
 	github.com/openrelayxyz/cardinal-types v0.0.5
 	github.com/openrelayxyz/plugeth-utils v0.0.10
