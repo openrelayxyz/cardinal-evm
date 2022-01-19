@@ -22,5 +22,5 @@ type Header struct {
 	Extra       []byte
 	MixDigest   types.Hash
 	Nonce       [8]byte
-	BaseFee     *big.Int
+	BaseFee     *big.Int `rlp:"optional"`
 }
