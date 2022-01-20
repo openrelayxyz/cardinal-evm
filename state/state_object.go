@@ -278,7 +278,12 @@ func (s *stateObject) getCommittedState(tx storage.Transaction, chainid int64, s
 	tx.ZeroCopyGet(schema.AccountStorage(chainid, s.address.Bytes(), storage.Bytes()), func(data []byte) error {
 		// BytesToHash performs a copy operation, so this may be more efficient
 		// than using Get()
-		s.clean[storage] = types.BytesToHash(data)
+		var value types.Hash
+		if len(data) > 0 {
+			_, content, _, _ := rlp.Split(data)
+			value.SetBytes(content)
+		}
+		s.clean[storage] = value
 		return nil
 	})
 	return s.clean[storage]
