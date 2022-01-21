@@ -275,7 +275,7 @@ func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, dest
 		deletes[fmt.Sprintf("c/%x/a/%x", chainid, hashedAddr.Bytes())] = struct{}{}
 	}
 	batches := map[string]ctypes.Hash{
-		fmt.Sprintf("c/%x/s", chainid): ctypes.Hash{},
+		fmt.Sprintf("c/%x/s", chainid): ctypes.BigToHash(block.Number()),
 	}
 	if len(block.Uncles()) > 0 {
 		// If uncles == 0, we can figure that out from the hash without having to
@@ -310,7 +310,7 @@ func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, dest
 			batchUpdates[fmt.Sprintf("c/%x/a/%x/s/%x", chainid, addrHash.Bytes(), k)] = v
 		}
 	}
-	if err := producer.SendBatch(ctypes.Hash{}, []string{}, batchUpdates); err != nil {
+	if err := producer.SendBatch(ctypes.BigToHash(block.Number()), []string{}, batchUpdates); err != nil {
 		log.Error("Failed to send state batch", "block", hash, "err", err)
 		return
 	}
