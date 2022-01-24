@@ -307,7 +307,7 @@ func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, dest
 	batchUpdates := make(map[string][]byte)
 	for addrHash, updates := range storage {
 		for k, v := range updates {
-			batchUpdates[fmt.Sprintf("c/%x/a/%x/s/%x", chainid, addrHash.Bytes(), k)] = v
+			batchUpdates[fmt.Sprintf("c/%x/a/%x/s/%x", chainid, addrHash.Bytes(), k.Bytes())] = v
 		}
 	}
 	if err := producer.SendBatch(ctypes.BigToHash(block.Number()), []string{}, batchUpdates); err != nil {
