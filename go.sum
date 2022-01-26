@@ -156,8 +156,8 @@ github.com/onsi/ginkgo v1.6.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+W
 github.com/onsi/ginkgo v1.7.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
 github.com/onsi/gomega v1.4.1/go.mod h1:C1qb7wdrVGGVU+Z6iS04AVkA3Q65CEZX59MT0QO5uiA=
 github.com/onsi/gomega v1.4.3/go.mod h1:ex+gbHU/CVuBBDIJjb2X0qEXbFg53c61hWP/1CpauHY=
-github.com/openrelayxyz/cardinal-rpc v0.0.12 h1:oP05owida230DxIcQXC6gaoQSwj7mc1j+/pi8jRxOPk=
-github.com/openrelayxyz/cardinal-rpc v0.0.12/go.mod h1:oPORnq09i5OnxDlkJKmE+XpBI6DEuj/Ln5YTA+isXhg=
+github.com/openrelayxyz/cardinal-rpc v0.0.14 h1:DlZxqtgG8mSwCTa36eykvtEagGD2BM+nePHrvqhAzl4=
+github.com/openrelayxyz/cardinal-rpc v0.0.14/go.mod h1:oPORnq09i5OnxDlkJKmE+XpBI6DEuj/Ln5YTA+isXhg=
 github.com/openrelayxyz/cardinal-storage v0.0.9 h1:jIKJvF0CgtMezHbpbmAm//PbmLD3QRdwZAe3Z1S/+10=
 github.com/openrelayxyz/cardinal-storage v0.0.9/go.mod h1:rRDAJwrmTCluSSMeXOquDTa+JeQXcwPfuyGkkPP+om4=
 github.com/openrelayxyz/cardinal-streams v0.0.20 h1:VD5TBQmVabjCUeHa2TqhIWVceZ+JQ0alny9820IGpkM=

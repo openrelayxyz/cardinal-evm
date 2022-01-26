@@ -237,7 +237,7 @@ func newRevertError(result *ExecutionResult) *revertError {
 	}
 	return &revertError{
 		error:  err,
-		reason: hexutil.Encode(result.Revert()),
+		data: result.Revert(),
 	}
 }
 
@@ -245,7 +245,7 @@ func newRevertError(result *ExecutionResult) *revertError {
 // code and a binary data blob.
 type revertError struct {
 	error
-	reason string // revert reason hex encoded
+	data hexutil.Bytes
 }
 
 // ErrorCode returns the JSON error code for a revertal.
@@ -256,8 +256,21 @@ func (e *revertError) ErrorCode() int {
 
 // ErrorData returns the hex encoded revert reason.
 func (e *revertError) ErrorData() interface{} {
-	return e.reason
+	return e.data
 }
+
+type evmError struct{
+	error
+}
+
+func (e evmError) ErrorCode() int {
+	return -32000
+}
+func (e evmError) ErrorData() interface{} {
+	return nil
+}
+
+
 
 // Call executes the given transaction on the state for the given block number.
 //
@@ -285,7 +298,7 @@ func (s *PublicBlockChainAPI) Call(ctx *rpc.CallContext, args TransactionArgs, b
 		}
 		log.Debug("EVM result", "result", result)
 		res = result.Return()
-		return result.Err
+		return evmError{result.Err}
 	})
 	return res, err
 }
