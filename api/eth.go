@@ -298,7 +298,10 @@ func (s *PublicBlockChainAPI) Call(ctx *rpc.CallContext, args TransactionArgs, b
 		}
 		log.Debug("EVM result", "result", result)
 		res = result.Return()
-		return evmError{result.Err}
+		if result.Err != nil {
+			return evmError{result.Err}
+		}
+		return nil
 	})
 	return res, err
 }
