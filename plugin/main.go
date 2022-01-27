@@ -268,7 +268,7 @@ func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, dest
 		updates[fmt.Sprintf("c/%x/a/%x/d", chainid, hashedAddr.Bytes())] = acctRLP
 	}
 	for codeHash, codeBytes := range code {
-		updates[fmt.Sprintf("c/%x/c/%x", chainid, codeHash)] = codeBytes
+		updates[fmt.Sprintf("c/%x/c/%x", chainid, codeHash.Bytes())] = codeBytes
 	}
 	deletes := make(map[string]struct{})
 	for hashedAddr := range destructs {
