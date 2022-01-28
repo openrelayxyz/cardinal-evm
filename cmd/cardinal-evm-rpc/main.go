@@ -52,72 +52,6 @@ func main() {
 	}
 	log.Root().SetHandler(log.LvlFilterHandler(logLvl, log.Root().GetHandler()))
 
-	if cfg.Statsd != nil && cfg.Statsd.Port != "" {
-		addr := "127.0.0.1:" + cfg.Statsd.Port
-		if cfg.Statsd.Address != "" {
-			addr = fmt.Sprintf("%v:%v", cfg.Statsd.Address, cfg.Statsd.Port)
-		}
-		udpAddr, err := net.ResolveUDPAddr("udp", addr)
-		if err != nil {
-			log.Error("Invalid Address. Statsd will not be configured.", "error", err.Error())
-		} else {
-			interval := time.Duration(cfg.Statsd.Interval) * time.Second
-			if cfg.Statsd.Interval == 0 {
-				interval = time.Second
-			}
-			prefix := cfg.Statsd.Prefix
-			if prefix == "" {
-				prefix = "cardinal.evm"
-			}
-			go statsd.StatsD(
-				metrics.MajorRegistry,
-				interval,
-				prefix,
-				udpAddr,
-			)
-			if cfg.Statsd.Minor {
-				go statsd.StatsD(
-					metrics.MinorRegistry,
-					interval,
-					prefix,
-					udpAddr,
-				)
-			}
-		}
-	}
-	if cfg.CloudWatch != nil {
-		namespace := cfg.CloudWatch.Namespace
-		if namespace == "" {
-			namespace = "Cardinal"
-		}
-		dimensions := []string{}
-		for k, v := range cfg.CloudWatch.Dimensions {
-			dimensions = append(dimensions, k, v)
-		}
-		if len(dimensions) == 0 {
-			dimensions = append(dimensions, "chainid", strconv.Itoa(int(cfg.Chainid)))
-		}
-		cwcfg := []func(*cloudmetrics.Publisher){
-			cloudmetrics.Dimensions(dimensions...),
-		}
-		if cfg.CloudWatch.Interval > 0 {
-			cwcfg = append(cwcfg, cloudmetrics.Interval(time.Duration(cfg.CloudWatch.Interval) * time.Second))
-		}
-		if len(cfg.CloudWatch.Percentiles) > 0 {
-			cwcfg = append(cwcfg, cloudmetrics.Percentiles(cfg.CloudWatch.Percentiles))
-		}
-		go cloudmetrics.Publish(metrics.MajorRegistry,
-			namespace,
-			cwcfg...
-		)
-		if cfg.CloudWatch.Minor {
-			go cloudmetrics.Publish(metrics.MinorRegistry,
-				namespace,
-				cwcfg...
-			)
-		}
-	}
-
 	if len(cfg.Brokers) == 0 {
 		log.Error("No brokers specified")
 		os.Exit(1)
@@ -191,6 +125,73 @@ func main() {
 		db.Close()
 		os.Exit(0)
 	}
+
+	if cfg.Statsd != nil && cfg.Statsd.Port != "" {
+		addr := "127.0.0.1:" + cfg.Statsd.Port
+		if cfg.Statsd.Address != "" {
+			addr = fmt.Sprintf("%v:%v", cfg.Statsd.Address, cfg.Statsd.Port)
+		}
+		udpAddr, err := net.ResolveUDPAddr("udp", addr)
+		if err != nil {
+			log.Error("Invalid Address. Statsd will not be configured.", "error", err.Error())
+		} else {
+			interval := time.Duration(cfg.Statsd.Interval) * time.Second
+			if cfg.Statsd.Interval == 0 {
+				interval = time.Second
+			}
+			prefix := cfg.Statsd.Prefix
+			if prefix == "" {
+				prefix = "cardinal.evm"
+			}
+			go statsd.StatsD(
+				metrics.MajorRegistry,
+				interval,
+				prefix,
+				udpAddr,
+			)
+			if cfg.Statsd.Minor {
+				go statsd.StatsD(
+					metrics.MinorRegistry,
+					interval,
+					prefix,
+					udpAddr,
+				)
+			}
+		}
+	}
+	if cfg.CloudWatch != nil {
+		namespace := cfg.CloudWatch.Namespace
+		if namespace == "" {
+			namespace = "Cardinal"
+		}
+		dimensions := []string{}
+		for k, v := range cfg.CloudWatch.Dimensions {
+			dimensions = append(dimensions, k, v)
+		}
+		if len(dimensions) == 0 {
+			dimensions = append(dimensions, "chainid", strconv.Itoa(int(cfg.Chainid)))
+		}
+		cwcfg := []func(*cloudmetrics.Publisher){
+			cloudmetrics.Dimensions(dimensions...),
+		}
+		if cfg.CloudWatch.Interval > 0 {
+			cwcfg = append(cwcfg, cloudmetrics.Interval(time.Duration(cfg.CloudWatch.Interval) * time.Second))
+		}
+		if len(cfg.CloudWatch.Percentiles) > 0 {
+			cwcfg = append(cwcfg, cloudmetrics.Percentiles(cfg.CloudWatch.Percentiles))
+		}
+		go cloudmetrics.Publish(metrics.MajorRegistry,
+			namespace,
+			cwcfg...
+		)
+		if cfg.CloudWatch.Minor {
+			go cloudmetrics.Publish(metrics.MinorRegistry,
+				namespace,
+				cwcfg...
+			)
+		}
+	}
+
 	tm.RegisterHealthCheck(cfg.HealthChecks)
 	cfg.HealthChecks.Start(tm.Caller())
 	if err := tm.Run(cfg.HealthCheckPort); err != nil {
