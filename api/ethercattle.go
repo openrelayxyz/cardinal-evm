@@ -41,5 +41,12 @@ func (s *EtherCattleBlockChainAPI) EstimateGasList(ctx *rpc.CallContext, argsLis
 		}
 		return nil
 	})
+	if err != nil {
+		switch err.(type) {
+		case codedError:
+		default:
+			err = evmError{err}
+		}
+	}
 	return returnVals, err
 }

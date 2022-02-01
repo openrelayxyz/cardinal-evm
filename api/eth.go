@@ -73,23 +73,33 @@ func (api *PublicBlockChainAPI) BlockNumber(ctx *rpc.CallContext) (hexutil.Uint6
 // block numbers are also allowed.
 func (s *PublicBlockChainAPI) GetBalance(ctx *rpc.CallContext, address common.Address, blockNrOrHash vm.BlockNumberOrHash) (*hexutil.Big, error) {
 	var result *hexutil.Big
-	if err := s.evmmgr.View(blockNrOrHash, ctx, func(statedb state.StateDB) {
+	err := s.evmmgr.View(blockNrOrHash, ctx, func(statedb state.StateDB) {
 		result = (*hexutil.Big)(statedb.GetBalance(address))
-	}); err != nil {
-		return nil, err
+	})
+	if err != nil {
+		switch err.(type) {
+		case codedError:
+		default:
+			err = evmError{err}
+		}
 	}
-	return result, nil
+	return result, err
 }
 
 // GetCode returns the code stored at the given address in the state for the given block number.
 func (s *PublicBlockChainAPI) GetCode(ctx *rpc.CallContext, address common.Address, blockNrOrHash vm.BlockNumberOrHash) (hexutil.Bytes, error) {
 	var result hexutil.Bytes
-	if err := s.evmmgr.View(blockNrOrHash, ctx, func(statedb state.StateDB) {
+	err := s.evmmgr.View(blockNrOrHash, ctx, func(statedb state.StateDB) {
 		result = hexutil.Bytes(statedb.GetCode(address))
-	}); err != nil {
-		return nil, err
+	})
+	if err != nil {
+		switch err.(type) {
+		case codedError:
+		default:
+			err = evmError{err}
+		}
 	}
-	return result, nil
+	return result, err
 }
 
 // GetStorageAt returns the storage from the state at the given address, key and
@@ -97,12 +107,17 @@ func (s *PublicBlockChainAPI) GetCode(ctx *rpc.CallContext, address common.Addre
 // numbers are also allowed.
 func (s *PublicBlockChainAPI) GetStorageAt(ctx *rpc.CallContext, address common.Address, key string, blockNrOrHash vm.BlockNumberOrHash) (hexutil.Bytes, error) {
 	var result hexutil.Bytes
-	if err := s.evmmgr.View(blockNrOrHash, ctx, func(statedb state.StateDB) {
+	err := s.evmmgr.View(blockNrOrHash, ctx, func(statedb state.StateDB) {
 		result = hexutil.Bytes(statedb.GetState(address, ctypes.HexToHash(key)).Bytes())
-	}); err != nil {
-		return nil, err
+	})
+	if err != nil {
+		switch err.(type) {
+		case codedError:
+		default:
+			err = evmError{err}
+		}
 	}
-	return result, nil
+	return result, err
 }
 
 // OverrideAccount indicates the overriding fields of account during the execution
@@ -270,6 +285,12 @@ func (e evmError) ErrorData() interface{} {
 	return nil
 }
 
+type codedError interface{
+	error
+	ErrorCode() int
+	ErrorData() interface{}
+}
+
 
 
 // Call executes the given transaction on the state for the given block number.
@@ -303,6 +324,13 @@ func (s *PublicBlockChainAPI) Call(ctx *rpc.CallContext, args TransactionArgs, b
 		}
 		return nil
 	})
+	if err != nil {
+		switch err.(type) {
+		case codedError:
+		default:
+			err = evmError{err}
+		}
+	}
 	return res, err
 }
 
@@ -445,6 +473,13 @@ func (s *PublicBlockChainAPI) EstimateGas(ctx *rpc.CallContext, args Transaction
 		gas, _, err = DoEstimateGas(ctx, evmFn, args, &PreviousState{statedb, header}, bNrOrHash, header.GasLimit*2, false)
 		return err
 	})
+	if err != nil {
+		switch err.(type) {
+		case codedError:
+		default:
+			err = evmError{err}
+		}
+	}
 	return gas, err
 }
 
@@ -476,6 +511,13 @@ func (s *PublicBlockChainAPI) CreateAccessList(ctx *rpc.CallContext, args Transa
 		}
 		return nil
 	})
+	if err != nil {
+		switch err.(type) {
+		case codedError:
+		default:
+			err = evmError{err}
+		}
+	}
 	return result, err
 }
 
