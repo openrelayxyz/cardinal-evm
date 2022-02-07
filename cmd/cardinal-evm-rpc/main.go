@@ -125,6 +125,7 @@ func main() {
 		db.Close()
 		os.Exit(0)
 	}
+	metrics.Clear()
 
 	if cfg.Statsd != nil && cfg.Statsd.Port != "" {
 		addr := "127.0.0.1:" + cfg.Statsd.Port
