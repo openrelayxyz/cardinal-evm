@@ -8,6 +8,7 @@ import (
 	"github.com/openrelayxyz/cardinal-types/metrics"
 	"fmt"
 	"regexp"
+	"time"
 	log "github.com/inconshreveable/log15"
 )
 
@@ -69,7 +70,9 @@ func (m *StreamManager) Start() error {
 			log.Debug("Waiting for message")
 			select {
 			case update := <-ch:
-				for _, pb := range update.Added() {
+				start := time.Now()
+				added := update.Added()
+				for _, pb := range added {
 					updates := make([]storage.KeyValue, 0, len(pb.Values))
 					for k, v := range pb.Values {
 						updates = append(updates, storage.KeyValue{Key: []byte(k), Value: v})
@@ -92,6 +95,8 @@ func (m *StreamManager) Start() error {
 					heightGauge.Update(pb.Number)
 					pb.Done()
 				}
+				latest := added[len(added) - 1]
+				log.Info("Imported new chain segment", "blocks", len(added), "elapsed", time.Since(start), "number", latest.Number, "hash", latest.Hash)
 			case reorg := <-reorgCh:
 				for k := range reorg {
 					m.storage.Rollback(uint64(k))
