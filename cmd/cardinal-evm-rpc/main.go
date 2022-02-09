@@ -123,6 +123,10 @@ func main() {
 		sm.Close()
 		s.Close()
 		db.Close()
+		if sm.Processed() == 0 {
+			log.Info("Shutting down without processing any messages.")
+			os.Exit(1)
+		}
 		os.Exit(0)
 	}
 	metrics.Clear()

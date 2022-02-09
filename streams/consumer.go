@@ -22,6 +22,7 @@ type StreamManager struct{
 	sub      types.Subscription
 	reorgSub types.Subscription
 	ready    chan struct{}
+	processed uint64
 }
 
 func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, chainid int64, s storage.Storage, whitelist map[uint64]types.Hash, resumptionTime int64) (*StreamManager, error) {
@@ -94,6 +95,7 @@ func (m *StreamManager) Start() error {
 					}
 					heightGauge.Update(pb.Number)
 					pb.Done()
+					m.processed++
 				}
 				latest := added[len(added) - 1]
 				log.Info("Imported new chain segment", "blocks", len(added), "elapsed", time.Since(start), "number", latest.Number, "hash", latest.Hash)
@@ -119,6 +121,10 @@ func (m *StreamManager) Close() {
 
 func (m *StreamManager) API() *api {
 	return &api{m.consumer}
+}
+
+func (m *StreamManager) Processed() uint64 {
+	return m.processed
 }
 
 type api struct{
