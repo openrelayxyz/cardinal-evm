@@ -14,7 +14,7 @@ require (
 	github.com/jedisct1/go-minisign v0.0.0-20190909160543-45766022959e
 	github.com/klauspost/compress v1.13.6 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
-	github.com/openrelayxyz/cardinal-rpc v0.0.15
+	github.com/openrelayxyz/cardinal-rpc v0.0.16
 	github.com/openrelayxyz/cardinal-storage v0.0.12
 	github.com/openrelayxyz/cardinal-streams v0.0.23
 	github.com/openrelayxyz/cardinal-types v0.0.6
