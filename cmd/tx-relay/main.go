@@ -40,6 +40,7 @@ func main() {
 			cache: cache,
 		}
 		if err := consumerGroup.Consume(context.Background(), []string{topic}, handler); err != nil {
+			log15.Error("Error consuming", "err", err, "topic", topic)
 			return
 		}
 		time.Sleep(500 * time.Millisecond)
@@ -62,6 +63,7 @@ func (h relayConsumerGroup) ConsumeClaim(sess sarama.ConsumerGroupSession, claim
 			if err != nil {
 				log15.Error("Error relaying", "tx", hash, "err", err)
 			} else {
+				resp.Body.Close()
 				log15.Info("Relaying transaction", "tx", hash, "status", resp.StatusCode)
 			}
 		} else {
