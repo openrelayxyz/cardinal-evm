@@ -30,6 +30,7 @@ import (
 var (
 	MainnetGenesisHash   = types.HexToHash("0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3")
 	ClassicGenesisHash   = types.HexToHash("0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3")
+	PolygonGenesisHash   = types.HexToHash("0xa9c28ce2141b56c474f1dc504bee9b01eb1bd7d1a507580d5519d4437a97de1b")
 	RopstenGenesisHash   = types.HexToHash("0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d")
 	RinkebyGenesisHash   = types.HexToHash("0x6341fd3daf94b748c72ced5a5b26028f2474f5f00d824504e4fa37a75767e177")
 	GoerliGenesisHash    = types.HexToHash("0xbf7e331f7f7c1dd2e05159666b3bf8bc7a8a3a9eb1d518969eab529dd9b88c1a")
@@ -76,6 +77,27 @@ var (
 		BerlinBlock:         big.NewInt(13_189_133),
 		// LondonBlock:         big.NewInt(12_965_000),
 		Ethash:              new(EthashConfig),
+	}
+
+	// PolygonConfig is the chain parameters to run a node on the main network.
+	PolygonConfig = &ChainConfig{
+		ChainID:             big.NewInt(137),
+		NetworkID:           big.NewInt(137),
+		HomesteadBlock:      big.NewInt(0),
+		DAOForkBlock:        nil,
+		DAOForkSupport:      false,
+		EIP150Block:         big.NewInt(0),
+		EIP155Block:         big.NewInt(0),
+		EIP158Block:         big.NewInt(0),
+		ByzantiumBlock:      big.NewInt(0),
+		ConstantinopleBlock: big.NewInt(0),
+		PetersburgBlock:     big.NewInt(0),
+		IstanbulBlock:       big.NewInt(3_395_000),
+		MuirGlacierBlock	 big.NewInt(3_395_000)
+		BerlinBlock:         big.NewInt(14_750_000),
+		LondonBlock:         big.NewInt(23_850_000),
+		// TODO: investigate what pg uses in place of Ethash (do we even need thid field??)
+		//Ethash:              new(EthashConfig),
 	}
 
 	// RopstenChainConfig contains the chain parameters to run a node on the Ropsten test network.
@@ -167,6 +189,7 @@ var (
 var ChainLookup = map[int64]*ChainConfig{
 	1:   MainnetChainConfig,
 	61:  ETCChainConfig,
+	137:  PolygonConfig,
 	3:   RopstenChainConfig,
 	4:   RinkebyChainConfig,
 	5:   GoerliChainConfig,
