@@ -109,7 +109,10 @@ var (
 				}
 				if !bytes.Equal(acct.CodeHash, emptyCode) {
 					v, err := db.Get(append(codePrefix, acct.CodeHash...))
-					if err != nil { return err }
+					if err != nil {
+						log.Crit("Error retrieving code", "hash", acct.CodeHash)
+						return err
+					}
 					codeKey := fmt.Sprintf("c/%x/c/%x", chainID, acct.CodeHash)
 					jsonStream.Encode(output{Key: codeKey, Value: hexutil.Bytes(v)})
 				}
@@ -123,12 +126,18 @@ var (
 						slotKey := fmt.Sprintf("c/%x/a/%x/s/%x", chainID, hashedAddress, slot)
 						jsonStream.Encode(output{Key: slotKey, Value: hexutil.Bytes(slotIter.Value())})
 					}
-					if err := slotIter.Error(); err != nil { return err }
+					if err := slotIter.Error(); err != nil {
+						log.Crit("Slot iteration error")
+						return err
+					}
 					slotIter.Release()
 					if count == 0 { log.Warn("Found 0 slots for non-empty account")}
 				}
 			}
-			if err := acctIter.Error(); err != nil { return err }
+			if err := acctIter.Error(); err != nil {
+				log.Crit("Account iteration error")
+				return err
+			}
 			return nil
 		},
 	}
