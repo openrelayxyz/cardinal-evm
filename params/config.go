@@ -93,7 +93,7 @@ var (
 		ConstantinopleBlock: big.NewInt(0),
 		PetersburgBlock:     big.NewInt(0),
 		IstanbulBlock:       big.NewInt(3_395_000),
-		MuirGlacierBlock	 big.NewInt(3_395_000)
+		MuirGlacierBlock:    big.NewInt(3_395_000),
 		BerlinBlock:         big.NewInt(14_750_000),
 		LondonBlock:         big.NewInt(23_850_000),
 		// TODO: investigate what pg uses in place of Ethash (do we even need thid field??)
