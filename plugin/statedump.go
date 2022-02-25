@@ -110,8 +110,11 @@ var (
 				if !bytes.Equal(acct.CodeHash, emptyCode) {
 					v, err := db.Get(append(codePrefix, acct.CodeHash...))
 					if err != nil {
-						log.Crit("Error retrieving code", "hash", acct.CodeHash)
-						return err
+						v, err = db.Get(acct.CodeHash)
+						if err != nil {
+							log.Crit("Error retrieving code", "hash", acct.CodeHash)
+							return err
+						}
 					}
 					codeKey := fmt.Sprintf("c/%x/c/%x", chainID, acct.CodeHash)
 					jsonStream.Encode(output{Key: codeKey, Value: hexutil.Bytes(v)})
