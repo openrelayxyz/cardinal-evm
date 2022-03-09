@@ -121,6 +121,7 @@ func main() {
 	if *exitWhenSynced {
 		log.Info("--exitwhensynced set: shutting down")
 		sm.Close()
+		s.Vacuum(cfg.RollbackThreshold, time.Duration(cfg.VacuumTime) * time.Second)
 		s.Close()
 		db.Close()
 		if sm.Processed() == 0 {

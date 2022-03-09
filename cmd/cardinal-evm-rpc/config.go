@@ -43,6 +43,8 @@ type Config struct {
 	Concurrency int `yaml:"concurrency"`
 	Chainid int64 `yaml:"chainid"`
 	ReorgThreshold int64 `yaml:"reorg.threshold"`
+	RollbackThreshold uint64 `yaml:"rollback.threshold"`
+	VacuumTime int64 `yaml:"vacuum.sec"`
 	DataDir string `yaml:"datadir"`
 	TransactionTopic string `yaml:"topic.transactions"`
 	Whitelist map[uint64]types.Hash `yaml:"whitelist"`
@@ -74,6 +76,12 @@ func LoadConfig(fname string) (*Config, error) {
 	}
 	if cfg.ReorgThreshold == 0 {
 		cfg.ReorgThreshold = 128
+	}
+	if cfg.RollbackThreshold == 0 {
+		cfg.RollbackThreshold = 90000
+	}
+	if cfg.VacuumTime == 0 {
+		cfg.VacuumTime = 90
 	}
 	if cfg.DataDir == "" {
 		cfg.DataDir = path.Join(home, ".cardinal", "evm", strconv.Itoa(int(cfg.Chainid)))

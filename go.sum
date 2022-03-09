@@ -14,6 +14,7 @@ github.com/aead/siphash v1.0.1/go.mod h1:Nywa3cDsYNNK3gaciGTWPwHt0wlpNV15vwmswBA
 github.com/armon/consul-api v0.0.0-20180202201655-eb2c6b5be1b6/go.mod h1:grANhF5doyWs3UAsr3K4I6qtAmlQcZDesFNEHPZAzj8=
 github.com/aws/aws-sdk-go v1.42.20 h1:nQkkmTWK5N2Ao1iVzoOx1HTIxwbSWErxyZ1eiwLJWc4=
 github.com/aws/aws-sdk-go v1.42.20/go.mod h1:585smgzpB/KqRA+K3y/NL/oYRqQvpNJYvLm+LY1U59Q=
+github.com/boltdb/bolt v1.3.1/go.mod h1:clJnj/oiGkjum5o1McbSZDSLxVThjynRyGBgiAx27Ps=
 github.com/btcsuite/btcd v0.20.1-beta/go.mod h1:wVuoA8VJLEcwgqHBwHmzLRazpKxTv13Px/pDuV7OomQ=
 github.com/btcsuite/btcd v0.22.0-beta h1:LTDpDKUM5EeOFBPM8IXpinEcmZ6FWfNZbE3lfrfdnWo=
 github.com/btcsuite/btcd v0.22.0-beta/go.mod h1:9n5ntfhhHQBIhUvlhDvD3Qg6fRUj4jkN0VB8L8svzOA=
@@ -158,10 +159,6 @@ github.com/onsi/gomega v1.4.1/go.mod h1:C1qb7wdrVGGVU+Z6iS04AVkA3Q65CEZX59MT0QO5
 github.com/onsi/gomega v1.4.3/go.mod h1:ex+gbHU/CVuBBDIJjb2X0qEXbFg53c61hWP/1CpauHY=
 github.com/openrelayxyz/cardinal-rpc v0.0.16 h1:d/A+aJY/e9z0UJ/Bm6CjUlGLLPMX4GPTiMtz9mhB+Ww=
 github.com/openrelayxyz/cardinal-rpc v0.0.16/go.mod h1:oPORnq09i5OnxDlkJKmE+XpBI6DEuj/Ln5YTA+isXhg=
-github.com/openrelayxyz/cardinal-storage v0.0.13 h1:vOYTwEeweEiQ5TXhdxaajseSm3z8BNPOWmFI/ssVUgc=
-github.com/openrelayxyz/cardinal-storage v0.0.13/go.mod h1:bzx1UVTRtVsZeks2ZexHwYW1UmbVQ5c9tDR4mc+LwJE=
-github.com/openrelayxyz/cardinal-streams v0.0.26 h1:4kCor/VC6Jqyl/dq6Oh/KQXwfOUNUx3dFGFtsiq2I6Y=
-github.com/openrelayxyz/cardinal-streams v0.0.26/go.mod h1:KSIWleyIxxJQYXBfpU9PIQlGyfdYZKUiIxo1KloXnWM=
 github.com/openrelayxyz/cardinal-types v0.0.4/go.mod h1:PEbimhE1ZWP5ZAYwjZjnSaKcDY+E+yJrIl0ckU5GMeo=
 github.com/openrelayxyz/cardinal-types v0.0.5/go.mod h1:4CzsdfRjAWXeOszcXbUuNNjEP7ZR8Np8RO3FO5TFA6E=
 github.com/openrelayxyz/cardinal-types v0.0.6 h1:2G8U4terF4Pb7ESCcQp5WihELTNzyXVUpkbfH199aCY=
