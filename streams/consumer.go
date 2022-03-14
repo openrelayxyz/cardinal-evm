@@ -92,10 +92,11 @@ func (m *StreamManager) Start() error {
 						[]byte(pb.Resumption()),
 					); err != nil {
 						log.Error("Error adding block", "block", pb.Hash, "number", pb.Number, "error", err)
+					} else {
+						heightGauge.Update(pb.Number)
+						m.processed++
 					}
-					heightGauge.Update(pb.Number)
 					pb.Done()
-					m.processed++
 				}
 				latest := added[len(added) - 1]
 				log.Info("Imported new chain segment", "blocks", len(added), "elapsed", time.Since(start), "number", latest.Number, "hash", latest.Hash)
