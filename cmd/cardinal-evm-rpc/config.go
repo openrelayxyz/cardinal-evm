@@ -47,7 +47,7 @@ type Config struct {
 	VacuumTime int64 `yaml:"vacuum.sec"`
 	DataDir string `yaml:"datadir"`
 	TransactionTopic string `yaml:"topic.transactions"`
-	Whitelist map[uint64]types.Hash `yaml:"whitelist"`
+	Whitelist map[uint64]string `yaml:"whitelist"`
 	LogLevel int `yaml:"log.level"`
 	Brokers []broker `yaml:"brokers"`
 	HealthChecks rpc.Checks `yaml:"checks"`
@@ -55,6 +55,7 @@ type Config struct {
 	Statsd *statsdOpts `yaml:"statsd"`
 	CloudWatch *cloudwatchOpts `yaml:"cloudwatch"`
 	brokers []transports.BrokerParams
+	whitelist map[uint64]types.Hash
 }
 
 func LoadConfig(fname string) (*Config, error) {
@@ -86,8 +87,9 @@ func LoadConfig(fname string) (*Config, error) {
 	if cfg.DataDir == "" {
 		cfg.DataDir = path.Join(home, ".cardinal", "evm", strconv.Itoa(int(cfg.Chainid)))
 	}
-	if cfg.Whitelist == nil {
-		cfg.Whitelist = make(map[uint64]types.Hash)
+	cfg.whitelist = make(map[uint64]types.Hash)
+	for k, v := range cfg.Whitelist {
+		cfg.whitelist[k] = types.HexToHash(v)
 	}
 	if cfg.LogLevel == 0 {
 		cfg.LogLevel = 2

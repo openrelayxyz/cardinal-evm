@@ -31,7 +31,7 @@ func main() {
 	flag.CommandLine.Parse(os.Args[1:])
 	cfg, err := LoadConfig(flag.CommandLine.Args()[0])
 	if err != nil {
-		log.Error("Error parsing whitelist flag", "err", err)
+		log.Error("Error parsing config", "err", err)
 		os.Exit(1)
 	}
 
@@ -68,7 +68,7 @@ func main() {
 	if err != nil {
 		log.Error("Error opening badgerdb", "error", err)
 	}
-	s, err := current.Open(db, cfg.ReorgThreshold, cfg.Whitelist)
+	s, err := current.Open(db, cfg.ReorgThreshold, cfg.whitelist)
 	if err != nil {
 		log.Error("Error opening current storage", "error", err, "datadir", cfg.DataDir)
 		os.Exit(1)
@@ -83,7 +83,7 @@ func main() {
 		cfg.ReorgThreshold,
 		cfg.Chainid,
 		s,
-		cfg.Whitelist,
+		cfg.whitelist,
 		*resumptionTime,
 	)
 	if err != nil {
