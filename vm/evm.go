@@ -77,6 +77,7 @@ type BlockContext struct {
 	Time        *big.Int       // Provides information for TIME
 	Difficulty  *big.Int       // Provides information for DIFFICULTY
 	BaseFee     *big.Int       // Provides information for BASEFEE
+	Random      *types.Hash
 }
 
 func defaultCanTransfer(db state.StateDB, addr common.Address, amount *big.Int) bool {
@@ -148,7 +149,7 @@ func NewEVM(blockCtx BlockContext, txCtx TxContext, statedb state.StateDB, chain
 		StateDB:     statedb,
 		Config:      config,
 		chainConfig: chainConfig,
-		chainRules:  chainConfig.Rules(blockCtx.BlockNumber),
+		chainRules:  chainConfig.Rules(blockCtx.BlockNumber, blockCtx.Random != nil),
 	}
 	evm.interpreter = NewEVMInterpreter(evm, config)
 	return evm

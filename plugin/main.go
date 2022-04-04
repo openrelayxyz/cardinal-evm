@@ -16,6 +16,7 @@ import (
 	"github.com/openrelayxyz/plugeth-utils/restricted/rlp"
 	"github.com/openrelayxyz/plugeth-utils/restricted/types"
 	"github.com/openrelayxyz/plugeth-utils/restricted/params"
+	"github.com/openrelayxyz/plugeth-utils/restricted/hexutil"
 	"github.com/savaki/cloudmetrics"
 	"github.com/pubnub/go-metrics-statsd"
 	"gopkg.in/urfave/cli.v1"
@@ -30,6 +31,7 @@ var (
 	config *params.ChainConfig
 	chainid int64
 	producer transports.Producer
+	pluginLoader core.PluginLoader
 	startBlock uint64
 	pendingReorgs map[core.Hash]func()
 	gethHeightGauge = metrics.NewMajorGauge("/geth/height")
@@ -57,6 +59,7 @@ func Initialize(ctx *cli.Context, loader core.PluginLoader, logger core.Logger) 
 	log = logger
 	log.Info("Cardinal EVM plugin initializing")
 	pendingReorgs = make(map[core.Hash]func())
+	pluginLoader = loader
 }
 
 func strPtr(x string) *string {
@@ -313,5 +316,64 @@ func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, dest
 	if err := producer.SendBatch(ctypes.BigToHash(block.Number()), []string{}, batchUpdates); err != nil {
 		log.Error("Failed to send state batch", "block", hash, "err", err)
 		return
+	}
+}
+
+
+type cardinalAPI struct {
+	stack   core.Node
+	blockUpdatesByNumber func(int64) (*types.Block, *big.Int, types.Receipts, map[core.Hash]struct{}, map[core.Hash][]byte, map[core.Hash]map[core.Hash][]byte, map[core.Hash][]byte, error)
+}
+
+func (api *cardinalAPI) ReproduceBlocks(start restricted.BlockNumber, end *restricted.BlockNumber) (bool, error) {
+	client, err := api.stack.Attach()
+	if err != nil {
+		return false, err
+	}
+	var currentBlock hexutil.Uint64
+	client.Call(&currentBlock, "eth_blockNumber")
+	fromBlock := start.Int64()
+	if fromBlock < 0 {
+		fromBlock = int64(currentBlock)
+	}
+	var toBlock int64
+	if end == nil {
+		toBlock = fromBlock
+	} else {
+		toBlock = end.Int64()
+	}
+	if toBlock < 0 {
+		toBlock = int64(currentBlock)
+	}
+	for i := fromBlock; i <= toBlock; i++ {
+		block, td, receipts, destructs, accounts, storage, code, err := api.blockUpdatesByNumber(i)
+		if err != nil {
+			return false, err
+		}
+		BlockUpdates(block, td, receipts, destructs, accounts, storage, code)
+	}
+	return true, nil
+}
+
+func GetAPIs(stack core.Node, backend restricted.Backend) []core.API {
+	items := pluginLoader.Lookup("BlockUpdatesByNumber", func(v interface{}) bool {
+		_, ok := v.(func(int64) (*types.Block, *big.Int, types.Receipts, map[core.Hash]struct{}, map[core.Hash][]byte, map[core.Hash]map[core.Hash][]byte, map[core.Hash][]byte, error))
+		return ok
+	})
+	if len(items) == 0 {
+		log.Warn("Could not load BlockUpdatesByNumber. cardinal_reproduceBlocks will not be available")
+		return []core.API{}
+	}
+	v := items[0].(func(int64) (*types.Block, *big.Int, types.Receipts, map[core.Hash]struct{}, map[core.Hash][]byte, map[core.Hash]map[core.Hash][]byte, map[core.Hash][]byte, error))
+	return []core.API{
+	 {
+			Namespace:	"cardinal",
+			Version:		"1.0",
+			Service:		&cardinalAPI{
+				stack,
+				v,
+			},
+			Public:		true,
+		},
 	}
 }
