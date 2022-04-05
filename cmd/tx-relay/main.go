@@ -58,7 +58,8 @@ func (relayConsumerGroup) Cleanup(_ sarama.ConsumerGroupSession) error { return 
 func (h relayConsumerGroup) ConsumeClaim(sess sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for msg := range claim.Messages() {
 		hash := crypto.Keccak256Hash(msg.Value)
-		if ok := h.cache.Add(hash, struct{}{}); !ok {
+		if ok, _ := h.cache.ContainsOrAdd(hash, struct{}{}); !ok {
+			log15.Debug("Sending Transaction", "hash", hash, "data", fmt.Sprintf("%#x", msg.Value))
 			resp, err := http.Post(h.url, "application/json", bytes.NewBuffer([]byte(fmt.Sprintf(`{"id": 0, "method": "eth_sendRawTransaction", "params": ["%#x"]}`, msg.Value))))
 			if err != nil {
 				log15.Error("Error relaying", "tx", hash, "err", err)
