@@ -14,7 +14,7 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/streams"
 	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-rpc/transports"
-	"github.com/openrelayxyz/cardinal-rpc/delivery"
+	"github.com/openrelayxyz/cardinal-streams/delivery"
 	"github.com/openrelayxyz/cardinal-storage/current"
 	"github.com/openrelayxyz/cardinal-storage/db/badgerdb"
 	"github.com/savaki/cloudmetrics"
