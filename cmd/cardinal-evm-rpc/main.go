@@ -99,7 +99,7 @@ func main() {
 	if broker.URL != "" && cfg.TransactionTopic != "" {
 		emitter, err := txemitter.NewKafkaTransactionProducerFromURLs(broker.URL, cfg.TransactionTopic)
 		if err != nil {
-			log.Error("Error setting up transaction producer", "error", err)
+			log.Error("Error setting up transaction producer", "error", err, "broker", broker.URL, "topic", cfg.TransactionTopic)
 			os.Exit(1)
 		}
 		tm.Register("eth", api.NewPublicTransactionPoolAPI(emitter, mgr))

@@ -20,7 +20,7 @@ func strPtr(x string) *string { return &x }
 func NewKafkaTransactionProducerFromURLs(brokerURL, topic string) (TransactionProducer, error) {
 	configEntries := make(map[string]*string)
 	configEntries["retention.ms"] = strPtr("3600000")
-	brokers, config := transports.ParseKafkaURL(brokerURL)
+	brokers, config := transports.ParseKafkaURL(strings.TrimPrefix(brokerURL, "kafka://"))
 	if err := transports.CreateTopicIfDoesNotExist(strings.TrimPrefix(brokerURL, "kafka://"), topic, 0, configEntries); err != nil {
 		return nil, err
 	}
