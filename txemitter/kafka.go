@@ -6,6 +6,7 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	"github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-streams/transports"
+	"strings"
 	// log "github.com/inconshreveable/log15"
 )
 
