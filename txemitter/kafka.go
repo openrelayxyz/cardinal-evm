@@ -20,7 +20,7 @@ func NewKafkaTransactionProducerFromURLs(brokerURL, topic string) (TransactionPr
 	configEntries := make(map[string]*string)
 	configEntries["retention.ms"] = strPtr("3600000")
 	brokers, config := transports.ParseKafkaURL(brokerURL)
-	if err := transports.CreateTopicIfDoesNotExist(brokerURL, topic, 0, configEntries); err != nil {
+	if err := transports.CreateTopicIfDoesNotExist(strings.TrimPrefix(brokerURL, "kafka://"), topic, 0, configEntries); err != nil {
 		return nil, err
 	}
 	config.Producer.Return.Successes = true
