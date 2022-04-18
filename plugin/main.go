@@ -129,7 +129,7 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 			if err != nil {
 				log.Error("Error getting start block", "err", err)
 			} else {
-				startBlock = uint64(v)
+				startBlock = uint64(v) - 128
 				log.Info("Setting start block from producer", "block", startBlock)
 			}
 		}
