@@ -167,7 +167,7 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 								continue
 							}
 							txdata, err := rlp.EncodeToBytes(tx)
-							if err != nil {
+							if err == nil {
 								select {
 								case producer.Input() <- &sarama.ProducerMessage{Topic: *txPoolTopic, Value: sarama.ByteEncoder(txdata)}:
 								case err := <-producer.Errors():
