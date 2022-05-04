@@ -10,6 +10,7 @@ import (
 	"github.com/Shopify/sarama"
 	ctypes "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/metrics"
+	"github.com/openrelayxyz/cardinal-streams/delivery"
 	"github.com/openrelayxyz/cardinal-streams/transports"
 	"github.com/openrelayxyz/plugeth-utils/core"
 	"github.com/openrelayxyz/plugeth-utils/restricted"
@@ -35,6 +36,7 @@ var (
 	gethHeightGauge = metrics.NewMajorGauge("/geth/height")
 	gethPeersGauge = metrics.NewMajorGauge("/geth/peers")
 	masterHeightGauge = metrics.NewMajorGauge("/master/height")
+	blockUpdatesByNumber func(number int64) (*types.Block, *big.Int, types.Receipts, map[core.Hash]struct{}, map[core.Hash][]byte, map[core.Hash]map[core.Hash][]byte, map[core.Hash][]byte, error)
 
 	Flags = *flag.NewFlagSet("cardinal-plugin", flag.ContinueOnError)
 	txPoolTopic = Flags.String("cardinal.txpool.topic", "", "Topic for mempool transaction data")
@@ -57,6 +59,14 @@ func Initialize(ctx *cli.Context, loader core.PluginLoader, logger core.Logger) 
 	log = logger
 	log.Info("Cardinal EVM plugin initializing")
 	pendingReorgs = make(map[core.Hash]func())
+	fnList := loader.Lookup("BlockUpdatesByNumber", func(item interface{}) bool {
+		_, ok := item.(func(number int64) (*types.Block, *big.Int, types.Receipts, map[core.Hash]struct{}, map[core.Hash][]byte, map[core.Hash]map[core.Hash][]byte, map[core.Hash][]byte, error))
+		log.Info("Found BlockUpdates hook", "matches", ok)
+		return ok
+	})
+	if len(fnList) > 0 {
+		blockUpdatesByNumber = fnList[0].(func(number int64) (*types.Block, *big.Int, types.Receipts, map[core.Hash]struct{}, map[core.Hash][]byte, map[core.Hash]map[core.Hash][]byte, map[core.Hash][]byte, error))
+	}
 }
 
 func strPtr(x string) *string {
@@ -216,6 +226,54 @@ func BUPreReorg(common core.Hash, oldChain []core.Hash, newChain []core.Hash) {
 	}
 }
 
+type resumer struct {}
+
+func (*resumer) GetBlock(ctx context.Context, number uint64) (*delivery.PendingBatch) {
+	block, td, receipts, destructs, accounts, storage, code, _ := blockUpdatesByNumber(int64(number))
+	hash := block.Hash()
+	if block == nil {
+		return nil
+	}
+	updates, deletes, _, batchUpdates := getUpdates(block, td, receipts, destructs, accounts, storage, code)
+	// Since we're just sending a single PendingBatch, we need to merge in
+	// updates. Once we add support for plugins altering the above, we may
+	// need to handle deletes in batchUpdates.
+	for _, b := range batchUpdates {
+		for k, v := range b {
+			updates[k] = v
+		}
+	}
+	return &delivery.PendingBatch{
+		Number: int64(number),
+		Weight: td,
+		ParentHash: ctypes.Hash(block.ParentHash()),
+		Hash: ctypes.Hash(hash),
+		Values: updates,
+		Deletes: deletes,
+	}
+}
+
+func (r *resumer) BlocksFrom(ctx context.Context, number uint64, hash ctypes.Hash) (chan *delivery.PendingBatch, error) {
+	if blockUpdatesByNumber == nil {
+		return nil, fmt.Errorf("cannot retrieve old block updates")
+	}
+	ch := make(chan *delivery.PendingBatch)
+	go func() {
+		for i := int64(number); ; i++ {
+			if pb := r.GetBlock(ctx, number); pb != nil {
+				if pb.Number == int64(number) && pb.Hash != hash {
+					i -= int64(*reorgThreshold)
+					continue
+				}
+				ch <- pb
+			} else {
+				return
+			}
+		}
+	}()
+	return ch, nil
+}
+
 func BUPostReorg(common core.Hash, oldChain []core.Hash, newChain []core.Hash) {
 	if done, ok := pendingReorgs[common]; ok {
 		done()
@@ -223,32 +281,16 @@ func BUPostReorg(common core.Hash, oldChain []core.Hash, newChain []core.Hash) {
 	}
 }
 
-func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, destructs map[core.Hash]struct{}, accounts map[core.Hash][]byte, storage map[core.Hash]map[core.Hash][]byte, code map[core.Hash][]byte) {
-	if producer == nil {
-		panic("Unknown broker. Please set --cardinal.broker.url")
-	}
-	ready.Wait()
+func getUpdates(block *types.Block, td *big.Int, receipts types.Receipts, destructs map[core.Hash]struct{}, accounts map[core.Hash][]byte, storage map[core.Hash]map[core.Hash][]byte, code map[core.Hash][]byte) (map[string][]byte, map[string]struct{}, map[string]ctypes.Hash, map[ctypes.Hash]map[string][]byte) {
 	hash := block.Hash()
-	if block.NumberU64() < startBlock {
-		log.Debug("Skipping block production", "current", block.NumberU64(), "start", startBlock)
-		return
-	}
-	headerBytes, err := rlp.EncodeToBytes(block.Header())
-	if err != nil {
-		log.Error("Error parsing header", "block", block.Hash(), "err", err)
-		return
-	}
+	headerBytes, _ := rlp.EncodeToBytes(block.Header())
 	updates := map[string][]byte{
 		fmt.Sprintf("c/%x/b/%x/h", chainid, hash.Bytes()): headerBytes,
 		fmt.Sprintf("c/%x/b/%x/d", chainid, hash.Bytes()): td.Bytes(),
 		fmt.Sprintf("c/%x/n/%x", chainid, block.Number().Int64()): hash[:],
 	}
 	for i, tx := range block.Transactions() {
-		updates[fmt.Sprintf("c/%x/b/%x/t/%x", chainid, hash.Bytes(), i)], err = tx.MarshalBinary()
-		if err != nil {
-			log.Error("Error marshalling tx", "block", block.Hash(), "tx", i, "err", err)
-			return
-		}
+		updates[fmt.Sprintf("c/%x/b/%x/t/%x", chainid, hash.Bytes(), i)], _ = tx.MarshalBinary()
 		rmeta := receiptMeta{
 			ContractAddress: core.Address(receipts[i].ContractAddress),
 			CumulativeGasUsed: receipts[i].CumulativeGasUsed,
@@ -260,17 +302,9 @@ func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, dest
 		if rmeta.LogCount > 0 {
 			rmeta.LogOffset = receipts[i].Logs[0].Index
 		}
-		updates[fmt.Sprintf("c/%x/b/%x/r/%x", chainid, hash.Bytes(), i)], err = rlp.EncodeToBytes(rmeta)
-		if err != nil {
-			log.Error("Error marshalling tx receipt", "block", block.Hash(), "tx", i, "err", err)
-			return
-		}
-
+		updates[fmt.Sprintf("c/%x/b/%x/r/%x", chainid, hash.Bytes(), i)], _ = rlp.EncodeToBytes(rmeta)
 		for _, logRecord := range receipts[i].Logs {
-			updates[fmt.Sprintf("c/%x/b/%x/l/%x/%x", chainid, hash.Bytes(), i, logRecord.Index)], err = rlp.EncodeToBytes(logRecord)
-			if err != nil {
-				log.Error("Error unmarshalling log record", "block", block.Hash(), "tx", i, "")
-			}
+			updates[fmt.Sprintf("c/%x/b/%x/l/%x/%x", chainid, hash.Bytes(), i, logRecord.Index)], _ = rlp.EncodeToBytes(logRecord)
 		}
 	}
 	for hashedAddr, acctRLP := range accounts {
@@ -290,13 +324,37 @@ func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, dest
 		// If uncles == 0, we can figure that out from the hash without having to
 		// send an empty list across the wire
 		for i, uncle := range block.Uncles() {
-			updates[fmt.Sprintf("c/%x/b/%x/u/%x", chainid, hash.Bytes(), i)], err = rlp.EncodeToBytes(uncle)
-			if err != nil {
-				log.Error("Error marshalling uncles list", "block", block.Hash(), "err", err)
-				return
-			}
+			updates[fmt.Sprintf("c/%x/b/%x/u/%x", chainid, hash.Bytes(), i)], _ = rlp.EncodeToBytes(uncle)
 		}
 	}
+	batchUpdates := map[ctypes.Hash]map[string][]byte{
+		ctypes.BigToHash(block.Number()): make(map[string][]byte),
+	}
+	for addrHash, updates := range storage {
+		for k, v := range updates {
+			batchUpdates[ctypes.BigToHash(block.Number())][fmt.Sprintf("c/%x/a/%x/s/%x", chainid, addrHash.Bytes(), k.Bytes())] = v
+		}
+	}
+
+	// TODO: Allow plugins the opportunity to alter td, updates, deletes,
+	// batches, etc. So that chain-specific plugins can add the information
+	// they're going to need. Allow plugins the opportunity to send their own
+	// batches
+
+	return updates, deletes, batches, batchUpdates
+}
+
+func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, destructs map[core.Hash]struct{}, accounts map[core.Hash][]byte, storage map[core.Hash]map[core.Hash][]byte, code map[core.Hash][]byte) {
+	if producer == nil {
+		panic("Unknown broker. Please set --cardinal.broker.url")
+	}
+	ready.Wait()
+	if block.NumberU64() < startBlock {
+		log.Debug("Skipping block production", "current", block.NumberU64(), "start", startBlock)
+		return
+	}
+	hash := block.Hash()
+	updates, deletes, batches, batchUpdates := getUpdates(block, td, receipts, destructs, accounts, storage, code)
 	log.Info("Producing block to kafka", "hash", hash, "number", block.NumberU64())
 	gethHeightGauge.Update(block.Number().Int64())
 	masterHeightGauge.Update(block.Number().Int64())
@@ -313,14 +371,10 @@ func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, dest
 		panic(err.Error())
 		return
 	}
-	batchUpdates := make(map[string][]byte)
-	for addrHash, updates := range storage {
-		for k, v := range updates {
-			batchUpdates[fmt.Sprintf("c/%x/a/%x/s/%x", chainid, addrHash.Bytes(), k.Bytes())] = v
+	for batchid, batch := range batchUpdates {
+		if err := producer.SendBatch(batchid, []string{}, batch); err != nil {
+			log.Error("Failed to send state batch", "block", hash, "err", err)
+			return
 		}
-	}
-	if err := producer.SendBatch(ctypes.BigToHash(block.Number()), []string{}, batchUpdates); err != nil {
-		log.Error("Failed to send state batch", "block", hash, "err", err)
-		return
 	}
 }
