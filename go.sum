@@ -146,8 +146,8 @@ github.com/openrelayxyz/cardinal-rpc v0.0.19-websocket-transport-1 h1:pGy/3jOd4T
 github.com/openrelayxyz/cardinal-rpc v0.0.19-websocket-transport-1/go.mod h1:cvDwS47WQIsHq4mZrrpCb+rTl2W1OyjuRENcOwCSQgE=
 github.com/openrelayxyz/cardinal-storage v0.0.14 h1:Q6z9nDFIKi4466K4E4S0nLik7DyUggrw5GbvzDCC0EI=
 github.com/openrelayxyz/cardinal-storage v0.0.14/go.mod h1:I4Dc0XRElEeceAgGHSHTU1mpZ4q3yQ+plZcaiXvjnTk=
-github.com/openrelayxyz/cardinal-streams v0.0.38-websockets-producer-4 h1:DFsTyOTABrOcUp7WFlVfkCdAhnUwp24T05lHNnBm90E=
-github.com/openrelayxyz/cardinal-streams v0.0.38-websockets-producer-4/go.mod h1:7z+Yg5QrpSVyd+/7+Ccqq4X4UpH617eZmHumbleLj/0=
+github.com/openrelayxyz/cardinal-streams v0.0.38-websockets-producer-6 h1:8mKb5r9Y2vgqSu5bi2YvYp0S05GdfKFf4KU/EMKuW34=
+github.com/openrelayxyz/cardinal-streams v0.0.38-websockets-producer-6/go.mod h1:7z+Yg5QrpSVyd+/7+Ccqq4X4UpH617eZmHumbleLj/0=
 github.com/openrelayxyz/cardinal-types v0.0.4/go.mod h1:PEbimhE1ZWP5ZAYwjZjnSaKcDY+E+yJrIl0ckU5GMeo=
 github.com/openrelayxyz/cardinal-types v0.0.5/go.mod h1:4CzsdfRjAWXeOszcXbUuNNjEP7ZR8Np8RO3FO5TFA6E=
 github.com/openrelayxyz/cardinal-types v0.0.6 h1:2G8U4terF4Pb7ESCcQp5WihELTNzyXVUpkbfH199aCY=

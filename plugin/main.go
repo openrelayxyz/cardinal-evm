@@ -275,7 +275,11 @@ func (r *resumer) BlocksFrom(ctx context.Context, number uint64, hash ctypes.Has
 					i -= int64(*reorgThreshold)
 					continue
 				}
-				ch <- pb
+				select {
+				case ch <- pb:
+				case <-ctx.Done():
+					return
+				}
 			} else {
 				return
 			}
