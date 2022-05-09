@@ -239,11 +239,12 @@ func BUPreReorg(common core.Hash, oldChain []core.Hash, newChain []core.Hash) {
 type resumer struct {}
 
 func (*resumer) GetBlock(ctx context.Context, number uint64) (*delivery.PendingBatch) {
-	block, td, receipts, destructs, accounts, storage, code, _ := blockUpdatesByNumber(int64(number))
-	hash := block.Hash()
+	block, td, receipts, destructs, accounts, storage, code, err := blockUpdatesByNumber(int64(number))
 	if block == nil {
+		log.Warn("Error retrieving block", "number", number, "err", err)
 		return nil
 	}
+	hash := block.Hash()
 	updates, deletes, _, batchUpdates := getUpdates(block, td, receipts, destructs, accounts, storage, code)
 	// Since we're just sending a single PendingBatch, we need to merge in
 	// updates. Once we add support for plugins altering the above, we may
