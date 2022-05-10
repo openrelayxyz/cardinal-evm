@@ -270,10 +270,10 @@ func (r *resumer) BlocksFrom(ctx context.Context, number uint64, hash ctypes.Has
 	}
 	ch := make(chan *delivery.PendingBatch)
 	go func() {
-		for i := int64(number); ; i++ {
-			if pb := r.GetBlock(ctx, number); pb != nil {
+		for i := number; ; i++ {
+			if pb := r.GetBlock(ctx, i); pb != nil {
 				if pb.Number == int64(number) && pb.Hash != hash {
-					i -= int64(*reorgThreshold)
+					i -= uint64(*reorgThreshold)
 					continue
 				}
 				select {
