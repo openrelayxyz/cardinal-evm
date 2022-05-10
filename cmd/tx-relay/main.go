@@ -81,6 +81,7 @@ func (h relayConsumerGroup) ConsumeClaim(sess sarama.ConsumerGroupSession, claim
 		} else {
 			log15.Info("Skipping repeat", "tx", hash)
 		}
+		sess.MarkMessage(msg, "")
 	}
 	return nil
 }
