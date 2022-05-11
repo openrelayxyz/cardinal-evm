@@ -370,7 +370,7 @@ func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, dest
 	}
 	hash := block.Hash()
 	updates, deletes, batches, batchUpdates := getUpdates(block, td, receipts, destructs, accounts, storage, code)
-	log.Info("Producing block to kafka", "hash", hash, "number", block.NumberU64())
+	log.Info("Producing block to cardinal-streams", "hash", hash, "number", block.NumberU64())
 	gethHeightGauge.Update(block.Number().Int64())
 	masterHeightGauge.Update(block.Number().Int64())
 	if err := producer.AddBlock(
