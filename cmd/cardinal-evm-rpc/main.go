@@ -15,8 +15,7 @@ import (
 	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-rpc/transports"
 	"github.com/openrelayxyz/cardinal-streams/delivery"
-	"github.com/openrelayxyz/cardinal-storage/current"
-	"github.com/openrelayxyz/cardinal-storage/db/badgerdb"
+	"github.com/openrelayxyz/cardinal-storage/resolver"
 	"github.com/savaki/cloudmetrics"
 	"github.com/pubnub/go-metrics-statsd"
 	"strconv"
@@ -65,11 +64,7 @@ func main() {
 	if cfg.HttpPort != 0 {
 		tm.AddHTTPServer(cfg.HttpPort)
 	}
-	db, err := badgerdb.New(cfg.DataDir)
-	if err != nil {
-		log.Error("Error opening badgerdb", "error", err)
-	}
-	s, err := current.Open(db, cfg.ReorgThreshold, cfg.whitelist)
+	s, err := resolver.ResolveStorage(cfg.DataDir, cfg.ReorgThreshold, cfg.whitelist)
 	if err != nil {
 		log.Error("Error opening current storage", "error", err, "datadir", cfg.DataDir)
 		os.Exit(1)
@@ -124,7 +119,6 @@ func main() {
 		sm.Close()
 		s.Vacuum(cfg.RollbackThreshold, time.Duration(cfg.VacuumTime) * time.Second)
 		s.Close()
-		db.Close()
 		if sm.Processed() == 0 {
 			log.Info("Shutting down without processing any messages.")
 			os.Exit(1)
@@ -206,11 +200,9 @@ func main() {
 		log.Error("Critical Error. Shutting down.", "error", err)
 		sm.Close()
 		s.Close()
-		db.Close()
 		os.Exit(1)
 	}
 	tm.Stop()
 	sm.Close()
 	s.Close()
-	db.Close()
 }
