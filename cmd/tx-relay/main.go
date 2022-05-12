@@ -43,7 +43,6 @@ func main() {
 		}
 		if err := consumerGroup.Consume(context.Background(), []string{topic}, handler); err != nil {
 			log15.Error("Error consuming", "err", err, "topic", topic)
-			return
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
@@ -82,6 +81,7 @@ func (h relayConsumerGroup) ConsumeClaim(sess sarama.ConsumerGroupSession, claim
 		} else {
 			log15.Info("Skipping repeat", "tx", hash)
 		}
+		sess.MarkMessage(msg, "")
 	}
 	return nil
 }
