@@ -152,8 +152,8 @@ github.com/openrelayxyz/cardinal-types v0.0.6 h1:2G8U4terF4Pb7ESCcQp5WihELTNzyXV
 github.com/openrelayxyz/cardinal-types v0.0.6/go.mod h1:4CzsdfRjAWXeOszcXbUuNNjEP7ZR8Np8RO3FO5TFA6E=
 github.com/openrelayxyz/drumline v0.4.0 h1:dy//XNdRV0aO63f/mg2j0/gJmZmsed3Bl5oUlphIcsE=
 github.com/openrelayxyz/drumline v0.4.0/go.mod h1:tuP4gn2CYgrEIpVJSfwePU1mVBJfppApZZUU731OOkk=
-github.com/openrelayxyz/plugeth-utils v0.0.16 h1:G/WOaW1tsRoPZT6t29+Cphf2vVB2UVqlBtd0DocG0hA=
-github.com/openrelayxyz/plugeth-utils v0.0.16/go.mod h1:YCPmIHj5B5v9qdgKFYhBYpZumXW5pjM8+3duJr/gElo=
+github.com/openrelayxyz/plugeth-utils v0.0.17 h1:HlDCPjB8Jmt5gYLXA1HyGcNekhnQQr/prCA2/THNpz4=
+github.com/openrelayxyz/plugeth-utils v0.0.17/go.mod h1:YCPmIHj5B5v9qdgKFYhBYpZumXW5pjM8+3duJr/gElo=
 github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
 github.com/pierrec/lz4 v2.6.0+incompatible h1:Ix9yFKn1nSPBLFl/yZknTp8TU5G4Ps0JDmguYK6iH1A=
 github.com/pierrec/lz4 v2.6.0+incompatible/go.mod h1:pdkljMzZIN41W+lC3N2tnIh5sFi+IEE17M5jbnwPHcY=
