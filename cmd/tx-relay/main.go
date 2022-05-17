@@ -6,7 +6,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/openrelayxyz/cardinal-streams/transports"
-	"github.com/openrelayxyz/cardinal-evm/crypto"
+	// "github.com/openrelayxyz/cardinal-evm/crypto"
+	"github.com/openrelayxyz/cardinal-evm/types"
+	"github.com/openrelayxyz/cardinal-evm/rlp"
 	"github.com/hashicorp/golang-lru"
 	"github.com/Shopify/sarama"
 	"github.com/inconshreveable/log15"
@@ -41,7 +43,6 @@ func main() {
 		}
 		if err := consumerGroup.Consume(context.Background(), []string{topic}, handler); err != nil {
 			log15.Error("Error consuming", "err", err, "topic", topic)
-			return
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
@@ -57,9 +58,20 @@ func (relayConsumerGroup) Setup(_ sarama.ConsumerGroupSession) error	 { return n
 func (relayConsumerGroup) Cleanup(_ sarama.ConsumerGroupSession) error { return nil }
 func (h relayConsumerGroup) ConsumeClaim(sess sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for msg := range claim.Messages() {
-		hash := crypto.Keccak256Hash(msg.Value)
-		if ok := h.cache.Add(hash, struct{}{}); !ok {
-			resp, err := http.Post(h.url, "application/json", bytes.NewBuffer([]byte(fmt.Sprintf(`{"id": 0, "method": "eth_sendRawTransaction", "params": ["%#x"]}`, msg.Value))))
+		tx := new(types.Transaction)
+		if err := rlp.DecodeBytes(msg.Value, tx); err != nil {
+			log15.Error("Error decoding", "err", err)
+			continue
+		}
+		bin, err := tx.MarshalBinary()
+		if err != nil {
+			log15.Error("Error MarshalBinary", "err", err)
+			continue
+		}
+		hash := tx.Hash()
+		if ok, _ := h.cache.ContainsOrAdd(hash, struct{}{}); !ok {
+			log15.Debug("Sending Transaction", "hash", hash, "data", fmt.Sprintf("%#x", msg.Value))
+			resp, err := http.Post(h.url, "application/json", bytes.NewBuffer([]byte(fmt.Sprintf(`{"id": 0, "method": "eth_sendRawTransaction", "params": ["%#x"]}`, bin))))
 			if err != nil {
 				log15.Error("Error relaying", "tx", hash, "err", err)
 			} else {
@@ -69,6 +81,7 @@ func (h relayConsumerGroup) ConsumeClaim(sess sarama.ConsumerGroupSession, claim
 		} else {
 			log15.Info("Skipping repeat", "tx", hash)
 		}
+		sess.MarkMessage(msg, "")
 	}
 	return nil
 }

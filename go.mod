@@ -1,6 +1,6 @@
 module github.com/openrelayxyz/cardinal-evm
 
-go 1.15
+go 1.16
 
 require (
 	github.com/Shopify/sarama v1.28.0
@@ -16,9 +16,9 @@ require (
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/openrelayxyz/cardinal-rpc v0.0.16
 	github.com/openrelayxyz/cardinal-storage v0.0.14
-	github.com/openrelayxyz/cardinal-streams v0.0.29
+	github.com/openrelayxyz/cardinal-streams v0.0.37
 	github.com/openrelayxyz/cardinal-types v0.0.6
-	github.com/openrelayxyz/plugeth-utils v0.0.16
+	github.com/openrelayxyz/plugeth-utils v0.0.17
 	github.com/pubnub/go-metrics-statsd v0.0.0-20170124014003-7da61f429d6b
 	github.com/savaki/cloudmetrics v0.0.0-20160314183336-c82bfea3c09e
 	github.com/stretchr/testify v1.7.0

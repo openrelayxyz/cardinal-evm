@@ -132,8 +132,10 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 			if err != nil {
 				log.Error("Error getting start block", "err", err)
 			} else {
-				startBlock = uint64(v)
-				log.Info("Setting start block from producer", "block", startBlock)
+				if v > 128 {
+					startBlock = uint64(v) - 128
+					log.Info("Setting start block from producer", "block", startBlock)
+				}
 			}
 		}
 		if *txPoolTopic != "" {
@@ -160,11 +162,22 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 				for {
 					select {
 					case txEvent := <-ch:
-						for _, tx := range txEvent.Txs {
-							select {
-							case producer.Input() <- &sarama.ProducerMessage{Topic: *txPoolTopic, Value: sarama.ByteEncoder(tx)}:
-							case err := <-producer.Errors():
-								log.Error("Error emitting: %v", "err", err.Error())
+						for _, txBytes := range txEvent.Txs {
+							// Switch from MarshalBinary to RLP encoding to match EtherCattle's legacy format for txpool transactions
+							tx := &types.Transaction{}
+							if err := tx.UnmarshalBinary(txBytes); err != nil {
+								log.Error("Error unmarshalling")
+								continue
+							}
+							txdata, err := rlp.EncodeToBytes(tx)
+							if err == nil {
+								select {
+								case producer.Input() <- &sarama.ProducerMessage{Topic: *txPoolTopic, Value: sarama.ByteEncoder(txdata)}:
+								case err := <-producer.Errors():
+									log.Error("Error emitting: %v", "err", err.Error())
+								}
+							} else {
+								log.Warn("Error RLP encoding transactions", "err", err)
 							}
 						}
 					case err := <-sub.Err():

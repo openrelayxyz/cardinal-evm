@@ -6,6 +6,7 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	"github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-streams/transports"
+	"strings"
 	// log "github.com/inconshreveable/log15"
 )
 
@@ -19,8 +20,8 @@ func strPtr(x string) *string { return &x }
 func NewKafkaTransactionProducerFromURLs(brokerURL, topic string) (TransactionProducer, error) {
 	configEntries := make(map[string]*string)
 	configEntries["retention.ms"] = strPtr("3600000")
-	brokers, config := transports.ParseKafkaURL(brokerURL)
-	if err := transports.CreateTopicIfDoesNotExist(brokerURL, topic, 0, configEntries); err != nil {
+	brokers, config := transports.ParseKafkaURL(strings.TrimPrefix(brokerURL, "kafka://"))
+	if err := transports.CreateTopicIfDoesNotExist(strings.TrimPrefix(brokerURL, "kafka://"), topic, 0, configEntries); err != nil {
 		return nil, err
 	}
 	config.Producer.Return.Successes = true
