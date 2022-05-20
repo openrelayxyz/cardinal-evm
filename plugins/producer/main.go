@@ -272,7 +272,7 @@ func (*resumer) GetBlock(ctx context.Context, number uint64) (*delivery.PendingB
 		return nil
 	}
 	hash := block.Hash()
-	updates, deletes, _, batchUpdates := getUpdates(block, td, receipts, destructs, accounts, storage, code)
+	weight, updates, deletes, _, batchUpdates := getUpdates(block, td, receipts, destructs, accounts, storage, code)
 	// Since we're just sending a single PendingBatch, we need to merge in
 	// updates. Once we add support for plugins altering the above, we may
 	// need to handle deletes in batchUpdates.
@@ -283,7 +283,7 @@ func (*resumer) GetBlock(ctx context.Context, number uint64) (*delivery.PendingB
 	}
 	return &delivery.PendingBatch{
 		Number: int64(number),
-		Weight: td,
+		Weight: weight,
 		ParentHash: ctypes.Hash(block.ParentHash()),
 		Hash: ctypes.Hash(hash),
 		Values: updates,
@@ -323,7 +323,7 @@ func BUPostReorg(common core.Hash, oldChain []core.Hash, newChain []core.Hash) {
 	}
 }
 
-func getUpdates(block *types.Block, td *big.Int, receipts types.Receipts, destructs map[core.Hash]struct{}, accounts map[core.Hash][]byte, storage map[core.Hash]map[core.Hash][]byte, code map[core.Hash][]byte) (map[string][]byte, map[string]struct{}, map[string]ctypes.Hash, map[ctypes.Hash]map[string][]byte) {
+func getUpdates(block *types.Block, td *big.Int, receipts types.Receipts, destructs map[core.Hash]struct{}, accounts map[core.Hash][]byte, storage map[core.Hash]map[core.Hash][]byte, code map[core.Hash][]byte) (*big.Int, map[string][]byte, map[string]struct{}, map[string]ctypes.Hash, map[ctypes.Hash]map[string][]byte) {
 	hash := block.Hash()
 	headerBytes, _ := rlp.EncodeToBytes(block.Header())
 	updates := map[string][]byte{
@@ -378,12 +378,9 @@ func getUpdates(block *types.Block, td *big.Int, receipts types.Receipts, destru
 		}
 	}
 
-	// TODO: Allow plugins the opportunity to alter td, updates, deletes,
-	// batches, etc. So that chain-specific plugins can add the information
-	// they're going to need. Allow plugins the opportunity to send their own
-	// batches
-
-	return updates, deletes, batches, batchUpdates
+	weight := new(big.Int).Set(td)
+	addBlockHook(block.Number().Int64(), ctypes.Hash(hash), ctypes.Hash(block.ParentHash()), weight, updates, deletes)
+	return weight, updates, deletes, batches, batchUpdates
 }
 
 func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, destructs map[core.Hash]struct{}, accounts map[core.Hash][]byte, storage map[core.Hash]map[core.Hash][]byte, code map[core.Hash][]byte) {
@@ -396,12 +393,10 @@ func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, dest
 		return
 	}
 	hash := block.Hash()
-	updates, deletes, batches, batchUpdates := getUpdates(block, td, receipts, destructs, accounts, storage, code)
+	weight, updates, deletes, batches, batchUpdates := getUpdates(block, td, receipts, destructs, accounts, storage, code)
 	log.Info("Producing block to cardinal-streams", "hash", hash, "number", block.NumberU64())
 	gethHeightGauge.Update(block.Number().Int64())
 	masterHeightGauge.Update(block.Number().Int64())
-	weight := new(big.Int).Set(td)
-	addBlockHook(block.Number().Int64(), ctypes.Hash(hash), ctypes.Hash(block.ParentHash()), weight, updates, deletes)
 	if err := producer.AddBlock(
 		block.Number().Int64(),
 		ctypes.Hash(hash),
