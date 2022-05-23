@@ -26,6 +26,7 @@ import (
 
 func main() {
 	resumptionTime := flag.Int64("resumption.ts", -1, "Resume from a timestamp instead of the offset committed to the database")
+	blockRollback := flag.Int64("block.rollback", 0, "Rollback to block N before syncing. If N < 0, rolls back from head before starting or syncing.")
 	exitWhenSynced := flag.Bool("exitwhensynced", false, "Automatically shutdown after syncing is complete")
 	debug := flag.Bool("debug", false, "Enable debug APIs")
 
@@ -74,9 +75,23 @@ func main() {
 		log.Error("Error opening current storage", "error", err, "datadir", cfg.DataDir)
 		os.Exit(1)
 	}
+	if *blockRollback < 0 {
+		_, n, _, _ := s.LatestBlock()
+		*blockRollback = int64(n) + *blockRollback
+	}
+	if *blockRollback != 0 {
+		if err := s.Rollback(uint64(*blockRollback)); err != nil {
+			log.Error("Rollback error", "err", err)
+			s.Close()
+			db.Close()
+			os.Exit(1)
+		}
+	}
 	chaincfg, ok := params.ChainLookup[cfg.Chainid]
 	if !ok {
 		log.Error("Unsupported chainid", "chain", cfg.Chainid)
+		s.Close()
+		db.Close()
 		os.Exit(1)
 	}
 	sm, err := streams.NewStreamManager(
@@ -127,7 +142,7 @@ func main() {
 		db.Close()
 		if sm.Processed() == 0 {
 			log.Info("Shutting down without processing any messages.")
-			os.Exit(1)
+			os.Exit(3)
 		}
 		os.Exit(0)
 	}

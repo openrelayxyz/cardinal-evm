@@ -14,10 +14,10 @@ require (
 	github.com/jedisct1/go-minisign v0.0.0-20190909160543-45766022959e
 	github.com/klauspost/compress v1.13.6 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
-	github.com/openrelayxyz/cardinal-rpc v0.0.16
-	github.com/openrelayxyz/cardinal-storage v0.0.14
-	github.com/openrelayxyz/cardinal-streams v0.0.37
-	github.com/openrelayxyz/cardinal-types v0.0.6
+	github.com/openrelayxyz/cardinal-rpc v1.0.0
+	github.com/openrelayxyz/cardinal-storage v1.0.1
+	github.com/openrelayxyz/cardinal-streams v1.0.0
+	github.com/openrelayxyz/cardinal-types v1.0.0
 	github.com/openrelayxyz/plugeth-utils v0.0.17
 	github.com/pubnub/go-metrics-statsd v0.0.0-20170124014003-7da61f429d6b
 	github.com/savaki/cloudmetrics v0.0.0-20160314183336-c82bfea3c09e

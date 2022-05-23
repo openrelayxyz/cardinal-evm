@@ -211,6 +211,9 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
 						Difficulty:  header.Difficulty,
 						BaseFee:     header.BaseFee,
 					}
+					if header.Difficulty.Cmp(new(big.Int)) == 0 {
+						blockCtx.Random = &header.MixDigest
+					}
 					if gasPrice == nil {
 						gasPrice = header.BaseFee
 					}

@@ -536,7 +536,7 @@ func AccessList(ctx *rpc.CallContext, db state.StateDB, header *types.Header, ch
 		to = crypto.CreateAddress(args.from(), uint64(*args.Nonce))
 	}
 	// Retrieve the precompiles since they don't need to be added to the access list
-	precompiles := vm.ActivePrecompiles(chaincfg.Rules(header.Number))
+	precompiles := vm.ActivePrecompiles(chaincfg.Rules(header.Number, header.Difficulty.Cmp(new(big.Int)) == 0))
 
 	// Create an initial tracer
 	tracer := vm.NewAccessListTracer(nil, args.from(), to, precompiles)
