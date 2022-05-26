@@ -148,13 +148,13 @@ func (l *StructLogger) Reset() {
 }
 
 // CaptureStart implements the Tracer interface to initialize the tracing operation.
-func (l *StructLogger) CaptureStart(env *EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
+func (l *StructLogger) CaptureStart(from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
 }
 
 // CaptureState logs a new structured log message and pushes it out to the environment
 //
 // CaptureState also tracks SLOAD/SSTORE ops to track storage change.
-func (l *StructLogger) CaptureState(env *EVM, pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, rData []byte, depth int, err error) {
+func (l *StructLogger) CaptureState(pc uint64, op OpCode, gas uint64, cost uint64, scope *ScopeContext, rData []byte, depth int, err error) {
 	memory := scope.Memory
 	stack := scope.Stack
 	contract := scope.Contract
@@ -187,10 +187,10 @@ func (l *StructLogger) CaptureState(env *EVM, pc uint64, op OpCode, gas, cost ui
 		// capture SLOAD opcodes and record the read entry in the local storage
 		if op == SLOAD && stack.len() >= 1 {
 			var (
-				address = ctypes.Hash(stack.data[stack.len()-1].Bytes32())
-				value   = env.StateDB.GetState(contract.Address(), address)
+				// address = ctypes.Hash(stack.data[stack.len()-1].Bytes32())
+				//value   = env.StateDB.GetState(contract.Address(), address)
 			)
-			l.storage[contract.Address()][address] = value
+			// l.storage[contract.Address()][address] = value
 			storage = l.storage[contract.Address()].Copy()
 		} else if op == SSTORE && stack.len() >= 2 {
 			// capture SSTORE opcodes and record the written entry in the local storage.
@@ -208,13 +208,14 @@ func (l *StructLogger) CaptureState(env *EVM, pc uint64, op OpCode, gas, cost ui
 		copy(rdata, rData)
 	}
 	// create a new snapshot of the EVM.
-	log := StructLog{pc, op, gas, cost, mem, memory.Len(), stck, rdata, storage, depth, env.StateDB.GetRefund(), err}
+	log := StructLog{pc, op, gas, cost, mem, memory.Len(), stck, rdata, storage, depth, 0, err}
+	// log := StructLog{pc, op, gas, cost, mem, memory.Len(), stck, rdata, storage, depth, env.StateDB.GetRefund(), err}
 	l.logs = append(l.logs, log)
 }
 
 // CaptureFault implements the Tracer interface to trace an execution fault
 // while running an opcode.
-func (l *StructLogger) CaptureFault(env *EVM, pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, depth int, err error) {
+func (l *StructLogger) CaptureFault(pc uint64, op OpCode, gas uint64, cost uint64, scope *ScopeContext, depth int, err error) {
 }
 
 // CaptureEnd is called after the call finishes to finalize the tracing.
@@ -228,6 +229,9 @@ func (l *StructLogger) CaptureEnd(output []byte, gasUsed uint64, t time.Duration
 		}
 	}
 }
+
+func (l *StructLogger) CaptureEnter(typ OpCode, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {}
+func (l *StructLogger) CaptureExit(output []byte, gasUsed uint64, err error) {}
 
 // StructLogs returns the captured log entries.
 func (l *StructLogger) StructLogs() []StructLog { return l.logs }
