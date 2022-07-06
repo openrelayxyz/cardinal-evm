@@ -299,7 +299,7 @@ func (r *resumer) BlocksFrom(ctx context.Context, number uint64, hash ctypes.Has
 	go func() {
 		for i := number; ; i++ {
 			if pb := r.GetBlock(ctx, i); pb != nil {
-				if pb.Number == int64(number) && pb.Hash != hash {
+				if pb.Number == int64(number) && hash != (ctypes.Hash{}) && pb.Hash != hash {
 					i -= uint64(*reorgThreshold)
 					continue
 				}
