@@ -15,7 +15,7 @@ require (
 	github.com/klauspost/compress v1.13.6 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/openrelayxyz/cardinal-rpc v1.0.0
-	github.com/openrelayxyz/cardinal-storage v1.0.1
+	github.com/openrelayxyz/cardinal-storage v1.1.1
 	github.com/openrelayxyz/cardinal-streams v1.0.0
 	github.com/openrelayxyz/cardinal-types v1.0.0
 	github.com/openrelayxyz/plugeth-utils v0.0.18
