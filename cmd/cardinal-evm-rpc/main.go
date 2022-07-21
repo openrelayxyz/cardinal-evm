@@ -78,7 +78,6 @@ func main() {
 		if err := s.Rollback(uint64(*blockRollback)); err != nil {
 			log.Error("Rollback error", "err", err)
 			s.Close()
-			db.Close()
 			os.Exit(1)
 		}
 	}
@@ -86,7 +85,6 @@ func main() {
 	if !ok {
 		log.Error("Unsupported chainid", "chain", cfg.Chainid)
 		s.Close()
-		db.Close()
 		os.Exit(1)
 	}
 	sm, err := streams.NewStreamManager(
