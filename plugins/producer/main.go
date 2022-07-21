@@ -17,6 +17,7 @@ import (
 	"github.com/openrelayxyz/plugeth-utils/restricted/rlp"
 	"github.com/openrelayxyz/plugeth-utils/restricted/types"
 	"github.com/openrelayxyz/plugeth-utils/restricted/params"
+	"github.com/openrelayxyz/plugeth-utils/restricted/hexutil"
 	"github.com/savaki/cloudmetrics"
 	"github.com/pubnub/go-metrics-statsd"
 	"gopkg.in/urfave/cli.v1"
@@ -31,12 +32,15 @@ var (
 	config *params.ChainConfig
 	chainid int64
 	producer transports.Producer
+	pluginLoader core.PluginLoader
 	startBlock uint64
 	pendingReorgs map[core.Hash]func()
 	gethHeightGauge = metrics.NewMajorGauge("/geth/height")
 	gethPeersGauge = metrics.NewMajorGauge("/geth/peers")
 	masterHeightGauge = metrics.NewMajorGauge("/master/height")
 	blockUpdatesByNumber func(number int64) (*types.Block, *big.Int, types.Receipts, map[core.Hash]struct{}, map[core.Hash][]byte, map[core.Hash]map[core.Hash][]byte, map[core.Hash][]byte, error)
+
+	addBlockHook func(number int64, hash, parent ctypes.Hash, weight *big.Int, updates map[string][]byte, deletes map[string]struct{})
 
 	Flags = *flag.NewFlagSet("cardinal-plugin", flag.ContinueOnError)
 	txPoolTopic = Flags.String("cardinal.txpool.topic", "", "Topic for mempool transaction data")
@@ -59,6 +63,7 @@ func Initialize(ctx *cli.Context, loader core.PluginLoader, logger core.Logger) 
 	log = logger
 	log.Info("Cardinal EVM plugin initializing")
 	pendingReorgs = make(map[core.Hash]func())
+	pluginLoader = loader
 	fnList := loader.Lookup("BlockUpdatesByNumber", func(item interface{}) bool {
 		_, ok := item.(func(number int64) (*types.Block, *big.Int, types.Receipts, map[core.Hash]struct{}, map[core.Hash][]byte, map[core.Hash]map[core.Hash][]byte, map[core.Hash][]byte, error))
 		log.Info("Found BlockUpdates hook", "matches", ok)
@@ -78,6 +83,24 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 	defer ready.Done()
 	config = b.ChainConfig()
 	chainid = config.ChainID.Int64()
+
+	items := pluginLoader.Lookup("CardinalAddBlockHook", func(v interface{}) bool {
+		_, ok := v.(func(int64, ctypes.Hash, ctypes.Hash, *big.Int, map[string][]byte, map[string]struct{}))
+		return ok
+	})
+
+	addBlockFns := []func(int64, ctypes.Hash, ctypes.Hash, *big.Int, map[string][]byte, map[string]struct{}){}
+	for _, v := range items {
+		if fn, ok := v.(func(int64, ctypes.Hash, ctypes.Hash, *big.Int, map[string][]byte, map[string]struct{})); ok {
+			addBlockFns = append(addBlockFns, fn)
+		}
+	}
+	addBlockHook = func(number int64, hash, parent ctypes.Hash, td *big.Int, updates map[string][]byte, deletes map[string]struct{}) {
+		for _, fn := range addBlockFns {
+			fn(number, hash, parent, td, updates, deletes)
+		}
+	}
+
 	if *defaultTopic == "" { *defaultTopic = fmt.Sprintf("cardinal-%v", chainid) }
 	if *blockTopic == "" { *blockTopic = fmt.Sprintf("%v-block", *defaultTopic) }
 	if *logTopic == "" { *logTopic = fmt.Sprintf("%v-logs", *defaultTopic) }
@@ -249,7 +272,7 @@ func (*resumer) GetBlock(ctx context.Context, number uint64) (*delivery.PendingB
 		return nil
 	}
 	hash := block.Hash()
-	updates, deletes, _, batchUpdates := getUpdates(block, td, receipts, destructs, accounts, storage, code)
+	weight, updates, deletes, _, batchUpdates := getUpdates(block, td, receipts, destructs, accounts, storage, code)
 	// Since we're just sending a single PendingBatch, we need to merge in
 	// updates. Once we add support for plugins altering the above, we may
 	// need to handle deletes in batchUpdates.
@@ -260,7 +283,7 @@ func (*resumer) GetBlock(ctx context.Context, number uint64) (*delivery.PendingB
 	}
 	return &delivery.PendingBatch{
 		Number: int64(number),
-		Weight: td,
+		Weight: weight,
 		ParentHash: ctypes.Hash(block.ParentHash()),
 		Hash: ctypes.Hash(hash),
 		Values: updates,
@@ -300,7 +323,7 @@ func BUPostReorg(common core.Hash, oldChain []core.Hash, newChain []core.Hash) {
 	}
 }
 
-func getUpdates(block *types.Block, td *big.Int, receipts types.Receipts, destructs map[core.Hash]struct{}, accounts map[core.Hash][]byte, storage map[core.Hash]map[core.Hash][]byte, code map[core.Hash][]byte) (map[string][]byte, map[string]struct{}, map[string]ctypes.Hash, map[ctypes.Hash]map[string][]byte) {
+func getUpdates(block *types.Block, td *big.Int, receipts types.Receipts, destructs map[core.Hash]struct{}, accounts map[core.Hash][]byte, storage map[core.Hash]map[core.Hash][]byte, code map[core.Hash][]byte) (*big.Int, map[string][]byte, map[string]struct{}, map[string]ctypes.Hash, map[ctypes.Hash]map[string][]byte) {
 	hash := block.Hash()
 	headerBytes, _ := rlp.EncodeToBytes(block.Header())
 	updates := map[string][]byte{
@@ -355,12 +378,9 @@ func getUpdates(block *types.Block, td *big.Int, receipts types.Receipts, destru
 		}
 	}
 
-	// TODO: Allow plugins the opportunity to alter td, updates, deletes,
-	// batches, etc. So that chain-specific plugins can add the information
-	// they're going to need. Allow plugins the opportunity to send their own
-	// batches
-
-	return updates, deletes, batches, batchUpdates
+	weight := new(big.Int).Set(td)
+	addBlockHook(block.Number().Int64(), ctypes.Hash(hash), ctypes.Hash(block.ParentHash()), weight, updates, deletes)
+	return weight, updates, deletes, batches, batchUpdates
 }
 
 func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, destructs map[core.Hash]struct{}, accounts map[core.Hash][]byte, storage map[core.Hash]map[core.Hash][]byte, code map[core.Hash][]byte) {
@@ -373,7 +393,7 @@ func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, dest
 		return
 	}
 	hash := block.Hash()
-	updates, deletes, batches, batchUpdates := getUpdates(block, td, receipts, destructs, accounts, storage, code)
+	weight, updates, deletes, batches, batchUpdates := getUpdates(block, td, receipts, destructs, accounts, storage, code)
 	log.Info("Producing block to cardinal-streams", "hash", hash, "number", block.NumberU64())
 	gethHeightGauge.Update(block.Number().Int64())
 	masterHeightGauge.Update(block.Number().Int64())
@@ -381,7 +401,7 @@ func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, dest
 		block.Number().Int64(),
 		ctypes.Hash(hash),
 		ctypes.Hash(block.ParentHash()),
-		td,
+		weight,
 		updates,
 		deletes,
 		batches,
@@ -390,10 +410,69 @@ func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, dest
 		panic(err.Error())
 		return
 	}
-	for batchid, batch := range batchUpdates {
-		if err := producer.SendBatch(batchid, []string{}, batch); err != nil {
+	for batchid, update := range batchUpdates {
+		if err := producer.SendBatch(batchid, []string{}, update); err != nil {
 			log.Error("Failed to send state batch", "block", hash, "err", err)
 			return
 		}
+	}
+}
+
+
+type cardinalAPI struct {
+	stack   core.Node
+	blockUpdatesByNumber func(int64) (*types.Block, *big.Int, types.Receipts, map[core.Hash]struct{}, map[core.Hash][]byte, map[core.Hash]map[core.Hash][]byte, map[core.Hash][]byte, error)
+}
+
+func (api *cardinalAPI) ReproduceBlocks(start restricted.BlockNumber, end *restricted.BlockNumber) (bool, error) {
+	client, err := api.stack.Attach()
+	if err != nil {
+		return false, err
+	}
+	var currentBlock hexutil.Uint64
+	client.Call(&currentBlock, "eth_blockNumber")
+	fromBlock := start.Int64()
+	if fromBlock < 0 {
+		fromBlock = int64(currentBlock)
+	}
+	var toBlock int64
+	if end == nil {
+		toBlock = fromBlock
+	} else {
+		toBlock = end.Int64()
+	}
+	if toBlock < 0 {
+		toBlock = int64(currentBlock)
+	}
+	for i := fromBlock; i <= toBlock; i++ {
+		block, td, receipts, destructs, accounts, storage, code, err := api.blockUpdatesByNumber(i)
+		if err != nil {
+			return false, err
+		}
+		BlockUpdates(block, td, receipts, destructs, accounts, storage, code)
+	}
+	return true, nil
+}
+
+func GetAPIs(stack core.Node, backend restricted.Backend) []core.API {
+	items := pluginLoader.Lookup("BlockUpdatesByNumber", func(v interface{}) bool {
+		_, ok := v.(func(int64) (*types.Block, *big.Int, types.Receipts, map[core.Hash]struct{}, map[core.Hash][]byte, map[core.Hash]map[core.Hash][]byte, map[core.Hash][]byte, error))
+		return ok
+	})
+	if len(items) == 0 {
+		log.Warn("Could not load BlockUpdatesByNumber. cardinal_reproduceBlocks will not be available")
+		return []core.API{}
+	}
+	v := items[0].(func(int64) (*types.Block, *big.Int, types.Receipts, map[core.Hash]struct{}, map[core.Hash][]byte, map[core.Hash]map[core.Hash][]byte, map[core.Hash][]byte, error))
+	return []core.API{
+	 {
+			Namespace:	"cardinal",
+			Version:		"1.0",
+			Service:		&cardinalAPI{
+				stack,
+				v,
+			},
+			Public:		true,
+		},
 	}
 }
