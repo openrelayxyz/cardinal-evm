@@ -185,6 +185,42 @@ var (
 		TerminalTotalDifficulty: big.NewInt(20000000000000),
 		Ethash:              new(EthashConfig),
 	}
+	// BorMainnetChainConfig contains the chain parameters to run a node on the Görli test network.
+	BorMainnetChainConfig = &ChainConfig{
+		ChainID:             big.NewInt(137),
+		NetworkID:           big.NewInt(137),
+		HomesteadBlock:      big.NewInt(0),
+		DAOForkBlock:        nil,
+		DAOForkSupport:      true,
+		EIP150Block:         big.NewInt(0),
+		EIP155Block:         big.NewInt(0),
+		EIP158Block:         big.NewInt(0),
+		ByzantiumBlock:      big.NewInt(0),
+		ConstantinopleBlock: big.NewInt(0),
+		PetersburgBlock:     big.NewInt(0),
+		IstanbulBlock:       big.NewInt(3395000),
+		MuirGlacierBlock:    big.NewInt(3395000),
+		BerlinBlock:         big.NewInt(14750000),
+		LondonBlock:         big.NewInt(23850000),
+	}
+	// BorMumbaiChainConfig contains the chain parameters to run a node on the Görli test network.
+	BorMumbaiChainConfig = &ChainConfig{
+		ChainID:             big.NewInt(80001),
+		NetworkID:           big.NewInt(80001),
+		HomesteadBlock:      big.NewInt(0),
+		DAOForkBlock:        nil,
+		DAOForkSupport:      true,
+		EIP150Block:         big.NewInt(0),
+		EIP155Block:         big.NewInt(0),
+		EIP158Block:         big.NewInt(0),
+		ByzantiumBlock:      big.NewInt(0),
+		ConstantinopleBlock: big.NewInt(0),
+		PetersburgBlock:     big.NewInt(0),
+		IstanbulBlock:       big.NewInt(2722000),
+		MuirGlacierBlock:    big.NewInt(2722000),
+		BerlinBlock:         big.NewInt(13996000),
+		LondonBlock:         big.NewInt(22640000),
+	}
 
 	// AllEthashProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Ethash consensus.
@@ -210,6 +246,8 @@ var ChainLookup = map[int64]*ChainConfig{
 	3:   RopstenChainConfig,
 	4:   RinkebyChainConfig,
 	5:   GoerliChainConfig,
+	137: BorMainnetChainConfig,
+	80001: BorMumbaiChainConfig,
 	1337802: KilnChainConfig,
 	11155111: SepoliaChainConfig,
 }
