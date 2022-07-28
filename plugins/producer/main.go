@@ -114,23 +114,36 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 			URL: "ws://localhost:8555",
 		},
 	}
+	schema := map[string]string{
+		fmt.Sprintf("c/%x/a/", chainid): *stateTopic,
+		fmt.Sprintf("c/%x/s", chainid): *stateTopic,
+		fmt.Sprintf("c/%x/c/", chainid): *codeTopic,
+		fmt.Sprintf("c/%x/b/[0-9a-z]+/h", chainid): *blockTopic,
+		fmt.Sprintf("c/%x/b/[0-9a-z]+/d", chainid): *blockTopic,
+		fmt.Sprintf("c/%x/b/[0-9a-z]+/u/", chainid): *blockTopic,
+		fmt.Sprintf("c/%x/n/", chainid): *blockTopic,
+		fmt.Sprintf("c/%x/b/[0-9a-z]+/t/", chainid): *txTopic,
+		fmt.Sprintf("c/%x/b/[0-9a-z]+/r/", chainid): *receiptTopic,
+		fmt.Sprintf("c/%x/b/[0-9a-z]+/l/", chainid): *logTopic,
+	}
+
+	// Let plugins add schema updates for any values they will provide.
+	schemaFns := pluginLoader.Lookup("UpdateStreamsSchema", func(i interface{}) bool {
+		_, ok := i.(func(map[string]string))
+		return ok
+	})
+	for _, fni := range schemaFns {
+		fn, ok := fni.(func(map[string]string))
+		if ok {
+			fn(schema)
+		}
+	}
 
 	if strings.HasPrefix(*brokerURL, "kafka://") {
 		brokers = append(brokers, transports.ProducerBrokerParams{
 			URL: *brokerURL,
 			DefaultTopic: *defaultTopic,
-			Schema: map[string]string{
-				fmt.Sprintf("c/%x/a/", chainid): *stateTopic,
-				fmt.Sprintf("c/%x/s", chainid): *stateTopic,
-				fmt.Sprintf("c/%x/c/", chainid): *codeTopic,
-				fmt.Sprintf("c/%x/b/[0-9a-z]+/h", chainid): *blockTopic,
-				fmt.Sprintf("c/%x/b/[0-9a-z]+/d", chainid): *blockTopic,
-				fmt.Sprintf("c/%x/b/[0-9a-z]+/u/", chainid): *blockTopic,
-				fmt.Sprintf("c/%x/n/", chainid): *blockTopic,
-				fmt.Sprintf("c/%x/b/[0-9a-z]+/t/", chainid): *txTopic,
-				fmt.Sprintf("c/%x/b/[0-9a-z]+/r/", chainid): *receiptTopic,
-				fmt.Sprintf("c/%x/b/[0-9a-z]+/l/", chainid): *logTopic,
-			},
+			Schema: schema,
 		})
 	}
 	producer, err = transports.ResolveMuxProducer(
