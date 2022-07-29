@@ -16,7 +16,7 @@ require (
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/openrelayxyz/cardinal-rpc v1.0.0
 	github.com/openrelayxyz/cardinal-storage v1.2.0-archive-0
-	github.com/openrelayxyz/cardinal-streams v1.0.0
+	github.com/openrelayxyz/cardinal-streams v1.1.0-filestream-0
 	github.com/openrelayxyz/cardinal-types v1.0.0
 	github.com/openrelayxyz/plugeth-utils v0.0.18
 	github.com/pubnub/go-metrics-statsd v0.0.0-20170124014003-7da61f429d6b

@@ -418,6 +418,10 @@ func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, dest
 	}
 }
 
+func OnShutdown() {
+	producer.Close()
+}
+
 
 type cardinalAPI struct {
 	stack   core.Node
