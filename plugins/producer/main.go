@@ -45,6 +45,7 @@ var (
 	Flags = *flag.NewFlagSet("cardinal-plugin", flag.ContinueOnError)
 	txPoolTopic = Flags.String("cardinal.txpool.topic", "", "Topic for mempool transaction data")
 	brokerURL = Flags.String("cardinal.broker.url", "", "URL of the Cardinal Broker")
+	streamArchive = Flags.String("cardinal.stream.archive", "", "Directory to hold archive of cardinal stream")
 	defaultTopic = Flags.String("cardinal.default.topic", "", "Default topic for Cardinal broker")
 	blockTopic = Flags.String("cardinal.block.topic", "", "Topic for Cardinal block data")
 	logTopic = Flags.String("cardinal.logs.topic", "", "Topic for Cardinal log data")
@@ -131,6 +132,15 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 				fmt.Sprintf("c/%x/b/[0-9a-z]+/r/", chainid): *receiptTopic,
 				fmt.Sprintf("c/%x/b/[0-9a-z]+/l/", chainid): *logTopic,
 			},
+		})
+	}
+	if *streamArchive != "" {
+		sa := *streamArchive
+		if !strings.HasPrefix(sa, "file://") {
+			sa = "file://" + sa
+		}
+		brokers = append(brokers,transports.ProducerBrokerParams{
+			URL: sa,
 		})
 	}
 	producer, err = transports.ResolveMuxProducer(
