@@ -140,8 +140,8 @@ github.com/modern-go/reflect2 v1.0.2 h1:xBagoLtFs94CBntxluKeaWgTMpvLxC4ur3nMaC9G
 github.com/modern-go/reflect2 v1.0.2/go.mod h1:yWuevngMOJpCy52FWWMvUC8ws7m/LJsjYzDa0/r8luk=
 github.com/openrelayxyz/cardinal-rpc v1.0.0 h1:HaR/Uz6l2hqTCChQROS2d3pE2KEnPoaSCScX37Bkd7s=
 github.com/openrelayxyz/cardinal-rpc v1.0.0/go.mod h1:5eOYxJLylOVHjJZJvsspSlAbfGSjETLV71x0QwpeMZ4=
-github.com/openrelayxyz/cardinal-storage v1.0.1 h1:S5n06/ouoTw2ss1R9Oiz6/kKIxHLeasu4scJT9IoTZo=
-github.com/openrelayxyz/cardinal-storage v1.0.1/go.mod h1:2gzby7ZlqFh3g3jvfqWErN+6uGAx2vbbid0Usy8z6U4=
+github.com/openrelayxyz/cardinal-storage v1.1.1 h1:PVVNmFoZp1lMII05X7wQHQ8lyAOukJbDRKBcEyOZ4yM=
+github.com/openrelayxyz/cardinal-storage v1.1.1/go.mod h1:2gzby7ZlqFh3g3jvfqWErN+6uGAx2vbbid0Usy8z6U4=
 github.com/openrelayxyz/cardinal-streams v1.0.0 h1:yZ+ve1hH2fmEuxSGfYL7PnEjYiDAUKRp0nO37LgS3SY=
 github.com/openrelayxyz/cardinal-streams v1.0.0/go.mod h1:QydpfYNYwrQZgN6dFUGmPeryEYzBNd+wZ0+jPhoKEpQ=
 github.com/openrelayxyz/cardinal-types v1.0.0 h1:/H+TvMIoOwp5ub+jgwlrsC41bWSHFye+oz5SLktgGhs=
