@@ -111,7 +111,7 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 	var err error
 	brokers := []transports.ProducerBrokerParams{
 		{
-			URL: "ws://localhost:8555",
+			URL: "ws://0.0.0.0:8555",
 		},
 	}
 	schema := map[string]string{
