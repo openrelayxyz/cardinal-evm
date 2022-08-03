@@ -87,7 +87,7 @@ func (s *PublicBlockChainAPI) GetBalance(ctx *rpc.CallContext, address common.Ad
 }
 
 // GetCode returns the code stored at the given address in the state for the given block number.
-func (s *PublicBlockChainAPI) GetCode(ctx *rpc.CallContext, address common.Address, blockNrOrHash vm.BlockNumberOrHash) (hexutil.Bytes, error) {
+func (s *PublicBlockChainAPI) GetCode(ctx *rpc.CallContext, address common.Address, blockNrOrHash vm.BlockNumberOrHash) (interface{}, error) {
 	var result hexutil.Bytes
 	err := s.evmmgr.View(blockNrOrHash, ctx, func(statedb state.StateDB) {
 		result = hexutil.Bytes(statedb.GetCode(address))
@@ -105,7 +105,7 @@ func (s *PublicBlockChainAPI) GetCode(ctx *rpc.CallContext, address common.Addre
 // GetStorageAt returns the storage from the state at the given address, key and
 // block number. The rpc.LatestBlockNumber and rpc.PendingBlockNumber meta block
 // numbers are also allowed.
-func (s *PublicBlockChainAPI) GetStorageAt(ctx *rpc.CallContext, address common.Address, key string, blockNrOrHash vm.BlockNumberOrHash) (hexutil.Bytes, error) {
+func (s *PublicBlockChainAPI) GetStorageAt(ctx *rpc.CallContext, address common.Address, key string, blockNrOrHash vm.BlockNumberOrHash) (interface{}, error) {
 	var result hexutil.Bytes
 	err := s.evmmgr.View(blockNrOrHash, ctx, func(statedb state.StateDB) {
 		result = hexutil.Bytes(statedb.GetState(address, ctypes.HexToHash(key)).Bytes())
@@ -299,7 +299,7 @@ type codedError interface{
 //
 // Note, this function doesn't make and changes in the state/blockchain and is
 // useful to execute and retrieve values.
-func (s *PublicBlockChainAPI) Call(ctx *rpc.CallContext, args TransactionArgs, blockNrOrHash vm.BlockNumberOrHash, overrides *StateOverride) (hexutil.Bytes, error) {
+func (s *PublicBlockChainAPI) Call(ctx *rpc.CallContext, args TransactionArgs, blockNrOrHash vm.BlockNumberOrHash, overrides *StateOverride) (interface{}, error) {
 	var timeout time.Duration
 	if args.Gas != nil {
 		timeout = time.Duration(*args.Gas/10000000) * time.Second
