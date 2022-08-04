@@ -17,6 +17,7 @@ var (
 	backend restricted.Backend
 	stack core.Node
 	chainid int64
+	client core.Client
 )
 
 func Initialize(ctx *cli.Context, loader core.PluginLoader, logger core.Logger) {
@@ -29,6 +30,11 @@ func InitializeNode(s core.Node, b restricted.Backend) {
 	stack = s
 	config := b.ChainConfig()
 	chainid = config.ChainID.Int64()
+	var err error
+	client, err = stack.Attach()
+	if err != nil {
+		log.Warn("Failed to initialize RPC client, cannot process block")
+	}
 }
 
 func UpdateStreamsSchema(schema map[string]string) {
@@ -37,13 +43,12 @@ func UpdateStreamsSchema(schema map[string]string) {
 }
 
 func CardinalAddBlockHook(number int64, hash, parent ctypes.Hash, weight *big.Int, updates map[string][]byte, deletes map[string]struct{}) {
-	client, err := stack.Attach()
-	if err != nil {
+	if client == nil {
 		log.Warn("Failed to initialize RPC client, cannot process block")
 		return
 	}
 	var receipt types.Receipt
-	err = client.Call(&receipt, "eth_getBorBlockReceipt", hash)
+	err := client.Call(&receipt, "eth_getBorBlockReceipt", hash)
 	if err != nil {
 		log.Info("No bor receipt", "blockno", number, "hash", hash, "err", err)
 		return
