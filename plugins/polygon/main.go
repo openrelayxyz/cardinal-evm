@@ -40,6 +40,7 @@ func InitializeNode(s core.Node, b restricted.Backend) {
 func UpdateStreamsSchema(schema map[string]string) {
 	schema[fmt.Sprintf("c/%x/b/[0-9a-z]+/br/", chainid)] = schema[fmt.Sprintf("c/%x/b/[0-9a-z]+/r/", chainid)]
 	schema[fmt.Sprintf("c/%x/b/[0-9a-z]+/bl/", chainid)] = schema[fmt.Sprintf("c/%x/b/[0-9a-z]+/l/", chainid)]
+	schema[fmt.Sprintf("c/%x/b/[0-9a-z]+/bs", chainid)] = schema[fmt.Sprintf("c/%x/b/[0-9a-z]+/h", chainid)]
 }
 
 func CardinalAddBlockHook(number int64, hash, parent ctypes.Hash, weight *big.Int, updates map[string][]byte, deletes map[string]struct{}) {
@@ -53,6 +54,8 @@ func CardinalAddBlockHook(number int64, hash, parent ctypes.Hash, weight *big.In
 		log.Info("No bor receipt", "blockno", number, "hash", hash, "err", err)
 		return
 	}
+	borsnap, err := backend.ChainDb().Get(append([]byte("bor-"), hash[:]...))
+	updates[fmt.Sprintf("c/%x/b/%x/bs", uint64(chainid), hash.Bytes())] = borsnap
 	updates[fmt.Sprintf("c/%x/b/%x/br/%x", uint64(chainid), hash.Bytes(), receipt.TransactionIndex)] = receipt.Bloom.Bytes()
 	for _, logRecord := range receipt.Logs {
 		updates[fmt.Sprintf("c/%x/b/%x/bl/%x/%x", chainid, hash.Bytes(), receipt.TransactionIndex, logRecord.Index)], _ = rlp.EncodeToBytes(logRecord)
