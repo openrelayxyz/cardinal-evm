@@ -20,8 +20,8 @@ require (
 	github.com/savaki/cloudmetrics v0.0.0-20160314183336-c82bfea3c09e
 	github.com/stretchr/testify v1.7.0
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
-	golang.org/x/sys v0.0.0-20211019181941-9d821ace8654
-	gopkg.in/urfave/cli.v1 v1.20.0
+	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a
+	github.com/urfave/cli/v2 v2.10.2
 	gopkg.in/yaml.v2 v2.2.8
 )
 
