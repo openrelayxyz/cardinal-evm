@@ -48,14 +48,16 @@ func CardinalAddBlockHook(number int64, hash, parent ctypes.Hash, weight *big.In
 		log.Warn("Failed to initialize RPC client, cannot process block")
 		return
 	}
-	var receipt types.Receipt
-	err := client.Call(&receipt, "eth_getBorBlockReceipt", hash)
+	borsnap, err := backend.ChainDb().Get(append([]byte("bor-"), hash[:]...))
 	if err != nil {
+		log.Info("No bor snapshot")
+	}
+	updates[fmt.Sprintf("c/%x/b/%x/bs", uint64(chainid), hash.Bytes())] = borsnap
+	var receipt types.Receipt
+	if err := client.Call(&receipt, "eth_getBorBlockReceipt", hash); err != nil {
 		log.Info("No bor receipt", "blockno", number, "hash", hash, "err", err)
 		return
 	}
-	borsnap, err := backend.ChainDb().Get(append([]byte("bor-"), hash[:]...))
-	updates[fmt.Sprintf("c/%x/b/%x/bs", uint64(chainid), hash.Bytes())] = borsnap
 	updates[fmt.Sprintf("c/%x/b/%x/br/%x", uint64(chainid), hash.Bytes(), receipt.TransactionIndex)] = receipt.Bloom.Bytes()
 	for _, logRecord := range receipt.Logs {
 		updates[fmt.Sprintf("c/%x/b/%x/bl/%x/%x", chainid, hash.Bytes(), receipt.TransactionIndex, logRecord.Index)], _ = rlp.EncodeToBytes(logRecord)
