@@ -20,7 +20,7 @@ import (
 	"github.com/openrelayxyz/plugeth-utils/restricted/hexutil"
 	"github.com/savaki/cloudmetrics"
 	"github.com/pubnub/go-metrics-statsd"
-	"gopkg.in/urfave/cli.v1"
+	"github.com/urfave/cli/v2"
 	"strings"
 	"sync"
 )

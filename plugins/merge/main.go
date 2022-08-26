@@ -5,7 +5,7 @@ import (
 	ctypes "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/plugeth-utils/core"
 	"github.com/openrelayxyz/plugeth-utils/restricted"
-	"gopkg.in/urfave/cli.v1"
+	"github.com/urfave/cli/v2"
 )
 
 var (
