@@ -49,10 +49,9 @@ func CardinalAddBlockHook(number int64, hash, parent ctypes.Hash, weight *big.In
 		return
 	}
 	borsnap, err := backend.ChainDb().Get(append([]byte("bor-"), hash[:]...))
-	if err != nil {
-		log.Info("No bor snapshot")
+	if err == nil {
+		updates[fmt.Sprintf("c/%x/b/%x/bs", uint64(chainid), hash.Bytes())] = borsnap
 	}
-	updates[fmt.Sprintf("c/%x/b/%x/bs", uint64(chainid), hash.Bytes())] = borsnap
 	var receipt types.Receipt
 	if err := client.Call(&receipt, "eth_getBorBlockReceipt", hash); err != nil {
 		log.Info("No bor receipt", "blockno", number, "hash", hash, "err", err)
