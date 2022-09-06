@@ -546,8 +546,9 @@ And a mapping of block number to hash:
 
 Given these key / values and the prefixes, the block's header message would contain:
 
-Key: `$PrefixByte.$BlockHash` -> 0x007433c79900979c812df01a26dfd25a394f0d62d32ecb8b17327c611d7231df4d
-Value: Avro encoding of
+* Key: `$PrefixByte.$BlockHash` -> 0x007433c79900979c812df01a26dfd25a394f0d62d32ecb8b17327c611d7231df4d
+* Value: Avro encoding of
+
 ```
 Batch:
 {
