@@ -310,6 +310,7 @@ func (r *resumer) BlocksFrom(ctx context.Context, number uint64, hash ctypes.Has
 	}
 	ch := make(chan *delivery.PendingBatch)
 	go func() {
+		defer close(ch)
 		for i := number; ; i++ {
 			if pb := r.GetBlock(ctx, i); pb != nil {
 				if pb.Number == int64(number) && pb.Hash != hash {
