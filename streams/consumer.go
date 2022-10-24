@@ -6,6 +6,9 @@ import (
 	"github.com/openrelayxyz/cardinal-storage"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/metrics"
+	etypes "github.com/openrelayxyz/cardinal-evm/types"
+	"github.com/openrelayxyz/cardinal-evm/rlp"
+	"github.com/openrelayxyz/cardinal-evm/schema"
 	"fmt"
 	"regexp"
 	"time"
@@ -34,6 +37,18 @@ func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, ch
 		regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/h"),
 		regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/d"),
 		regexp.MustCompile("c/[0-9a-z]+/n/"),
+	}
+	if resumptionTime < 0 {
+		if err := s.View(lastHash, func(tx storage.Transaction) error {
+			return tx.ZeroCopyGet(schema.BlockHeader(chainid, lastHash.Bytes()), func(data []byte) error {
+				header := etypes.Header{}
+				if err := rlp.DecodeBytes(data, &header); err != nil { return err }
+				resumptionTime = int64(header.Time) * 1000
+				return nil
+			})
+		}); err != nil {
+			log.Warn("Error getting last block timestamp", "err", err)
+		}
 	}
 	var consumer transports.Consumer
 	if resumptionTime > 0 {
