@@ -19,6 +19,16 @@ var (
 	heightGauge = metrics.NewMajorGauge("/evm/height")
 )
 
+func BlockTime(pb *delivery.PendingBatch, chainid int64) *time.Time {
+	if data, ok := pb.Values[string(schema.BlockHeader(chainid, pb.Hash.Bytes()))]; ok {
+		header := etypes.Header{}
+		if err := rlp.DecodeBytes(data, &header); err != nil { return nil }
+		t := time.Unix(int64(header.Time), 0)
+		return &t
+	}
+	return nil
+}
+
 type StreamManager struct{
 	consumer transports.Consumer
 	storage  storage.Storage
@@ -26,6 +36,7 @@ type StreamManager struct{
 	reorgSub types.Subscription
 	ready    chan struct{}
 	processed uint64
+	chainid int64
 }
 
 func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, chainid int64, s storage.Storage, whitelist map[uint64]types.Hash, resumptionTime int64) (*StreamManager, error) {
@@ -66,6 +77,7 @@ func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, ch
 		consumer: consumer,
 		storage: s,
 		ready: make(chan struct{}),
+		chainid: chainid,
 	}, nil
 }
 
@@ -114,7 +126,11 @@ func (m *StreamManager) Start() error {
 					pb.Done()
 				}
 				latest := added[len(added) - 1]
-				log.Info("Imported new chain segment", "blocks", len(added), "elapsed", time.Since(start), "number", latest.Number, "hash", latest.Hash)
+				params := []interface{}{"blocks", len(added), "elapsed", time.Since(start), "number", latest.Number, "hash", latest.Hash}
+				if bt := BlockTime(latest, m.chainid); bt != nil && time.Since(*bt) > time.Minute {
+					params = append(params, "age", time.Since(*bt))
+				}
+				log.Info("Imported new chain segment", params...)
 			case reorg := <-reorgCh:
 				for k := range reorg {
 					m.storage.Rollback(uint64(k))
