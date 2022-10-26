@@ -318,9 +318,9 @@ func (r *resumer) BlocksFrom(ctx context.Context, number uint64, hash ctypes.Has
 					continue
 				}
 				select {
-				case ch <- pb:
 				case <-ctx.Done():
 					return
+				case ch <- pb:
 				}
 			} else {
 				return
