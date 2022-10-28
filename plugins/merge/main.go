@@ -5,13 +5,15 @@ import (
 	ctypes "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/plugeth-utils/core"
 	"github.com/openrelayxyz/plugeth-utils/restricted"
-	"gopkg.in/urfave/cli.v1"
+	"github.com/openrelayxyz/cardinal-types/metrics"
+	"github.com/urfave/cli/v2"
 )
 
 var (
 	log core.Logger
 	postMerge bool
 	backend restricted.Backend
+	gethWeightGauge = metrics.NewMajorGauge("/geth/weight")
 )
 
 func Initialize(ctx *cli.Context, loader core.PluginLoader, logger core.Logger) {
@@ -30,6 +32,7 @@ func CardinalAddBlockHook(number int64, hash, parent ctypes.Hash, weight *big.In
 			postMerge = true
 		} else {
 			// Not yet post merge, we don't want to make any modifications
+			gethWeightGauge.Update(new(big.Int).Div(weight, big.NewInt(10000000000000000)).Int64())
 			return
 		}
 	}
@@ -38,4 +41,5 @@ func CardinalAddBlockHook(number int64, hash, parent ctypes.Hash, weight *big.In
 	// convention for this is to add the block number to the final total
 	// difficulty to choose a weight.
 	weight.Add(weight, big.NewInt(number))
+	gethWeightGauge.Update(new(big.Int).Div(weight, big.NewInt(10000000000000000)).Int64())
 }
