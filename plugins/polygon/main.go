@@ -3,11 +3,13 @@ package main
 import (
 	"fmt"
 	"math/big"
+	"encoding/json"
 	ctypes "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/plugeth-utils/core"
 	"github.com/openrelayxyz/plugeth-utils/restricted"
 	"github.com/openrelayxyz/plugeth-utils/restricted/rlp"
 	"github.com/openrelayxyz/plugeth-utils/restricted/types"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"gopkg.in/urfave/cli.v1"
 )
 
@@ -48,10 +50,17 @@ func CardinalAddBlockHook(number int64, hash, parent ctypes.Hash, weight *big.In
 		log.Warn("Failed to initialize RPC client, cannot process block")
 		return
 	}
-	borsnap, err := backend.ChainDb().Get(append([]byte("bor-"), hash[:]...))
-	if err == nil {
+
+	if number % 1024 == 0 {
+		var borsnap json.RawMessage
+		if err := client.Call(&borsnap, "bor_getSnapshot", hexutil.Uint64(number)); err != nil {
+			log.Error("Error retrieving bor snapshot on block %v", number)
+		}
 		updates[fmt.Sprintf("c/%x/b/%x/bs", uint64(chainid), hash.Bytes())] = borsnap
 	}
+	
+
+
 	var receipt types.Receipt
 	if err := client.Call(&receipt, "eth_getBorBlockReceipt", hash); err != nil {
 		log.Info("No bor receipt", "blockno", number, "hash", hash, "err", err)
