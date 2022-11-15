@@ -201,7 +201,8 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
 				argVals[evmPos] = reflect.ValueOf(NewEVM(blockCtx, TxContext{sender, gasPrice}, statedb, mgr.chaincfg, *vmcfg))
 			}
 			if evmfnPos >= 0 {
-				argVals[evmfnPos] = reflect.ValueOf(func(sdb state.StateDB, cvmcfg *Config, sender common.Address) *EVM {
+				// TODO: evmfunc needs to take a gas price variable.
+				argVals[evmfnPos] = reflect.ValueOf(func(sdb state.StateDB, cvmcfg *Config, sender common.Address, gp *big.Int) *EVM {
 					blockCtx := BlockContext{
 						GetHash:     tx.NumberToHash,
 						Coinbase:    header.Coinbase,
@@ -215,7 +216,11 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
 						blockCtx.Random = &header.MixDigest
 					}
 					if gasPrice == nil {
-						gasPrice = header.BaseFee
+						if gp != nil {
+							gasPrice = gp
+						} else {
+							gasPrice = header.BaseFee
+						}
 					}
 					if vmcfg == nil {
 						vmcfg = &mgr.vmcfg
