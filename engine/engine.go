@@ -1,12 +1,16 @@
 package engine
 
 import (
+	"io"
+	"errors"
 	"github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	"github.com/openrelayxyz/cardinal-evm/params"
+	ctypes "github.com/openrelayxyz/cardinal-types"
 	log "github.com/inconshreveable/log15"
+	"golang.org/x/crypto/sha3"
 )
 
 var (
@@ -20,30 +24,28 @@ type Engine interface{
 
 type ETHashEngine struct{}
 
-func (*ETHash) Author(h *types.Header) common.Address {
+func (*ETHashEngine) Author(h *types.Header) common.Address {
 	return h.Coinbase
 }
 
 type BeaconEngine struct{}
 
-func (*Beacon) Author(h *types.Header) common.Address {
+func (*BeaconEngine) Author(h *types.Header) common.Address {
 	return h.Coinbase
 }
 
 type CliqueEngine struct{}
 
-func (*Clique) Author(h *types.Header) common.Address {
+func (*CliqueEngine) Author(h *types.Header) common.Address {
 	author, err := ecrecoverClique(h)
 	if err != nil {
-		log.Warn("Error recovering author", "num", h.Number, "hash", h.Hash(), err", err)
+		log.Warn("Error recovering author", "num", h.Number, "err", err)
 	}
 	return author
 }
 
 
 func ecrecoverClique(header *types.Header) (common.Address, error) {
-	// If the signature's already cached, return that
-	hash := header.Hash()
 	// Retrieve the signature from the header extra-data
 	if len(header.Extra) < extraSeal {
 		return common.Address{}, errMissingSignature
@@ -61,7 +63,7 @@ func ecrecoverClique(header *types.Header) (common.Address, error) {
 	return signer, nil
 }
 
-func sealHashClique(header *types.Header) (hash common.Hash) {
+func sealHashClique(header *types.Header) (hash ctypes.Hash) {
 	hasher := sha3.NewLegacyKeccak256()
 	encodeSigHeader(hasher, header)
 	hasher.(crypto.KeccakState).Read(hash[:])
@@ -70,18 +72,16 @@ func sealHashClique(header *types.Header) (hash common.Hash) {
 
 type BorEngine struct{}
 
-func (*Bor) Author(h *types.Header) common.Address {
+func (*BorEngine) Author(h *types.Header) common.Address {
 	author, err := ecrecoverBor(h)
 	if err != nil {
-		log.Warn("Error recovering author", "num", h.Number, "hash", h.Hash(), err", err)
+		log.Warn("Error recovering author", "num", h.Number, "err", err)
 	}
 	return author
 }
 
 // ecrecover extracts the Ethereum account address from a signed header.
 func ecrecoverBor(header *types.Header) (common.Address, error) {
-	// If the signature's already cached, return that
-	hash := header.Hash()
 	// Retrieve the signature from the header extra-data
 	if len(header.Extra) < extraSeal {
 		return common.Address{}, errMissingSignature
@@ -100,9 +100,9 @@ func ecrecoverBor(header *types.Header) (common.Address, error) {
 }
 
 // SealHash returns the hash of a block prior to it being sealed.
-func sealHashBor(header *types.Header) (hash common.Hash) {
+func sealHashBor(header *types.Header) (hash ctypes.Hash) {
 	hasher := sha3.NewLegacyKeccak256()
-	encodeSigHeader(hasher, header, c)
+	encodeSigHeader(hasher, header)
 	hasher.Sum(hash[:0])
 	return hash
 }

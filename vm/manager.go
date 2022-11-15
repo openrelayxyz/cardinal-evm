@@ -13,6 +13,7 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/schema"
 	"github.com/openrelayxyz/cardinal-evm/state"
 	"github.com/openrelayxyz/cardinal-evm/types"
+	"github.com/openrelayxyz/cardinal-evm/engine"
 	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-storage"
 	ctypes "github.com/openrelayxyz/cardinal-types"
@@ -185,7 +186,7 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
 			if evmPos >= 0 {
 				blockCtx := BlockContext{
 					GetHash:     tx.NumberToHash,
-					Coinbase:    header.Coinbase,
+					Coinbase:    engine.Author(header, mgr.chaincfg.Engine),
 					GasLimit:    header.GasLimit,
 					BlockNumber: header.Number,
 					Time:        new(big.Int).SetUint64(header.Time),
@@ -205,7 +206,7 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
 				argVals[evmfnPos] = reflect.ValueOf(func(sdb state.StateDB, cvmcfg *Config, sender common.Address, gp *big.Int) *EVM {
 					blockCtx := BlockContext{
 						GetHash:     tx.NumberToHash,
-						Coinbase:    header.Coinbase,
+						Coinbase:    engine.Author(header, mgr.chaincfg.Engine),
 						GasLimit:    header.GasLimit,
 						BlockNumber: header.Number,
 						Time:        new(big.Int).SetUint64(header.Time),
