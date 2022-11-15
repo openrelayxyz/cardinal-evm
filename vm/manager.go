@@ -26,7 +26,7 @@ var (
 	statedbType     = reflect.TypeOf((*state.StateDB)(nil)).Elem()
 	evmType         = reflect.TypeOf((*EVM)(nil))
 	storageTxType   = reflect.TypeOf((*storage.Transaction)(nil)).Elem()
-	evmFnType       = reflect.TypeOf((*func(state.StateDB, *Config, common.Address) *EVM)(nil)).Elem()
+	evmFnType       = reflect.TypeOf((*func(state.StateDB, *Config, common.Address, *big.Int) *EVM)(nil)).Elem()
 	chainConfigType = reflect.TypeOf((*params.ChainConfig)(nil))
 )
 
