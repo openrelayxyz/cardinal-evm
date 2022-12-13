@@ -144,8 +144,8 @@ github.com/openrelayxyz/cardinal-rpc v1.0.0 h1:HaR/Uz6l2hqTCChQROS2d3pE2KEnPoaSC
 github.com/openrelayxyz/cardinal-rpc v1.0.0/go.mod h1:5eOYxJLylOVHjJZJvsspSlAbfGSjETLV71x0QwpeMZ4=
 github.com/openrelayxyz/cardinal-storage v1.1.1 h1:PVVNmFoZp1lMII05X7wQHQ8lyAOukJbDRKBcEyOZ4yM=
 github.com/openrelayxyz/cardinal-storage v1.1.1/go.mod h1:2gzby7ZlqFh3g3jvfqWErN+6uGAx2vbbid0Usy8z6U4=
-github.com/openrelayxyz/cardinal-streams v1.1.0-init-memory-leak-8 h1:eKkbOv32cbmNtyAVmxi8UMEEsg45hUtPXmSbporAcvo=
-github.com/openrelayxyz/cardinal-streams v1.1.0-init-memory-leak-8/go.mod h1:QydpfYNYwrQZgN6dFUGmPeryEYzBNd+wZ0+jPhoKEpQ=
+github.com/openrelayxyz/cardinal-streams v1.1.1 h1:8/hkDZ9Rb56czhtSKznvQIUzrpw/HUtFXa4hKuiMfLA=
+github.com/openrelayxyz/cardinal-streams v1.1.1/go.mod h1:QydpfYNYwrQZgN6dFUGmPeryEYzBNd+wZ0+jPhoKEpQ=
 github.com/openrelayxyz/cardinal-types v1.0.0 h1:/H+TvMIoOwp5ub+jgwlrsC41bWSHFye+oz5SLktgGhs=
 github.com/openrelayxyz/cardinal-types v1.0.0/go.mod h1:4CzsdfRjAWXeOszcXbUuNNjEP7ZR8Np8RO3FO5TFA6E=
 github.com/openrelayxyz/drumline v0.4.0 h1:dy//XNdRV0aO63f/mg2j0/gJmZmsed3Bl5oUlphIcsE=
