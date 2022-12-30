@@ -6,7 +6,6 @@ import (
 	"github.com/openrelayxyz/plugeth-utils/core"
 	"github.com/openrelayxyz/plugeth-utils/restricted"
 	"github.com/openrelayxyz/cardinal-types/metrics"
-	"github.com/urfave/cli/v2"
 )
 
 var (
@@ -16,7 +15,7 @@ var (
 	gethWeightGauge = metrics.NewMajorGauge("/geth/weight")
 )
 
-func Initialize(ctx *cli.Context, loader core.PluginLoader, logger core.Logger) {
+func Initialize(ctx core.Context, loader core.PluginLoader, logger core.Logger) {
 	log = logger
 	log.Info("Cardinal EVM Merge plugin initializing")
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/openrelayxyz/plugeth-utils/restricted/rlp"
 	"github.com/openrelayxyz/plugeth-utils/restricted/types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
-	"gopkg.in/urfave/cli.v1"
 )
 
 var (
@@ -22,7 +21,7 @@ var (
 	client core.Client
 )
 
-func Initialize(ctx *cli.Context, loader core.PluginLoader, logger core.Logger) {
+func Initialize(ctx core.Context, loader core.PluginLoader, logger core.Logger) {
 	log = logger
 	log.Info("Cardinal EVM polygon plugin initializing")
 }
@@ -63,7 +62,7 @@ func CardinalAddBlockHook(number int64, hash, parent ctypes.Hash, weight *big.In
 
 	var receipt types.Receipt
 	if err := client.Call(&receipt, "eth_getBorBlockReceipt", hash); err != nil {
-		log.Info("No bor receipt", "blockno", number, "hash", hash, "err", err)
+		log.Debug("No bor receipt", "blockno", number, "hash", hash, "err", err)
 		return
 	}
 	updates[fmt.Sprintf("c/%x/b/%x/br/%x", uint64(chainid), hash.Bytes(), receipt.TransactionIndex)] = receipt.Bloom.Bytes()

@@ -20,7 +20,6 @@ import (
 	"github.com/openrelayxyz/plugeth-utils/restricted/hexutil"
 	"github.com/savaki/cloudmetrics"
 	"github.com/pubnub/go-metrics-statsd"
-	"github.com/urfave/cli/v2"
 	"strings"
 	"sync"
 )
@@ -58,7 +57,7 @@ var (
 	cloudwatchns = Flags.String("cardinal.cloudwatch.namespace", "", "CloudWatch Namespace for cardinal metrics")
 )
 
-func Initialize(ctx *cli.Context, loader core.PluginLoader, logger core.Logger) {
+func Initialize(ctx core.Context, loader core.PluginLoader, logger core.Logger) {
 	ready.Add(1)
 	log = logger
 	log.Info("Cardinal EVM plugin initializing")
@@ -313,7 +312,7 @@ func (r *resumer) BlocksFrom(ctx context.Context, number uint64, hash ctypes.Has
 		defer close(ch)
 		for i := number; ; i++ {
 			if pb := r.GetBlock(ctx, i); pb != nil {
-				if pb.Number == int64(number) && pb.Hash != hash {
+				if pb.Number == int64(number) && (pb.Hash != hash) {
 					i -= uint64(*reorgThreshold)
 					continue
 				}
