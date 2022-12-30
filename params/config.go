@@ -38,6 +38,15 @@ var (
 	KilnGenesisHash      = types.HexToHash("0x51c7fe41be669f69c45c33a56982cbde405313342d9e2b00d7c91a7b284dd4f8")
 )
 
+type Engine int
+
+const (
+	ETHashEngine Engine = iota
+	BeaconEngine
+	CliqueEngine
+	BorEngine
+)
+
 var (
 	// MainnetChainConfig is the chain parameters to run a node on the main network.
 	MainnetChainConfig = &ChainConfig{
@@ -58,6 +67,7 @@ var (
 		BerlinBlock:         big.NewInt(12_244_000),
 		LondonBlock:         big.NewInt(12_965_000),
 		Ethash:              new(EthashConfig),
+		Engine:              ETHashEngine,
 	}
 
 	// ETCChainConfig is the chain parameters to run a node on the main network.
@@ -78,6 +88,7 @@ var (
 		BerlinBlock:         big.NewInt(13_189_133),
 		// LondonBlock:         big.NewInt(12_965_000),
 		Ethash:              new(EthashConfig),
+		Engine:              ETHashEngine,
 	}
 
 	// RopstenChainConfig contains the chain parameters to run a node on the Ropsten test network.
@@ -99,6 +110,7 @@ var (
 		BerlinBlock:         big.NewInt(9_812_189),
 		LondonBlock:         big.NewInt(10_499_401),
 		Ethash:              new(EthashConfig),
+		Engine:              ETHashEngine,
 	}
 
 	SepoliaChainConfig = &ChainConfig{
@@ -117,6 +129,7 @@ var (
 		BerlinBlock:         big.NewInt(0),
 		LondonBlock:         big.NewInt(0),
 		Ethash:              new(EthashConfig),
+		Engine:              ETHashEngine,
 	}
 	// RinkebyChainConfig contains the chain parameters to run a node on the Rinkeby test network.
 	RinkebyChainConfig = &ChainConfig{
@@ -136,6 +149,7 @@ var (
 		MuirGlacierBlock:    nil,
 		BerlinBlock:         big.NewInt(8_290_928),
 		LondonBlock:         big.NewInt(8_897_988),
+		Engine:              CliqueEngine,
 		Clique: &CliqueConfig{
 			Period: 15,
 			Epoch:  30000,
@@ -159,6 +173,7 @@ var (
 		MuirGlacierBlock:    nil,
 		BerlinBlock:         big.NewInt(4_460_644),
 		LondonBlock:         big.NewInt(5_062_605),
+		Engine:              BeaconEngine,
 		Clique: &CliqueConfig{
 			Period: 15,
 			Epoch:  30000,
@@ -184,6 +199,45 @@ var (
 		MergeForkBlock:      big.NewInt(1000),
 		TerminalTotalDifficulty: big.NewInt(20000000000000),
 		Ethash:              new(EthashConfig),
+		Engine:              ETHashEngine,
+	}
+	// BorMainnetChainConfig contains the chain parameters to run a node on the Görli test network.
+	BorMainnetChainConfig = &ChainConfig{
+		ChainID:             big.NewInt(137),
+		NetworkID:           big.NewInt(137),
+		HomesteadBlock:      big.NewInt(0),
+		DAOForkBlock:        nil,
+		DAOForkSupport:      true,
+		EIP150Block:         big.NewInt(0),
+		EIP155Block:         big.NewInt(0),
+		EIP158Block:         big.NewInt(0),
+		ByzantiumBlock:      big.NewInt(0),
+		ConstantinopleBlock: big.NewInt(0),
+		PetersburgBlock:     big.NewInt(0),
+		IstanbulBlock:       big.NewInt(3395000),
+		MuirGlacierBlock:    big.NewInt(3395000),
+		BerlinBlock:         big.NewInt(14750000),
+		LondonBlock:         big.NewInt(23850000),
+		Engine:              BorEngine,
+	}
+	// BorMumbaiChainConfig contains the chain parameters to run a node on the Görli test network.
+	BorMumbaiChainConfig = &ChainConfig{
+		ChainID:             big.NewInt(80001),
+		NetworkID:           big.NewInt(80001),
+		HomesteadBlock:      big.NewInt(0),
+		DAOForkBlock:        nil,
+		DAOForkSupport:      true,
+		EIP150Block:         big.NewInt(0),
+		EIP155Block:         big.NewInt(0),
+		EIP158Block:         big.NewInt(0),
+		ByzantiumBlock:      big.NewInt(0),
+		ConstantinopleBlock: big.NewInt(0),
+		PetersburgBlock:     big.NewInt(0),
+		IstanbulBlock:       big.NewInt(2722000),
+		MuirGlacierBlock:    big.NewInt(2722000),
+		BerlinBlock:         big.NewInt(13996000),
+		LondonBlock:         big.NewInt(22640000),
+		Engine:              BorEngine,
 	}
 
 	// AllEthashProtocolChanges contains every protocol change (EIPs) introduced
@@ -191,16 +245,16 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(EthashConfig), nil}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(EthashConfig), nil, ETHashEngine}
 
 	// AllCliqueProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Clique consensus.
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}}
+	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}, CliqueEngine}
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(EthashConfig), nil}
+	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(EthashConfig), nil, ETHashEngine}
 	TestRules       = TestChainConfig.Rules(new(big.Int), false)
 )
 
@@ -210,6 +264,8 @@ var ChainLookup = map[int64]*ChainConfig{
 	3:   RopstenChainConfig,
 	4:   RinkebyChainConfig,
 	5:   GoerliChainConfig,
+	137: BorMainnetChainConfig,
+	80001: BorMumbaiChainConfig,
 	1337802: KilnChainConfig,
 	11155111: SepoliaChainConfig,
 }
@@ -249,6 +305,8 @@ type ChainConfig struct {
 	// Various consensus engines
 	Ethash *EthashConfig `json:"ethash,omitempty"`
 	Clique *CliqueConfig `json:"clique,omitempty"`
+
+	Engine              Engine
 }
 
 // EthashConfig is the consensus engine configs for proof-of-work based sealing.
