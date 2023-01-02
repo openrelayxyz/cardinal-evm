@@ -9,6 +9,7 @@ import (
 	etypes "github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	"github.com/openrelayxyz/cardinal-evm/schema"
+	"github.com/openrelayxyz/cardinal-rpc"
 	"fmt"
 	"regexp"
 	"time"
@@ -37,6 +38,8 @@ type StreamManager struct{
 	ready    chan struct{}
 	processed uint64
 	chainid int64
+	lastBlockTime time.Time
+	processTime time.Duration
 }
 
 func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, chainid int64, s storage.Storage, whitelist map[uint64]types.Hash, resumptionTime int64) (*StreamManager, error) {
@@ -126,7 +129,9 @@ func (m *StreamManager) Start() error {
 					pb.Done()
 				}
 				latest := added[len(added) - 1]
-				params := []interface{}{"blocks", len(added), "elapsed", time.Since(start), "number", latest.Number, "hash", latest.Hash}
+				m.processTime = time.Since(start)
+				m.lastBlockTime = time.Now()
+				params := []interface{}{"blocks", len(added), "elapsed", m.processTime, "number", latest.Number, "hash", latest.Hash}
 				if bt := BlockTime(latest, m.chainid); bt != nil && time.Since(*bt) > time.Minute {
 					params = append(params, "age", time.Since(*bt))
 				}
@@ -157,6 +162,18 @@ func (m *StreamManager) API() *api {
 
 func (m *StreamManager) Processed() uint64 {
 	return m.processed
+}
+
+func (m *StreamManager) Healthy() rpc.HealthStatus {
+	switch {
+	case m.processed == 0:
+		return rpc.Unavailable
+	case time.Since(m.lastBlockTime) > 60 * time.Second:
+		return rpc.Warning
+	case m.processTime > 2 * time.Second:
+		return rpc.Warning
+	}
+	return rpc.Healthy
 }
 
 type api struct{
