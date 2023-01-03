@@ -11,7 +11,7 @@ require (
 	github.com/holiman/uint256 v1.2.0
 	github.com/inconshreveable/log15 v0.0.0-20201112154412-8562bdadbbac
 	github.com/jedisct1/go-minisign v0.0.0-20190909160543-45766022959e
-	github.com/openrelayxyz/cardinal-rpc v1.0.1
+	github.com/openrelayxyz/cardinal-rpc v1.0.3
 	github.com/openrelayxyz/cardinal-storage v1.1.1
 	github.com/openrelayxyz/cardinal-streams v1.2.0
 	github.com/openrelayxyz/cardinal-types v1.0.0
@@ -58,7 +58,7 @@ require (
 	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	github.com/openrelayxyz/drumline v0.4.0 // indirect
+	github.com/openrelayxyz/drumline v1.0.0 // indirect
 	github.com/pierrec/lz4 v2.6.0+incompatible // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
