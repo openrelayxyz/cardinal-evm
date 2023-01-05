@@ -64,7 +64,7 @@ func CardinalAddBlockHook(number int64, hash, parent ctypes.Hash, weight *big.In
 		return
 	}
 
-	if number % 64 == 0 {
+	if number % 16 == 0 {
 		var borsnap json.RawMessage
 		if err := client.Call(&borsnap, "bor_getSnapshot", hexutil.Uint64(number)); err != nil {
 			log.Error("Error retrieving bor snapshot on block %v", number)
