@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
@@ -27,6 +28,7 @@ import (
 var (
 	log core.Logger
 	ready sync.WaitGroup
+	initLock *sync.RWMutex
 	backend restricted.Backend
 	config *params.ChainConfig
 	chainid int64
@@ -52,12 +54,14 @@ var (
 	codeTopic = Flags.String("cardinal.code.topic", "", "Topic for Cardinal contract code")
 	stateTopic = Flags.String("cardinal.state.topic", "", "Topic for Cardinal state data")
 	startBlockOverride = Flags.Uint64("cardinal.start.block", 0, "The first block to emit")
+	cardinalInit = Flags.Bool("cardinal.init.enabled", false, "Enable cardinal database initialization")
 	reorgThreshold = Flags.Int("cardinal.reorg.threshold", 128, "The number of blocks for clients to support quick reorgs")
 	statsdaddr = Flags.String("cardinal.statsd.addr", "", "UDP address for a statsd endpoint")
 	cloudwatchns = Flags.String("cardinal.cloudwatch.namespace", "", "CloudWatch Namespace for cardinal metrics")
 )
 
 func Initialize(ctx core.Context, loader core.PluginLoader, logger core.Logger) {
+	initLock = &sync.RWMutex{}
 	ready.Add(1)
 	log = logger
 	log.Info("Cardinal EVM plugin initializing")
@@ -116,6 +120,7 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 	schema := map[string]string{
 		fmt.Sprintf("c/%x/a/", chainid): *stateTopic,
 		fmt.Sprintf("c/%x/s", chainid): *stateTopic,
+		fmt.Sprintf("c/%x/f", chainid): *stateTopic,
 		fmt.Sprintf("c/%x/c/", chainid): *codeTopic,
 		fmt.Sprintf("c/%x/b/[0-9a-z]+/h", chainid): *blockTopic,
 		fmt.Sprintf("c/%x/b/[0-9a-z]+/d", chainid): *blockTopic,
@@ -385,6 +390,11 @@ func getUpdates(block *types.Block, td *big.Int, receipts types.Receipts, destru
 	batchUpdates := map[ctypes.Hash]map[string][]byte{
 		ctypes.BigToHash(block.Number()): make(map[string][]byte),
 	}
+	if storage != nil {
+		updates[fmt.Sprintf("c/%x/f", chainid)] = []byte{1}
+	} else {
+		updates[fmt.Sprintf("c/%x/f", chainid)] = []byte{0}
+	}
 	for addrHash, updates := range storage {
 		for k, v := range updates {
 			batchUpdates[ctypes.BigToHash(block.Number())][fmt.Sprintf("c/%x/a/%x/s/%x", chainid, addrHash.Bytes(), k.Bytes())] = v
@@ -401,6 +411,8 @@ func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, dest
 		panic("Unknown broker. Please set --cardinal.broker.url")
 	}
 	ready.Wait()
+	initLock.RLock()
+	defer initLock.RUnlock()
 	if block.NumberU64() < startBlock {
 		log.Debug("Skipping block production", "current", block.NumberU64(), "start", startBlock)
 		return
@@ -465,6 +477,121 @@ func (api *cardinalAPI) ReproduceBlocks(start restricted.BlockNumber, end *restr
 		BlockUpdates(block, td, receipts, destructs, accounts, storage, code)
 	}
 	return true, nil
+}
+
+func (api *cardinalAPI) InitDB(ctx context.Context)(<-chan interface{}, error) {
+	if !*cardinalInit {
+		return nil, fmt.Errorf("cardinal initialization disabled")
+	}
+
+	ch := make(chan interface{}, 100)
+
+	go func() {
+		initLock.Lock()
+		defer initLock.Unlock()
+		log.Info("Starting state dump. Block processing will be paused during this time.")
+		db := backend.ChainDb()
+		snaprootbytes, _ := db.Get(snapRootKey)
+		snaproot := core.BytesToHash(snaprootbytes)
+		headerRLP := backend.CurrentHeader()
+		var header types.Header
+		if err := rlp.DecodeBytes(headerRLP, &header); err != nil {
+			ch <- errMessage{err.Error()}
+			close(ch)
+			return
+		}
+		log.Info("Starting state dump", "headBlock", header.Number.Uint64(), "snaproot", snaproot)
+		for header.Root != snaproot {
+			var err error
+			headerRLP, err = backend.HeaderByNumber(context.Background(), header.Number.Int64() - 1)
+			if err != nil {
+				ch <- errMessage{err.Error()}
+				close(ch)
+				return
+			}
+			header = types.Header{}
+			if err := rlp.DecodeBytes(headerRLP, &header); err != nil {
+				ch <- errMessage{err.Error()}
+				close(ch)
+				return
+			}
+		}
+		blockno := uint64(header.Number.Int64())
+		td := backend.GetTd(context.Background(), header.Hash())
+
+		chainID := backend.ChainConfig().ChainID.Int64()
+		acctIter := db.NewIterator(snapshotAccountPrefix, nil)
+		defer acctIter.Release()
+		ch <- blockMetaOutput{
+			Hash: header.Hash(),
+			ParentHash: header.ParentHash,
+			Number: blockno,
+			Weight: hexutil.Big(*td),
+		}
+		headerBytes, err := rlp.EncodeToBytes(header)
+		if err != nil { panic(err.Error()) }
+		ch <- output{Key: fmt.Sprintf("c/%x/b/%x/h", chainID, header.Hash().Bytes()), Value: hexutil.Bytes(headerBytes)}
+		for acctIter.Next() {
+			if err := ctx.Err(); err != nil {
+				ch <- errMessage{err.Error()}
+				close(ch)
+				return
+			}
+			if len(acctIter.Key()) != 33 { continue }
+			hashedAddress := acctIter.Key()[1:]
+			acctKey := fmt.Sprintf("c/%x/a/%x/d", chainID, hashedAddress)
+			ch <- output{Key: acctKey, Value: hexutil.Bytes(acctIter.Value())}
+			acct, err := fullAccount(acctIter.Value())
+			if err != nil {
+				log.Crit("Error decoding account", "acct", fmt.Sprintf("%#x", hashedAddress), "k", hexutil.Bytes(acctIter.Key()), "rlp", hexutil.Bytes(acctIter.Value()), "err", err)
+				ch <- errMessage{"error decoding account"}
+				close(ch)
+				return
+			}
+			if !bytes.Equal(acct.CodeHash, emptyCode) {
+				v, err := db.Get(append(codePrefix, acct.CodeHash...))
+				if len(v) == 0 {
+					v, err = db.Get(acct.CodeHash)
+				}
+				if err != nil {
+					ch <- errMessage{err.Error()}
+					close(ch)
+					return
+				}
+				codeKey := fmt.Sprintf("c/%x/c/%x", chainID, acct.CodeHash)
+				ch <- output{Key: codeKey, Value: hexutil.Bytes(v)}
+			}
+			if !bytes.Equal(acct.Root, emptyRoot) {
+				count := 0
+				slotIter := db.NewIterator(append(snapshotStoragePrefix, hashedAddress...), nil)
+				for slotIter.Next() {
+					if err := ctx.Err(); err != nil {
+						ch <- errMessage{err.Error()}
+						close(ch)
+						return
+					}
+					count++
+					if len(slotIter.Key()) != 65 { continue }
+					slot := slotIter.Key()[33:]
+					slotKey := fmt.Sprintf("c/%x/a/%x/s/%x", chainID, hashedAddress, slot)
+					ch <- output{Key: slotKey, Value: hexutil.Bytes(slotIter.Value())}
+				}
+				if err := slotIter.Error(); err != nil {
+					ch <- errMessage{err.Error()}
+					close(ch)
+					return
+				}
+				slotIter.Release()
+				if count == 0 { log.Warn("Found 0 slots for non-empty account")}
+			}
+		}
+		if err := acctIter.Error(); err != nil {
+			ch <- errMessage{err.Error()}
+		}
+		close(ch)
+		return
+	}()
+	return ch, nil
 }
 
 func GetAPIs(stack core.Node, backend restricted.Backend) []core.API {

@@ -36,10 +36,20 @@ type StreamManager struct{
 	sub      types.Subscription
 	reorgSub types.Subscription
 	ready    chan struct{}
+	trackedPrefixes []*regexp.Regexp
 	processed uint64
 	chainid int64
 	lastBlockTime time.Time
 	processTime time.Duration
+}
+
+func matchesAny(key string, exps []*regexp.Regexp) bool {
+	for _, re := range exps {
+		if re.MatchString(key) {
+			return true
+		}
+	}
+	return false
 }
 
 func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, chainid int64, s storage.Storage, whitelist map[uint64]types.Hash, resumptionTime int64) (*StreamManager, error) {
@@ -47,6 +57,7 @@ func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, ch
 	trackedPrefixes := []*regexp.Regexp{
 		regexp.MustCompile("c/[0-9a-z]+/a/"),
 		regexp.MustCompile("c/[0-9a-z]+/s"),
+		regexp.MustCompile("c/[0-9a-z]+/f"),
 		regexp.MustCompile("c/[0-9a-z]+/c/"),
 		regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/h"),
 		regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/d"),
@@ -81,6 +92,7 @@ func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, ch
 		storage: s,
 		ready: make(chan struct{}),
 		chainid: chainid,
+		trackedPrefixes: trackedPrefixes,
 	}, nil
 }
 
@@ -99,18 +111,30 @@ func (m *StreamManager) Start() error {
 	go func() {
 		for {
 			log.Debug("Waiting for message")
+			storageSentinelKey := fmt.Sprintf("c/%x/f", m.chainid)
 			select {
 			case update := <-ch:
 				start := time.Now()
 				added := update.Added()
 				for _, pb := range added {
 					updates := make([]storage.KeyValue, 0, len(pb.Values))
+					completeBlock := false
 					for k, v := range pb.Values {
-						updates = append(updates, storage.KeyValue{Key: []byte(k), Value: v})
+						if k == storageSentinelKey {
+							completeBlock = (v[0] == 1)
+							continue
+						}
+						if matchesAny(k, m.trackedPrefixes) {
+							updates = append(updates, storage.KeyValue{Key: []byte(k), Value: v})
+						}
 					}
 					deletes := make([][]byte, 0, len(pb.Deletes))
 					for k := range pb.Deletes {
 						deletes = append(deletes, []byte(k))
+					}
+					if !completeBlock {
+						log.Warn("Received block without storage sentinel. Dropping.")
+						continue
 					}
 					if err := m.storage.AddBlock(
 						pb.Hash,
