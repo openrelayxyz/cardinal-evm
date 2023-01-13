@@ -116,6 +116,7 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 	schema := map[string]string{
 		fmt.Sprintf("c/%x/a/", chainid): *stateTopic,
 		fmt.Sprintf("c/%x/s", chainid): *stateTopic,
+		fmt.Sprintf("c/%x/f", chainid): *stateTopic,
 		fmt.Sprintf("c/%x/c/", chainid): *codeTopic,
 		fmt.Sprintf("c/%x/b/[0-9a-z]+/h", chainid): *blockTopic,
 		fmt.Sprintf("c/%x/b/[0-9a-z]+/d", chainid): *blockTopic,
@@ -384,6 +385,11 @@ func getUpdates(block *types.Block, td *big.Int, receipts types.Receipts, destru
 	}
 	batchUpdates := map[ctypes.Hash]map[string][]byte{
 		ctypes.BigToHash(block.Number()): make(map[string][]byte),
+	}
+	if storage != nil {
+		updates[fmt.Sprintf("c/%x/f", chainid)] = []byte{1}
+	} else {
+		updates[fmt.Sprintf("c/%x/f", chainid)] = []byte{0}
 	}
 	for addrHash, updates := range storage {
 		for k, v := range updates {

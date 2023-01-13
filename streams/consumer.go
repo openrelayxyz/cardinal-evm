@@ -57,6 +57,7 @@ func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, ch
 	trackedPrefixes := []*regexp.Regexp{
 		regexp.MustCompile("c/[0-9a-z]+/a/"),
 		regexp.MustCompile("c/[0-9a-z]+/s"),
+		regexp.MustCompile("c/[0-9a-z]+/f"),
 		regexp.MustCompile("c/[0-9a-z]+/c/"),
 		regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/h"),
 		regexp.MustCompile("c/[0-9a-z]+/b/[0-9a-z]+/d"),
@@ -110,13 +111,19 @@ func (m *StreamManager) Start() error {
 	go func() {
 		for {
 			log.Debug("Waiting for message")
+			storageSentinelKey := fmt.Sprintf("c/%x/f", m.chainid)
 			select {
 			case update := <-ch:
 				start := time.Now()
 				added := update.Added()
 				for _, pb := range added {
 					updates := make([]storage.KeyValue, 0, len(pb.Values))
+					completeBlock := false
 					for k, v := range pb.Values {
+						if k == storageSentinelKey {
+							completeBlock = (v[0] == 1)
+							continue
+						}
 						if matchesAny(k, m.trackedPrefixes) {
 							updates = append(updates, storage.KeyValue{Key: []byte(k), Value: v})
 						}
@@ -124,6 +131,10 @@ func (m *StreamManager) Start() error {
 					deletes := make([][]byte, 0, len(pb.Deletes))
 					for k := range pb.Deletes {
 						deletes = append(deletes, []byte(k))
+					}
+					if !completeBlock {
+						log.Warn("Received block without storage sentinel. Dropping.")
+						continue
 					}
 					if err := m.storage.AddBlock(
 						pb.Hash,
