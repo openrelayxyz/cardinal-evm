@@ -28,6 +28,7 @@ func main() {
 	resumptionTime := flag.Int64("resumption.ts", -1, "Resume from a timestamp instead of the offset committed to the database")
 	blockRollback := flag.Int64("block.rollback", 0, "Rollback to block N before syncing. If N < 0, rolls back from head before starting or syncing.")
 	exitWhenSynced := flag.Bool("exitwhensynced", false, "Automatically shutdown after syncing is complete")
+	initURL := flag.String("init.url", "", "The websockets URL of a master")
 	debug := flag.Bool("debug", false, "Enable debug APIs")
 
 	flag.CommandLine.Parse(os.Args[1:])
@@ -53,6 +54,14 @@ func main() {
 		logLvl = log.LvlInfo
 	}
 	log.Root().SetHandler(log.LvlFilterHandler(logLvl, log.Root().GetHandler()))
+
+	if *initURL != "" {
+		if err := initializer(cfg.DataDir, *initURL); err != nil {
+			log.Crit("Error initializing database", "err", err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	if len(cfg.Brokers) == 0 {
 		log.Error("No brokers specified")

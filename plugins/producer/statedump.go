@@ -22,6 +22,10 @@ var (
 	codePrefix            = []byte("c")
 )
 
+type errMessage struct {
+	Error string `json:"error"`
+}
+
 type output struct{
 	Key string `json:"key"`
 	Value hexutil.Bytes `json:"value"`
