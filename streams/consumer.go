@@ -36,10 +36,20 @@ type StreamManager struct{
 	sub      types.Subscription
 	reorgSub types.Subscription
 	ready    chan struct{}
+	trackedPrefixes []*regexp.Regexp
 	processed uint64
 	chainid int64
 	lastBlockTime time.Time
 	processTime time.Duration
+}
+
+func matchesAny(key string, exps []*regexp.Regexp) bool {
+	for _, re := range exps {
+		if re.MatchString(key) {
+			return true
+		}
+	}
+	return false
 }
 
 func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, chainid int64, s storage.Storage, whitelist map[uint64]types.Hash, resumptionTime int64) (*StreamManager, error) {
@@ -81,6 +91,7 @@ func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, ch
 		storage: s,
 		ready: make(chan struct{}),
 		chainid: chainid,
+		trackedPrefixes: trackedPrefixes,
 	}, nil
 }
 
@@ -106,7 +117,9 @@ func (m *StreamManager) Start() error {
 				for _, pb := range added {
 					updates := make([]storage.KeyValue, 0, len(pb.Values))
 					for k, v := range pb.Values {
-						updates = append(updates, storage.KeyValue{Key: []byte(k), Value: v})
+						if matchesAny(k, m.trackedPrefixes) {
+							updates = append(updates, storage.KeyValue{Key: []byte(k), Value: v})
+						}
 					}
 					deletes := make([][]byte, 0, len(pb.Deletes))
 					for k := range pb.Deletes {
