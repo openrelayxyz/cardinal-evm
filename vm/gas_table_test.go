@@ -17,8 +17,10 @@
 package vm
 
 import (
+	"bytes"
 	"math"
 	"math/big"
+	"sort"
 	"testing"
 
 	// "github.com/openrelayxyz/cardinal-types/hexutil"
@@ -29,6 +31,7 @@ import (
 	"github.com/openrelayxyz/cardinal-storage"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
+	log "github.com/inconshreveable/log15"
 )
 
 func TestMemoryGasCost(t *testing.T) {
@@ -127,5 +130,81 @@ func TestEIP2200(t *testing.T) {
 			}
 			return nil
 		})
+	}
+}
+
+var createGasTests = []struct {
+	code       string
+	eip3860    bool
+	gasUsed    uint64
+	minimumGas uint64
+}{
+	// legacy create(0, 0, 0xc000) without 3860 used
+	{"0x61C00060006000f0" + "600052" + "60206000F3", false, 41237, 41237},
+	// legacy create(0, 0, 0xc000) _with_ 3860
+	{"0x61C00060006000f0" + "600052" + "60206000F3", true, 44309, 44309},
+	// create2(0, 0, 0xc001, 0) without 3860
+	{"0x600061C00160006000f5" + "600052" + "60206000F3", false, 50471, 50471},
+	// create2(0, 0, 0xc001, 0) (too large), with 3860
+	{"0x600061C00160006000f5" + "600052" + "60206000F3", true, 32012, 100_000},
+	// create2(0, 0, 0xc000, 0)
+	// This case is trying to deploy code at (within) the limit
+	{"0x600061C00060006000f5" + "600052" + "60206000F3", true, 53528, 53528},
+	// create2(0, 0, 0xc001, 0)
+	// This case is trying to deploy code exceeding the limit
+	{"0x600061C00160006000f5" + "600052" + "60206000F3", true, 32024, 100000},
+}
+
+func TestCreateGas(t *testing.T) {
+	for i, tt := range createGasTests {
+		log.Debug("starting TestCreateGas", "iteration", i)
+		var gasUsed = uint64(0)
+		doCheck := func(testGas int) (rv bool) {
+			address := common.BytesToAddress([]byte("contract"))
+			testWithStateDB(func(tx storage.Transaction, statedb state.StateDB) error {
+				statedb.CreateAccount(address)
+				statedb.SetCode(address, hexutil.MustDecode(tt.code))
+				statedb.Finalise()
+				vmctx := BlockContext{
+					CanTransfer: func(state.StateDB, common.Address, *big.Int) bool { return true },
+					Transfer:    func(state.StateDB, common.Address, common.Address, *big.Int) {},
+					BlockNumber: big.NewInt(0),
+				}
+				config := Config{}
+				if tt.eip3860 {
+					config.ExtraEips = []int{3860}
+				}
+
+				vmenv := NewEVM(vmctx, TxContext{}, statedb, params.AllEthashProtocolChanges, config)
+				var startGas = uint64(testGas)
+				ret, gas, err := vmenv.Call(AccountRef(common.Address{}), address, nil, startGas, new(big.Int))
+				if err != nil {
+					rv = false
+					return nil
+				}
+				gasUsed = startGas - gas
+				if len(ret) != 32 {
+					t.Fatalf("test %d: expected 32 bytes returned, have %d", i, len(ret))
+				}
+				if bytes.Equal(ret, make([]byte, 32)) {
+					// Failure
+					rv = false
+					return nil
+				}
+				rv = true
+				return nil
+			})
+			return rv
+		}
+		minGas := sort.Search(100_000, doCheck)
+		if uint64(minGas) != tt.minimumGas {
+			t.Fatalf("test %d: min gas error, want %d, have %d", i, tt.minimumGas, minGas)
+		}
+		// If the deployment succeeded, we also check the gas used
+		if minGas < 100_000 {
+			if gasUsed != tt.gasUsed {
+				t.Errorf("test %d: gas used mismatch: have %v, want %v", i, gasUsed, tt.gasUsed)
+			}
+		}
 	}
 }
