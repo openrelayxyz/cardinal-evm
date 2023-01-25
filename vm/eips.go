@@ -25,6 +25,7 @@ import (
 )
 
 var activators = map[int]func(*JumpTable){
+	3855: enable3855,
 	3860: enable3860,
 	3529: enable3529,
 	3198: enable3198,
@@ -182,4 +183,15 @@ func opBaseFee(pc *uint64, interpreter *EVMInterpreter, scope *ScopeContext) ([]
 func enable3860(jt *JumpTable) {
 	jt[CREATE].dynamicGas = gasCreateEip3860
 	jt[CREATE2].dynamicGas = gasCreate2Eip3860
+}
+
+// enable3855 applies EIP-3855 (PUSH0 opcode)
+func enable3855(jt *JumpTable) {
+	// New opcode
+	jt[PUSH0] = &operation{
+		execute:     opPush0,
+		constantGas: GasQuickStep,
+		minStack:    minStack(0, 1),
+		maxStack:    maxStack(0, 1),
+	}
 }
