@@ -128,6 +128,7 @@ var (
 		MuirGlacierBlock:    big.NewInt(0),
 		BerlinBlock:         big.NewInt(0),
 		LondonBlock:         big.NewInt(0),
+		ShanghaiTime:        big.NewInt(1677557088),
 		Ethash:              new(EthashConfig),
 		Engine:              ETHashEngine,
 	}
@@ -457,7 +458,7 @@ func (c *ChainConfig) CheckCompatible(newcfg *ChainConfig, height uint64, time *
 	)
 	if time != nil {
 		btime = new(big.Int).SetUint64(*time)
-	} 
+	}
 	// Iterate checkCompatible to find the lowest conflict.
 	var lasterr *ConfigCompatError
 	for {
