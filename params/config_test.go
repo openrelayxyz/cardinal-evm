@@ -27,6 +27,7 @@ func TestCheckCompatible(t *testing.T) {
 		stored, new *ChainConfig
 		head        uint64
 		wantErr     *ConfigCompatError
+		time        *uint64
 	}
 	tests := []test{
 		{stored: AllEthashProtocolChanges, new: AllEthashProtocolChanges, head: 0, wantErr: nil},
@@ -43,9 +44,9 @@ func TestCheckCompatible(t *testing.T) {
 			head:   3,
 			wantErr: &ConfigCompatError{
 				What:         "Homestead fork block",
-				StoredConfig: big.NewInt(0),
-				NewConfig:    nil,
-				RewindTo:     0,
+				StoredBlock: big.NewInt(0),
+				NewBlock:    nil,
+				RewindToBlock:     0,
 			},
 		},
 		{
@@ -54,9 +55,9 @@ func TestCheckCompatible(t *testing.T) {
 			head:   3,
 			wantErr: &ConfigCompatError{
 				What:         "Homestead fork block",
-				StoredConfig: big.NewInt(0),
-				NewConfig:    big.NewInt(1),
-				RewindTo:     0,
+				StoredBlock: big.NewInt(0),
+				NewBlock:    big.NewInt(1),
+				RewindToBlock:     0,
 			},
 		},
 		{
@@ -65,9 +66,9 @@ func TestCheckCompatible(t *testing.T) {
 			head:   25,
 			wantErr: &ConfigCompatError{
 				What:         "EIP150 fork block",
-				StoredConfig: big.NewInt(10),
-				NewConfig:    big.NewInt(20),
-				RewindTo:     9,
+				StoredBlock: big.NewInt(10),
+				NewBlock:    big.NewInt(20),
+				RewindToBlock:     9,
 			},
 		},
 		{
@@ -82,15 +83,15 @@ func TestCheckCompatible(t *testing.T) {
 			head:   40,
 			wantErr: &ConfigCompatError{
 				What:         "Petersburg fork block",
-				StoredConfig: nil,
-				NewConfig:    big.NewInt(31),
-				RewindTo:     30,
+				StoredBlock: nil,
+				NewBlock:    big.NewInt(31),
+				RewindToBlock:     30,
 			},
 		},
 	}
 
 	for _, test := range tests {
-		err := test.stored.CheckCompatible(test.new, test.head)
+		err := test.stored.CheckCompatible(test.new, test.head, test.time)
 		if !reflect.DeepEqual(err, test.wantErr) {
 			t.Errorf("error mismatch:\nstored: %v\nnew: %v\nhead: %v\nerr: %v\nwant: %v", test.stored, test.new, test.head, err, test.wantErr)
 		}
