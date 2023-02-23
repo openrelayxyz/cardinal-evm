@@ -344,6 +344,10 @@ func getUpdates(block *types.Block, td *big.Int, receipts types.Receipts, destru
 		fmt.Sprintf("c/%x/b/%x/d", chainid, hash.Bytes()): td.Bytes(),
 		fmt.Sprintf("c/%x/n/%x", chainid, block.Number().Int64()): hash[:],
 	}
+	if block.Withdrawals().Len() > 0 {
+		withdrawalsBytes, _ := rlp.EncodeToBytes(block.Withdrawals())
+		updates[fmt.Sprintf("c/%x/b/%x/w", chainid, hash.Bytes())] = withdrawalsBytes
+	}
 	for i, tx := range block.Transactions() {
 		updates[fmt.Sprintf("c/%x/b/%x/t/%x", chainid, hash.Bytes(), i)], _ = tx.MarshalBinary()
 		rmeta := receiptMeta{

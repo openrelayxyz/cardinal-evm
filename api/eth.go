@@ -540,7 +540,7 @@ func AccessList(ctx *rpc.CallContext, db state.StateDB, header *types.Header, ch
 		to = crypto.CreateAddress(args.from(), uint64(*args.Nonce))
 	}
 	// Retrieve the precompiles since they don't need to be added to the access list
-	precompiles := vm.ActivePrecompiles(chaincfg.Rules(header.Number, header.Difficulty.Cmp(new(big.Int)) == 0))
+	precompiles := vm.ActivePrecompiles(chaincfg.Rules(header.Number, header.Difficulty.Cmp(new(big.Int)) == 0, new(big.Int).SetInt64(int64(header.Time))))
 
 	// Create an initial tracer
 	tracer := vm.NewAccessListTracer(nil, args.from(), to, precompiles)
@@ -634,7 +634,7 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx *rpc.CallContext, inpu
 		}
 
 		// Should supply enough intrinsic gas
-		gas, err := IntrinsicGas(tx.Data(), tx.AccessList(), tx.To() == nil, true, chaincfg.IsIstanbul(header.Number))
+		gas, err := IntrinsicGas(tx.Data(), tx.AccessList(), tx.To() == nil, true, chaincfg.IsIstanbul(header.Number), chaincfg.IsShanghai(new(big.Int).SetInt64(int64(header.Time))))
 		if err != nil {
 			return err
 		}

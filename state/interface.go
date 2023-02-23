@@ -4,6 +4,7 @@ import (
 	"math/big"
 
 	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-evm/params"
 	"github.com/openrelayxyz/cardinal-evm/types"
 	ctypes "github.com/openrelayxyz/cardinal-types"
 )
@@ -44,7 +45,7 @@ type StateDB interface {
 	// is defined according to EIP161 (balance = nonce = code = 0).
 	Empty(common.Address) bool
 
-	PrepareAccessList(sender common.Address, dest *common.Address, precompiles []common.Address, txAccesses types.AccessList)
+	PrepareAccessList(rules params.Rules, sender, coinbase common.Address, dest *common.Address, precompiles []common.Address, txAccesses types.AccessList)
 	AddressInAccessList(addr common.Address) bool
 	SlotInAccessList(addr common.Address, slot ctypes.Hash) (addressOk bool, slotOk bool)
 	// AddAddressToAccessList adds the given address to the access list. This operation is safe to perform
