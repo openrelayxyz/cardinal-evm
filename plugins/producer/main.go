@@ -119,6 +119,7 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 		fmt.Sprintf("c/%x/c/", chainid): *codeTopic,
 		fmt.Sprintf("c/%x/b/[0-9a-z]+/h", chainid): *blockTopic,
 		fmt.Sprintf("c/%x/b/[0-9a-z]+/d", chainid): *blockTopic,
+		fmt.Sprintf("c/%x/b/[0-9a-z]+/w", chainid): *blockTopic,
 		fmt.Sprintf("c/%x/b/[0-9a-z]+/u/", chainid): *blockTopic,
 		fmt.Sprintf("c/%x/n/", chainid): *blockTopic,
 		fmt.Sprintf("c/%x/b/[0-9a-z]+/t/", chainid): *txTopic,
