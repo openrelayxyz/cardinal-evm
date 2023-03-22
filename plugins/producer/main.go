@@ -55,7 +55,7 @@ var (
 	reorgThreshold = Flags.Int("cardinal.reorg.threshold", 128, "The number of blocks for clients to support quick reorgs")
 	statsdaddr = Flags.String("cardinal.statsd.addr", "", "UDP address for a statsd endpoint")
 	cloudwatchns = Flags.String("cardinal.cloudwatch.namespace", "", "CloudWatch Namespace for cardinal metrics")
-	minActiveProducers = Flags.Uint("cardina.min.producers", 0, "The minimum number of healthy producers for maintenance operations like state trie flush to take place")
+	minActiveProducers = Flags.Uint("cardinal.min.producers", 0, "The minimum number of healthy producers for maintenance operations like state trie flush to take place")
 )
 
 func Initialize(ctx core.Context, loader core.PluginLoader, logger core.Logger) {
@@ -174,6 +174,20 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 					client.Call(&res, "debug_setTrieFlushInterval", "72h") // We're not error checking this in case we're on a node that doesn't support this method
 					enabled = true
 				}
+				// I feel like it's useful to note the behavior of debug_setTrieFlushInterval here.
+				// A trie flush interval of 1 hour does not mean that the trie will be flushed every hour.
+				// It means that the trie will be flushed after 1 hour of time spent processing blocks.
+				// The intent is that if you have an unclean shutdown and a node has to start back
+				// up from the last trie flush, it should take no more than 1 hour of processing to
+				// catch back up. If it takes 500ms to process a block, and blocks come out every 12
+				// seconds, it will take ~24 hours to accumulate an hour of block processing, so the
+				// trie flush will only happen once every 24 hours. Setting the trie flush interval to
+				// 72 hours then means that a trie flush may only happen every couple of months, but that
+				// an unclean restart will take less than 72 hours to resume.
+				//
+				// Needless to say, you don't want to find yourself in that position, so it's advised to
+				// make sure you have multiple healthy masters if you are setting the --cardinal.min.producers
+				// flag
 			}
 		}()
 	}
