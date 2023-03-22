@@ -11,13 +11,21 @@ code, contract storage, recent block headers, and a bidirectional mapping of
 block headers to block numbers, though account and contract data is not stored
 in a state trie data structure.
 
-Cardinal EVM is under heavy development, but ultimately it aims to provide the
-following RPC methods:
+Cardinal currently provides the following RPC Methods:
 
-* eth_getBalance (Complete)
-* eth_getStorageAt (Complete)
-* eth_getCode (Complete)
+* eth_chainId
+* eth_blockNumber
+* eth_getBalance
+* eth_getCode
+* eth_getStorageAt
 * eth_call
 * eth_estimateGas
-* ethercattle_estimateGasList
-* debug_traceCall (restricted to pre-defined tracers, not open-ended)
+* eth_createAccessList
+* net_listening
+* net_peerCount
+* net_version
+* web3_clientVersion
+* web3_sha3
+
+Web3 RPC methods pertaining to Blocks, Transactions, Receipts, and Logs are provided by 
+[Flume](https://github.com/openrelayxyz/cardinal-flume).
