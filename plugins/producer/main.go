@@ -55,6 +55,7 @@ var (
 	reorgThreshold = Flags.Int("cardinal.reorg.threshold", 128, "The number of blocks for clients to support quick reorgs")
 	statsdaddr = Flags.String("cardinal.statsd.addr", "", "UDP address for a statsd endpoint")
 	cloudwatchns = Flags.String("cardinal.cloudwatch.namespace", "", "CloudWatch Namespace for cardinal metrics")
+	minActiveProducers = Flags.Uint("cardina.min.producers", 0, "The minimum number of healthy producers for maintenance operations like state trie flush to take place")
 )
 
 func Initialize(ctx core.Context, loader core.PluginLoader, logger core.Logger) {
@@ -150,6 +151,31 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 		&resumer{},
 	)
 	if err != nil { panic(err.Error()) }
+	if minap := *minActiveProducers; minap > 0 {
+		go func() {
+			client, err := stack.Attach()
+			for err != nil {
+				time.Sleep(500 * time.Second)
+				client, err = stack.Attach()
+			}
+			t := time.NewTicker(5 * time.Second)
+			enabled := true
+			for range t.C {
+				pc := producer.ProducerCount(time.Minute)
+				if  pc >= minap && !enabled {
+					// If there are adequate healthy producers, the flush interval should be 1 hour
+					var res any
+					client.Call(&res, "debug_setTrieFlushInterval", "1h") // We're not error checking this in case we're on a node that doesn't support this method
+					enabled = true
+				} else if pc < minap && enabled {
+					// If there aren't enough healthy producers, set the flush interval very high
+					var res any
+					client.Call(&res, "debug_setTrieFlushInterval", "72h") // We're not error checking this in case we're on a node that doesn't support this method
+					enabled = true
+				}
+			}
+		}()
+	}
 	if *brokerURL != "" {
 		go func() {
 			t := time.NewTicker(time.Second * 30)
@@ -429,6 +455,13 @@ func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, dest
 			return
 		}
 	}
+}
+
+func PreTrieCommit(core.Hash) {
+	producer.SetHealth(false)
+}
+func PostTrieCommit(core.Hash) {
+	producer.SetHealth(false)
 }
 
 
