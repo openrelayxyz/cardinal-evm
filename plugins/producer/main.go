@@ -120,6 +120,7 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 		fmt.Sprintf("c/%x/c/", chainid): *codeTopic,
 		fmt.Sprintf("c/%x/b/[0-9a-z]+/h", chainid): *blockTopic,
 		fmt.Sprintf("c/%x/b/[0-9a-z]+/d", chainid): *blockTopic,
+		fmt.Sprintf("c/%x/b/[0-9a-z]+/w", chainid): *blockTopic,
 		fmt.Sprintf("c/%x/b/[0-9a-z]+/u/", chainid): *blockTopic,
 		fmt.Sprintf("c/%x/n/", chainid): *blockTopic,
 		fmt.Sprintf("c/%x/b/[0-9a-z]+/t/", chainid): *txTopic,
@@ -369,6 +370,10 @@ func getUpdates(block *types.Block, td *big.Int, receipts types.Receipts, destru
 		fmt.Sprintf("c/%x/b/%x/h", chainid, hash.Bytes()): headerBytes,
 		fmt.Sprintf("c/%x/b/%x/d", chainid, hash.Bytes()): td.Bytes(),
 		fmt.Sprintf("c/%x/n/%x", chainid, block.Number().Int64()): hash[:],
+	}
+	if block.Withdrawals().Len() > 0 {
+		withdrawalsBytes, _ := rlp.EncodeToBytes(block.Withdrawals())
+		updates[fmt.Sprintf("c/%x/b/%x/w", chainid, hash.Bytes())] = withdrawalsBytes
 	}
 	for i, tx := range block.Transactions() {
 		updates[fmt.Sprintf("c/%x/b/%x/t/%x", chainid, hash.Bytes(), i)], _ = tx.MarshalBinary()
