@@ -5,16 +5,19 @@ import (
 	"net/http"
 	"context"
 	"fmt"
+	"encoding/json"
 	"github.com/openrelayxyz/cardinal-streams/transports"
 	// "github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
+	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/hashicorp/golang-lru"
 	"github.com/Shopify/sarama"
 	"github.com/inconshreveable/log15"
 	"os"
 	"time"
 	"log"
+	"io/ioutil"
 )
 
 // replica starts replica node
@@ -74,10 +77,20 @@ func (h relayConsumerGroup) ConsumeClaim(sess sarama.ConsumerGroupSession, claim
 			resp, err := http.Post(h.url, "application/json", bytes.NewBuffer([]byte(fmt.Sprintf(`{"id": 0, "jsonrpc": "2.0", "method": "eth_sendRawTransaction", "params": ["%#x"]}`, bin))))
 			if err != nil {
 				log15.Error("Error relaying", "tx", hash, "err", err)
-			} else {
-				resp.Body.Close()
-				log15.Info("Relaying transaction", "tx", hash, "status", resp.StatusCode)
+				continue
 			}
+			data, _ := ioutil.ReadAll(resp.Body)
+			resp.Body.Close()
+			var res rpc.Response
+			if err := json.Unmarshal(data, &res); err != nil {
+				log15.Error("Error unmarshalling JSON response", "err", err, "data", string(data))
+				continue
+			}
+			if res.Error != nil {
+				log15.Error("Error relaying transaction", "err", res.Error)
+				continue
+			}
+			log15.Info("Relaying transaction", "tx", hash, "status", resp.StatusCode)
 		} else {
 			log15.Info("Skipping repeat", "tx", hash)
 		}
