@@ -71,7 +71,7 @@ func (h relayConsumerGroup) ConsumeClaim(sess sarama.ConsumerGroupSession, claim
 		hash := tx.Hash()
 		if ok, _ := h.cache.ContainsOrAdd(hash, struct{}{}); !ok {
 			log15.Debug("Sending Transaction", "hash", hash, "data", fmt.Sprintf("%#x", msg.Value))
-			resp, err := http.Post(h.url, "application/json", bytes.NewBuffer([]byte(fmt.Sprintf(`{"id": 0, "method": "eth_sendRawTransaction", "params": ["%#x"]}`, bin))))
+			resp, err := http.Post(h.url, "application/json", bytes.NewBuffer([]byte(fmt.Sprintf(`{"id": 0, "jsonrpc": "2.0", "method": "eth_sendRawTransaction", "params": ["%#x"]}`, bin))))
 			if err != nil {
 				log15.Error("Error relaying", "tx", hash, "err", err)
 			} else {
