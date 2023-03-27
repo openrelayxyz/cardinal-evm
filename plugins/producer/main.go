@@ -350,10 +350,12 @@ func (r *resumer) BlocksFrom(ctx context.Context, number uint64, hash ctypes.Has
 	}
 	ch := make(chan *delivery.PendingBatch)
 	go func() {
+		reset := false
 		defer close(ch)
 		for i := number; ; i++ {
 			if pb := r.GetBlock(ctx, i); pb != nil {
-				if pb.Number == int64(number) && (pb.Hash != hash) {
+				if pb.Number == int64(number) && (pb.Hash != hash) && !reset {
+					reset = true
 					i -= uint64(*reorgThreshold)
 					continue
 				}
@@ -455,6 +457,7 @@ func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, dest
 	log.Info("Producing block to cardinal-streams", "hash", hash, "number", block.NumberU64())
 	gethHeightGauge.Update(block.Number().Int64())
 	masterHeightGauge.Update(block.Number().Int64())
+	producer.SetHealth(time.Since(time.Unix(int64(block.Time()), 0)) < 2 * time.Minute)
 	if err := producer.AddBlock(
 		block.Number().Int64(),
 		ctypes.Hash(hash),
@@ -466,7 +469,6 @@ func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, dest
 	); err != nil {
 		log.Error("Failed to send block", "block", hash, "err", err)
 		panic(err.Error())
-		return
 	}
 	for batchid, update := range batchUpdates {
 		if err := producer.SendBatch(batchid, []string{}, update); err != nil {
@@ -480,7 +482,7 @@ func PreTrieCommit(core.Hash) {
 	producer.SetHealth(false)
 }
 func PostTrieCommit(core.Hash) {
-	producer.SetHealth(false)
+	producer.SetHealth(true)
 }
 
 
