@@ -172,7 +172,7 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 					// If there aren't enough healthy producers, set the flush interval very high
 					var res any
 					client.Call(&res, "debug_setTrieFlushInterval", "72h") // We're not error checking this in case we're on a node that doesn't support this method
-					enabled = true
+					enabled = false
 				}
 				// I feel like it's useful to note the behavior of debug_setTrieFlushInterval here.
 				// A trie flush interval of 1 hour does not mean that the trie will be flushed every hour.
@@ -532,7 +532,7 @@ func GetAPIs(stack core.Node, backend restricted.Backend) []core.API {
 	}
 	v := items[0].(func(int64) (*types.Block, *big.Int, types.Receipts, map[core.Hash]struct{}, map[core.Hash][]byte, map[core.Hash]map[core.Hash][]byte, map[core.Hash][]byte, error))
 	return []core.API{
-	 {
+		{
 			Namespace:	"cardinal",
 			Version:		"1.0",
 			Service:		&cardinalAPI{
@@ -540,6 +540,12 @@ func GetAPIs(stack core.Node, backend restricted.Backend) []core.API {
 				v,
 			},
 			Public:		true,
+		},
+		{
+			Namespace: "cardinalmetrics",
+			Version: "1.0",
+			Service: &metrics.MetricsAPI{},
+			Public: true,
 		},
 	}
 }
