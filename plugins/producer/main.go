@@ -479,10 +479,14 @@ func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, dest
 }
 
 func PreTrieCommit(core.Hash) {
-	producer.SetHealth(false)
+	if producer != nil {
+		producer.SetHealth(false)
+	}
 }
 func PostTrieCommit(core.Hash) {
-	producer.SetHealth(true)
+	if producer != nil {
+		producer.SetHealth(true)
+	}
 }
 
 
