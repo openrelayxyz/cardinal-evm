@@ -37,6 +37,7 @@ var (
 	gethHeightGauge = metrics.NewMajorGauge("/geth/height")
 	gethPeersGauge = metrics.NewMajorGauge("/geth/peers")
 	masterHeightGauge = metrics.NewMajorGauge("/master/height")
+	blockAgeTimer = metrics.NewMajorTimer("/geth/age")
 	blockUpdatesByNumber func(number int64) (*types.Block, *big.Int, types.Receipts, map[core.Hash]struct{}, map[core.Hash][]byte, map[core.Hash]map[core.Hash][]byte, map[core.Hash][]byte, error)
 
 	addBlockHook func(number int64, hash, parent ctypes.Hash, weight *big.Int, updates map[string][]byte, deletes map[string]struct{})
@@ -458,6 +459,7 @@ func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, dest
 	gethHeightGauge.Update(block.Number().Int64())
 	masterHeightGauge.Update(block.Number().Int64())
 	producer.SetHealth(time.Since(time.Unix(int64(block.Time()), 0)) < 2 * time.Minute)
+	blockAgeTimer.UpdateSince(time.Unix(int64(block.Time()), 0))
 	if err := producer.AddBlock(
 		block.Number().Int64(),
 		ctypes.Hash(hash),

@@ -18,6 +18,8 @@ import (
 
 var (
 	heightGauge = metrics.NewMajorGauge("/evm/height")
+	processTimer = metrics.NewMajorTimer("/evm/processing")
+	blockAgeTimer = metrics.NewMajorTimer("/evm/age")
 )
 
 func BlockTime(pb *delivery.PendingBatch, chainid int64) *time.Time {
@@ -129,11 +131,15 @@ func (m *StreamManager) Start() error {
 					pb.Done()
 				}
 				latest := added[len(added) - 1]
+				processTimer.UpdateSince(start)
 				m.processTime = time.Since(start)
 				m.lastBlockTime = time.Now()
 				params := []interface{}{"blocks", len(added), "elapsed", m.processTime, "number", latest.Number, "hash", latest.Hash}
-				if bt := BlockTime(latest, m.chainid); bt != nil && time.Since(*bt) > time.Minute {
-					params = append(params, "age", time.Since(*bt))
+				if bt := BlockTime(latest, m.chainid); bt != nil {
+					if time.Since(*bt) > time.Minute {
+						params = append(params, "age", time.Since(*bt))
+					}
+					blockAgeTimer.UpdateSince(*bt)
 				}
 				log.Info("Imported new chain segment", params...)
 			case reorg := <-reorgCh:
