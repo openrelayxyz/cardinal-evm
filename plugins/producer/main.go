@@ -20,6 +20,7 @@ import (
 	"github.com/openrelayxyz/plugeth-utils/restricted/hexutil"
 	"github.com/savaki/cloudmetrics"
 	"github.com/pubnub/go-metrics-statsd"
+	"github.com/inconshreveable/log15"
 	"strings"
 	"sync"
 )
@@ -63,6 +64,7 @@ func Initialize(ctx core.Context, loader core.PluginLoader, logger core.Logger) 
 	ready.Add(1)
 	log = logger
 	log.Info("Cardinal EVM plugin initializing")
+	log15.Root().SetHandler(log15.LvlFilterHandler(log15.LvlInfo, log15.Root().GetHandler()))
 	pendingReorgs = make(map[core.Hash]func())
 	pluginLoader = loader
 	fnList := loader.Lookup("BlockUpdatesByNumber", func(item interface{}) bool {
