@@ -64,10 +64,13 @@ func main() {
 	// TODO: Once Cardinal streams supports it, pass multiple brokers into the stream
 	broker := cfg.Brokers[0]
 
+	heightCh := make(chan int64, 1024)
+
 	tm := transports.NewTransportManager(cfg.Concurrency)
 	if cfg.HttpPort != 0 {
 		tm.AddHTTPServer(cfg.HttpPort)
 	}
+	tm.RegisterHeightFeed(heightCh)
 	db, err := badgerdb.New(cfg.DataDir)
 	if err != nil {
 		log.Error("Error opening badgerdb", "error", err)
@@ -106,6 +109,7 @@ func main() {
 		s,
 		cfg.whitelist,
 		*resumptionTime,
+		heightCh,
 	)
 	if err != nil {
 		log.Error("Error connecting streams", "err", err)
