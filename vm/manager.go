@@ -47,7 +47,7 @@ func NewEVMManager(s storage.Storage, chainid int64, vmcfg Config, chaincfg *par
 
 func (mgr *EVMManager) View(inputs ...interface{}) error {
 	var hash *ctypes.Hash
-	var blockNo *BlockNumber
+	var blockNo *rpc.BlockNumber
 	var ctx context.Context
 	var callback *reflect.Value
 	var sender common.Address
