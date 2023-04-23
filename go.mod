@@ -11,7 +11,7 @@ require (
 	github.com/holiman/uint256 v1.2.0
 	github.com/inconshreveable/log15 v0.0.0-20201112154412-8562bdadbbac
 	github.com/jedisct1/go-minisign v0.0.0-20190909160543-45766022959e
-	github.com/openrelayxyz/cardinal-rpc v1.1.0-consistencytools-1
+	github.com/openrelayxyz/cardinal-rpc v1.1.0-consistencytools-7
 	github.com/openrelayxyz/cardinal-storage v1.1.1
 	github.com/openrelayxyz/cardinal-streams v1.3.4-batchid-cleanup0
 	github.com/openrelayxyz/cardinal-types v1.0.0
