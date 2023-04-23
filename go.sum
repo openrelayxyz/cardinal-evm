@@ -141,8 +141,8 @@ github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd/go.mod h1:6dJ
 github.com/modern-go/reflect2 v1.0.2 h1:xBagoLtFs94CBntxluKeaWgTMpvLxC4ur3nMaC9Gz0M=
 github.com/modern-go/reflect2 v1.0.2/go.mod h1:yWuevngMOJpCy52FWWMvUC8ws7m/LJsjYzDa0/r8luk=
 github.com/openrelayxyz/cardinal-rpc v1.0.0/go.mod h1:5eOYxJLylOVHjJZJvsspSlAbfGSjETLV71x0QwpeMZ4=
-github.com/openrelayxyz/cardinal-rpc v1.1.0-consistencytools-1 h1:iL7LisglkTl3rTbILalAHh9onzUZ9DLfNvmtTmETJX8=
-github.com/openrelayxyz/cardinal-rpc v1.1.0-consistencytools-1/go.mod h1:UZ5KxcsG51ZMBHvLpaDoIReyHpGfGTkazuSKh8Lx4q8=
+github.com/openrelayxyz/cardinal-rpc v1.1.0-consistencytools-2 h1:Nn9hGtjiaA94gbn9iSE9mLcYsVBGHpV5qowmQOhpBqA=
+github.com/openrelayxyz/cardinal-rpc v1.1.0-consistencytools-2/go.mod h1:UZ5KxcsG51ZMBHvLpaDoIReyHpGfGTkazuSKh8Lx4q8=
 github.com/openrelayxyz/cardinal-storage v1.1.1 h1:PVVNmFoZp1lMII05X7wQHQ8lyAOukJbDRKBcEyOZ4yM=
 github.com/openrelayxyz/cardinal-storage v1.1.1/go.mod h1:2gzby7ZlqFh3g3jvfqWErN+6uGAx2vbbid0Usy8z6U4=
 github.com/openrelayxyz/cardinal-streams v1.3.4-batchid-cleanup0 h1:CHruRkljttOOSjDKujUTXsXKL4/oT3jAszs86gllnCM=
