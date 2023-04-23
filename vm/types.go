@@ -8,6 +8,7 @@ import (
 	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
+	log "github.com/inconshreveable/log15"
 )
 
 type BlockNumberOrHash struct {
@@ -41,6 +42,7 @@ func (bnh *BlockNumberOrHash) UnmarshalJSON(data []byte) error {
 		return nil
 	case "latest":
 		bn := rpc.LatestBlockNumber
+		log.Debug("Setting BHON to latest", "value", bn)
 		bnh.BlockNumber = &bn
 		return nil
 	case "pending":
