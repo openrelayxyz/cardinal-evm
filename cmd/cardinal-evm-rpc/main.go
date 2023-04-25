@@ -70,6 +70,9 @@ func main() {
 	if cfg.HttpPort != 0 {
 		tm.AddHTTPServer(cfg.HttpPort)
 	}
+	if cfg.BlockWaitTime > 0 {
+		tm.SetBlockWaitDuration(time.Duration(cfg.BlockWaitTime) * time.Millisecond)
+	}
 	tm.RegisterHeightFeed(heightCh)
 	db, err := badgerdb.New(cfg.DataDir)
 	if err != nil {
