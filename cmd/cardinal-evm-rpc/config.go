@@ -54,6 +54,7 @@ type Config struct {
 	HealthCheckPort int64 `yaml:"hc.port"`
 	Statsd *statsdOpts `yaml:"statsd"`
 	CloudWatch *cloudwatchOpts `yaml:"cloudwatch"`
+	BlockWaitTime int64 `yaml:"block.wait.ms`
 	brokers []transports.BrokerParams
 	whitelist map[uint64]types.Hash
 }
