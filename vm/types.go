@@ -3,12 +3,9 @@ package vm
 import (
 	"encoding/json"
 	"fmt"
-	"math"
 
 	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-types"
-	"github.com/openrelayxyz/cardinal-types/hexutil"
-	log "github.com/inconshreveable/log15"
 )
 
 type BlockNumberOrHash struct {
@@ -30,47 +27,16 @@ func (bnh *BlockNumberOrHash) UnmarshalJSON(data []byte) error {
 		bnh.RequireCanonical = e.RequireCanonical
 		return nil
 	}
-	var input string
-	err = json.Unmarshal(data, &input)
-	if err != nil {
-		return err
+	h := &types.Hash{}
+	if err := json.Unmarshal(data, h); err == nil {
+		bnh.BlockHash = h
+		return nil
 	}
-	switch input {
-	case "earliest":
-		bn := rpc.EarliestBlockNumber
-		bnh.BlockNumber = &bn
-		return nil
-	case "latest":
-		bn := rpc.LatestBlockNumber
-		log.Debug("Setting BHON to latest", "value", bn)
-		bnh.BlockNumber = &bn
-		return nil
-	case "pending":
-		bn := rpc.PendingBlockNumber
-		bnh.BlockNumber = &bn
-		return nil
-	default:
-		if len(input) == 66 {
-			hash := types.Hash{}
-			err := hash.UnmarshalText([]byte(input))
-			if err != nil {
-				return err
-			}
-			bnh.BlockHash = &hash
-			return nil
-		} else {
-			blckNum, err := hexutil.DecodeUint64(input)
-			if err != nil {
-				return err
-			}
-			if blckNum > math.MaxInt64 {
-				return fmt.Errorf("blocknumber too high")
-			}
-			bn := rpc.BlockNumber(blckNum)
-			bnh.BlockNumber = &bn
-			return nil
-		}
+	bn := new(rpc.BlockNumber)
+	if err := json.Unmarshal(data, bn); err == nil {
+		bnh.BlockNumber = bn
 	}
+	return err
 }
 
 func (bnh *BlockNumberOrHash) Number() (rpc.BlockNumber, bool) {
