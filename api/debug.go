@@ -26,7 +26,7 @@ func NewDebugAPI(s storage.Storage, evmmgr *vm.EVMManager, chainid int64) *Priva
 // CreateAccessList creates a EIP-2930 type AccessList for the given transaction.
 // Reexec and BlockNrOrHash can be specified to create the accessList on top of a certain state.
 func (s *PrivateDebugAPI) TraceStructLog(ctx *rpc.CallContext, args TransactionArgs, blockNrOrHash *vm.BlockNumberOrHash) ([]vm.StructLog, error) {
-	bNrOrHash := vm.BlockNumberOrHashWithNumber(vm.PendingBlockNumber)
+	bNrOrHash := vm.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
 	if blockNrOrHash != nil {
 		bNrOrHash = *blockNrOrHash
 	}

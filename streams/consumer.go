@@ -42,9 +42,10 @@ type StreamManager struct{
 	chainid int64
 	lastBlockTime time.Time
 	processTime time.Duration
+	heightCh chan<- int64
 }
 
-func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, chainid int64, s storage.Storage, whitelist map[uint64]types.Hash, resumptionTime int64) (*StreamManager, error) {
+func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, chainid int64, s storage.Storage, whitelist map[uint64]types.Hash, resumptionTime int64, heightCh chan<- int64 ) (*StreamManager, error) {
 	lastHash, lastNumber, lastWeight, resumption := s.LatestBlock()
 	trackedPrefixes := []*regexp.Regexp{
 		regexp.MustCompile("c/[0-9a-z]+/a/"),
@@ -83,6 +84,7 @@ func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, ch
 		storage: s,
 		ready: make(chan struct{}),
 		chainid: chainid,
+		heightCh: heightCh,
 	}, nil
 }
 
@@ -141,6 +143,7 @@ func (m *StreamManager) Start() error {
 					}
 					blockAgeTimer.UpdateSince(*bt)
 				}
+				m.heightCh <- latest.Number
 				log.Info("Imported new chain segment", params...)
 			case reorg := <-reorgCh:
 				for k := range reorg {

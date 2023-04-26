@@ -22,7 +22,7 @@ func NewEtherCattleBlockChainAPI(evmmgr *vm.EVMManager) *EtherCattleBlockChainAP
 // given transactions against the current pending block.
 func (s *EtherCattleBlockChainAPI) EstimateGasList(ctx *rpc.CallContext, argsList []TransactionArgs, precise *bool) ([]hexutil.Uint64, error) {
 	fast := precise == nil || !*precise
-	blockNrOrHash := vm.BlockNumberOrHashWithNumber(vm.PendingBlockNumber)
+	blockNrOrHash := vm.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
 	returnVals := make([]hexutil.Uint64, len(argsList))
 	err := s.evmmgr.View(blockNrOrHash, &vm.Config{NoBaseFee: true}, ctx, func(statedb state.StateDB, header *types.Header, evmFn func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM) error {
 		var (
