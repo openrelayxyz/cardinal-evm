@@ -3,62 +3,13 @@ package vm
 import (
 	"encoding/json"
 	"fmt"
-	"math"
-	"strings"
 
+	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-types"
-	"github.com/openrelayxyz/cardinal-types/hexutil"
 )
-
-type BlockNumber int64
-
-const (
-	PendingBlockNumber  = BlockNumber(-2)
-	LatestBlockNumber   = BlockNumber(-1)
-	EarliestBlockNumber = BlockNumber(0)
-)
-
-// UnmarshalJSON parses the given JSON fragment into a BlockNumber. It supports:
-// - "latest", "earliest" or "pending" as string arguments
-// - the block number
-// Returned errors:
-// - an invalid block number error when the given argument isn't a known strings
-// - an out of range error when the given block number is either too little or too large
-func (bn *BlockNumber) UnmarshalJSON(data []byte) error {
-	input := strings.TrimSpace(string(data))
-	if len(input) >= 2 && input[0] == '"' && input[len(input)-1] == '"' {
-		input = input[1 : len(input)-1]
-	}
-
-	switch input {
-	case "earliest":
-		*bn = EarliestBlockNumber
-		return nil
-	case "latest":
-		*bn = LatestBlockNumber
-		return nil
-	case "pending":
-		*bn = PendingBlockNumber
-		return nil
-	}
-
-	blckNum, err := hexutil.DecodeUint64(input)
-	if err != nil {
-		return err
-	}
-	if blckNum > math.MaxInt64 {
-		return fmt.Errorf("block number larger than int64")
-	}
-	*bn = BlockNumber(blckNum)
-	return nil
-}
-
-func (bn BlockNumber) Int64() int64 {
-	return (int64)(bn)
-}
 
 type BlockNumberOrHash struct {
-	BlockNumber      *BlockNumber `json:"blockNumber,omitempty"`
+	BlockNumber      *rpc.BlockNumber `json:"blockNumber,omitempty"`
 	BlockHash        *types.Hash  `json:"blockHash,omitempty"`
 	RequireCanonical bool         `json:"requireCanonical,omitempty"`
 }
@@ -76,53 +27,24 @@ func (bnh *BlockNumberOrHash) UnmarshalJSON(data []byte) error {
 		bnh.RequireCanonical = e.RequireCanonical
 		return nil
 	}
-	var input string
-	err = json.Unmarshal(data, &input)
-	if err != nil {
-		return err
+	h := &types.Hash{}
+	if err := json.Unmarshal(data, h); err == nil {
+		bnh.BlockHash = h
+		return nil
 	}
-	switch input {
-	case "earliest":
-		bn := EarliestBlockNumber
-		bnh.BlockNumber = &bn
-		return nil
-	case "latest":
-		bn := LatestBlockNumber
-		bnh.BlockNumber = &bn
-		return nil
-	case "pending":
-		bn := PendingBlockNumber
-		bnh.BlockNumber = &bn
-		return nil
-	default:
-		if len(input) == 66 {
-			hash := types.Hash{}
-			err := hash.UnmarshalText([]byte(input))
-			if err != nil {
-				return err
-			}
-			bnh.BlockHash = &hash
-			return nil
-		} else {
-			blckNum, err := hexutil.DecodeUint64(input)
-			if err != nil {
-				return err
-			}
-			if blckNum > math.MaxInt64 {
-				return fmt.Errorf("blocknumber too high")
-			}
-			bn := BlockNumber(blckNum)
-			bnh.BlockNumber = &bn
-			return nil
-		}
+	bn := new(rpc.BlockNumber)
+	err = json.Unmarshal(data, bn)
+	if err == nil {
+		bnh.BlockNumber = bn
 	}
+	return err
 }
 
-func (bnh *BlockNumberOrHash) Number() (BlockNumber, bool) {
+func (bnh *BlockNumberOrHash) Number() (rpc.BlockNumber, bool) {
 	if bnh.BlockNumber != nil {
 		return *bnh.BlockNumber, true
 	}
-	return BlockNumber(0), false
+	return rpc.BlockNumber(0), false
 }
 
 func (bnh *BlockNumberOrHash) Hash() (types.Hash, bool) {
@@ -132,7 +54,7 @@ func (bnh *BlockNumberOrHash) Hash() (types.Hash, bool) {
 	return types.Hash{}, false
 }
 
-func BlockNumberOrHashWithNumber(blockNr BlockNumber) BlockNumberOrHash {
+func BlockNumberOrHashWithNumber(blockNr rpc.BlockNumber) BlockNumberOrHash {
 	return BlockNumberOrHash{
 		BlockNumber:      &blockNr,
 		BlockHash:        nil,

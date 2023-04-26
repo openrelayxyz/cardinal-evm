@@ -467,7 +467,7 @@ func DoEstimateGas(ctx *rpc.CallContext, getEVM func(state.StateDB, *vm.Config, 
 // EstimateGas returns an estimate of the amount of gas needed to execute the
 // given transaction against the current pending block.
 func (s *PublicBlockChainAPI) EstimateGas(ctx *rpc.CallContext, args TransactionArgs, blockNrOrHash *vm.BlockNumberOrHash) (hexutil.Uint64, error) {
-	bNrOrHash := vm.BlockNumberOrHashWithNumber(vm.PendingBlockNumber)
+	bNrOrHash := vm.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
 	if blockNrOrHash != nil {
 		bNrOrHash = *blockNrOrHash
 	}
@@ -499,7 +499,7 @@ type accessListResult struct {
 // CreateAccessList creates a EIP-2930 type AccessList for the given transaction.
 // Reexec and BlockNrOrHash can be specified to create the accessList on top of a certain state.
 func (s *PublicBlockChainAPI) CreateAccessList(ctx *rpc.CallContext, args TransactionArgs, blockNrOrHash *vm.BlockNumberOrHash) (*accessListResult, error) {
-	bNrOrHash := vm.BlockNumberOrHashWithNumber(vm.PendingBlockNumber)
+	bNrOrHash := vm.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
 	if blockNrOrHash != nil {
 		bNrOrHash = *blockNrOrHash
 	}
