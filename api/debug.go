@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"math/big"
 	"fmt"
 	"github.com/openrelayxyz/cardinal-evm/vm"
@@ -23,8 +24,62 @@ func NewDebugAPI(s storage.Storage, evmmgr *vm.EVMManager, chainid int64) *Priva
 	return &PrivateDebugAPI{storage: s, evmmgr: evmmgr, chainid: chainid}
 }
 
-// CreateAccessList creates a EIP-2930 type AccessList for the given transaction.
-// Reexec and BlockNrOrHash can be specified to create the accessList on top of a certain state.
+type UnsupportedFeature struct{}
+
+// TODO: Think about ways to find the field name for the error?
+func (*UnsupportedFeature) UnmarshalJSON(d []byte) error {
+	if len(d) > 0 && string(d) != "null" {
+		return fmt.Errorf("unsupported field specified")
+	}
+}
+
+type PublicDebugAPI struct {
+	storage storage.Storage
+	evmmgr  *vm.EVMManager
+	chainid int64
+}
+
+// NewPublicBlockChainAPI creates a new Ethereum blockchain API.
+func NewPublicDebugAPI(s storage.Storage, evmmgr *vm.EVMManager, chainid int64) *PublicDebugAPI {
+	return &PublicDebugAPI{storage: s, evmmgr: evmmgr, chainid: chainid}
+}
+
+// Config are the configuration options for structured logger the EVM
+type LoggerConfig struct {
+	EnableMemory     bool // enable memory capture
+	DisableStack     bool // disable stack capture
+	DisableStorage   bool // disable storage capture
+	EnableReturnData bool // enable return data capture
+	Debug            bool // print output during capture end
+	Limit            int  // maximum length of output, but zero means unlimited
+	// Chain overrides, can be used to execute a trace using future fork rules
+	Overrides interface{} `json:"overrides,omitempty"`
+}
+
+// TraceConfig holds extra parameters to trace functions.
+type TraceConfig struct {
+	*LoggerConfig
+	Tracer  *string
+	Timeout *string
+	Reexec  *uint64
+	// Config specific to given tracer. Note struct logger
+	// config are historically embedded in main object.
+	TracerConfig json.RawMessage
+}
+
+// TraceCallConfig is the config for traceCall API. It holds one more
+// field to override the state for tracing.
+type TraceCallConfig struct {
+	TraceConfig
+	StateOverrides interface{}
+	BlockOverrides interface{}
+}
+
+
+func (api *PublicDebugAPI) TraceCall(ctx *rpc.CallContext, args TransactionArgs, blockNrOrHash *vm.BlockNumberOrHash, config *TraceCallConfig) (interface{}, error) {
+	
+}
+
 func (s *PrivateDebugAPI) TraceStructLog(ctx *rpc.CallContext, args TransactionArgs, blockNrOrHash *vm.BlockNumberOrHash) ([]vm.StructLog, error) {
 	bNrOrHash := vm.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
 	if blockNrOrHash != nil {
@@ -46,9 +101,6 @@ func (s *PrivateDebugAPI) TraceStructLog(ctx *rpc.CallContext, args TransactionA
 	return result, err
 }
 
-// AccessList creates an access list for the given transaction.
-// If the accesslist creation fails an error is returned.
-// If the transaction itself fails, an vmErr is returned.
 func TraceStructLog(ctx *rpc.CallContext, db state.StateDB, header *types.Header, chaincfg *params.ChainConfig, getEVM func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, blockNrOrHash vm.BlockNumberOrHash, args TransactionArgs) (slog []vm.StructLog, err error) {
 	if err := args.setDefaults(ctx, getEVM, db, header, blockNrOrHash); err != nil {
 		return nil, err
