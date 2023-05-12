@@ -66,6 +66,7 @@ var (
 		MuirGlacierBlock:    big.NewInt(9_200_000),
 		BerlinBlock:         big.NewInt(12_244_000),
 		LondonBlock:         big.NewInt(12_965_000),
+		ShanghaiTime:        big.NewInt(1681338455),
 		Ethash:              new(EthashConfig),
 		Engine:              ETHashEngine,
 	}
@@ -174,6 +175,7 @@ var (
 		MuirGlacierBlock:    nil,
 		BerlinBlock:         big.NewInt(4_460_644),
 		LondonBlock:         big.NewInt(5_062_605),
+		ShanghaiTime:        big.NewInt(1678832736),
 		Engine:              BeaconEngine,
 		Clique: &CliqueConfig{
 			Period: 15,
