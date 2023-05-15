@@ -236,6 +236,8 @@ func (l *StructLogger) CaptureExit(output []byte, gasUsed uint64, err error) {}
 // StructLogs returns the captured log entries.
 func (l *StructLogger) StructLogs() []StructLog { return l.logs }
 
+func (l *StructLogger) Result() interface{} { return l.logs }
+
 // Error returns the VM error captured by the trace.
 func (l *StructLogger) Error() error { return l.err }
 

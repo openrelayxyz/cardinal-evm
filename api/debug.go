@@ -1,7 +1,7 @@
 package api
 
 import (
-	"encoding/json"
+	// "encoding/json"
 	"math/big"
 	"fmt"
 	"github.com/openrelayxyz/cardinal-evm/vm"
@@ -10,6 +10,7 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/state"
 	"github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/params"
+	"github.com/openrelayxyz/cardinal-evm/api/tracers"
 	"github.com/openrelayxyz/cardinal-rpc"
 )
 
@@ -31,6 +32,7 @@ func (*UnsupportedFeature) UnmarshalJSON(d []byte) error {
 	if len(d) > 0 && string(d) != "null" {
 		return fmt.Errorf("unsupported field specified")
 	}
+	return nil
 }
 
 type PublicDebugAPI struct {
@@ -44,40 +46,64 @@ func NewPublicDebugAPI(s storage.Storage, evmmgr *vm.EVMManager, chainid int64) 
 	return &PublicDebugAPI{storage: s, evmmgr: evmmgr, chainid: chainid}
 }
 
-// Config are the configuration options for structured logger the EVM
-type LoggerConfig struct {
-	EnableMemory     bool // enable memory capture
-	DisableStack     bool // disable stack capture
-	DisableStorage   bool // disable storage capture
-	EnableReturnData bool // enable return data capture
-	Debug            bool // print output during capture end
-	Limit            int  // maximum length of output, but zero means unlimited
-	// Chain overrides, can be used to execute a trace using future fork rules
-	Overrides interface{} `json:"overrides,omitempty"`
-}
-
-// TraceConfig holds extra parameters to trace functions.
-type TraceConfig struct {
-	*LoggerConfig
-	Tracer  *string
-	Timeout *string
-	Reexec  *uint64
-	// Config specific to given tracer. Note struct logger
-	// config are historically embedded in main object.
-	TracerConfig json.RawMessage
-}
-
-// TraceCallConfig is the config for traceCall API. It holds one more
-// field to override the state for tracing.
-type TraceCallConfig struct {
-	TraceConfig
-	StateOverrides interface{}
-	BlockOverrides interface{}
-}
 
 
-func (api *PublicDebugAPI) TraceCall(ctx *rpc.CallContext, args TransactionArgs, blockNrOrHash *vm.BlockNumberOrHash, config *TraceCallConfig) (interface{}, error) {
-	
+func (api *PublicDebugAPI) TraceCall(ctx *rpc.CallContext, args TransactionArgs, blockNrOrHash *vm.BlockNumberOrHash, config *tracers.TraceCallConfig) (interface{}, error) {
+	if config.StateOverrides != nil {
+		return nil, fmt.Errorf("state overrides not supported")
+	}
+	if config.BlockOverrides != nil {
+		return nil, fmt.Errorf("block overrides not supported")
+	}
+	if config.Overrides != nil {
+		return nil, fmt.Errorf("overrides not supported")
+	}
+	if config.Debug {
+		return nil, fmt.Errorf("debug logging not supported")
+	}
+	var tracer tracers.TracerResult
+	if config.Tracer != nil {
+		tracerFn, ok := tracers.Registry[*config.Tracer]
+		if !ok {
+			return nil, fmt.Errorf("only builtin tracers are supported")
+		}
+		t, err := tracerFn(&tracers.Context{}, config.TracerConfig)
+		if err != nil {
+			return nil, err
+		}
+		tracer = t
+
+	} else {
+		tracer = vm.NewStructLogger(&vm.LogConfig{
+			DisableMemory: !config.EnableMemory,
+			DisableStack: config.DisableStack,
+			DisableStorage: config.DisableStorage,
+			DisableReturnData: !config.EnableReturnData,
+			Debug: false, // This would control printing to console, which we don't want to expose to public
+			Limit:  config.Limit,
+		})
+	}
+	err := api.evmmgr.View(blockNrOrHash, args.From, ctx, func(header *types.Header, statedb state.StateDB, getEVM func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, chaincfg *params.ChainConfig) error {
+		var err error
+
+		if err := args.setDefaults(ctx, getEVM, statedb, header, vm.BlockNumberOrHashWithNumber(rpc.BlockNumber(header.Number.Int64()))); err != nil {
+			return err
+		}
+
+		value := args.Value.ToInt()
+		if value == nil { value = new(big.Int) }
+		gasPrice := args.GasPrice.ToInt()
+		if gasPrice == nil { gasPrice = new(big.Int) }
+		msg := NewMessage(args.from(), args.To, uint64(*args.Nonce), value, uint64(*args.Gas), gasPrice, big.NewInt(0), big.NewInt(0), args.data(), nil, false)
+
+		_, err = ApplyMessage(getEVM(statedb.Copy(), &vm.Config{Tracer: tracer, Debug: true, NoBaseFee: true}, args.from(), msg.GasPrice()), msg, new(GasPool).AddGas(msg.Gas()))
+		if err != nil {
+			return fmt.Errorf("failed to apply transaction: err: %v", err)
+		}
+		
+		return err
+	})
+	return tracer.Result(), err
 }
 
 func (s *PrivateDebugAPI) TraceStructLog(ctx *rpc.CallContext, args TransactionArgs, blockNrOrHash *vm.BlockNumberOrHash) ([]vm.StructLog, error) {
