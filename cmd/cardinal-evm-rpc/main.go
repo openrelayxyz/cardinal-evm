@@ -139,6 +139,7 @@ func main() {
 		tm.Register("debug", api.NewDebugAPI(s, mgr, cfg.Chainid))
 		tm.Register("debug", &metrics.MetricsAPI{})
 	}
+	tm.Register("debug", api.NewPublicDebugAPI(s, mgr, cfg.Chainid))
 	log.Debug("Starting stream")
 	if err := sm.Start(); err != nil {
 		log.Error("Error starting stream", "error", err)

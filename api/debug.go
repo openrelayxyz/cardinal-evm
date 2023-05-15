@@ -49,41 +49,51 @@ func NewPublicDebugAPI(s storage.Storage, evmmgr *vm.EVMManager, chainid int64) 
 
 
 func (api *PublicDebugAPI) TraceCall(ctx *rpc.CallContext, args TransactionArgs, blockNrOrHash *vm.BlockNumberOrHash, config *tracers.TraceCallConfig) (interface{}, error) {
-	if config.StateOverrides != nil {
-		return nil, fmt.Errorf("state overrides not supported")
-	}
-	if config.BlockOverrides != nil {
-		return nil, fmt.Errorf("block overrides not supported")
-	}
-	if config.Overrides != nil {
-		return nil, fmt.Errorf("overrides not supported")
-	}
-	if config.Debug {
-		return nil, fmt.Errorf("debug logging not supported")
-	}
 	var tracer tracers.TracerResult
-	if config.Tracer != nil {
-		tracerFn, ok := tracers.Registry[*config.Tracer]
-		if !ok {
-			return nil, fmt.Errorf("only builtin tracers are supported")
-		}
-		t, err := tracerFn(&tracers.Context{}, config.TracerConfig)
-		if err != nil {
-			return nil, err
-		}
-		tracer = t
-
+	if config == nil {
+		tracer = vm.NewStructLogger(&vm.LogConfig{})
 	} else {
-		tracer = vm.NewStructLogger(&vm.LogConfig{
-			DisableMemory: !config.EnableMemory,
-			DisableStack: config.DisableStack,
-			DisableStorage: config.DisableStorage,
-			DisableReturnData: !config.EnableReturnData,
-			Debug: false, // This would control printing to console, which we don't want to expose to public
-			Limit:  config.Limit,
-		})
+		if config.StateOverrides != nil {
+			return nil, fmt.Errorf("state overrides not supported")
+		}
+		if config.BlockOverrides != nil {
+			return nil, fmt.Errorf("block overrides not supported")
+		}
+		if config.LoggerConfig != nil {
+			if config.Overrides != nil {
+				return nil, fmt.Errorf("overrides not supported")
+			}
+			if config.Debug {
+				return nil, fmt.Errorf("debug logging not supported")
+			}
+		}
+		if config.Tracer != nil {
+			tracerFn, ok := tracers.Registry[*config.Tracer]
+			if !ok {
+				return nil, fmt.Errorf("only builtin tracers are supported")
+			}
+			t, err := tracerFn(&tracers.Context{}, config.TracerConfig)
+			if err != nil {
+				return nil, err
+			}
+			tracer = t
+	
+		} else {
+			tracer = vm.NewStructLogger(&vm.LogConfig{
+				DisableMemory: !config.EnableMemory,
+				DisableStack: config.DisableStack,
+				DisableStorage: config.DisableStorage,
+				DisableReturnData: !config.EnableReturnData,
+				Debug: false, // This would control printing to console, which we don't want to expose to public
+				Limit:  config.Limit,
+			})
+		}
 	}
-	err := api.evmmgr.View(blockNrOrHash, args.From, ctx, func(header *types.Header, statedb state.StateDB, getEVM func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, chaincfg *params.ChainConfig) error {
+	if blockNrOrHash == nil {
+		latest := vm.BlockNumberOrHashWithNumber(-1)
+		blockNrOrHash = &latest
+	}
+	err := api.evmmgr.View(*blockNrOrHash, args.From, ctx, func(header *types.Header, statedb state.StateDB, getEVM func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, chaincfg *params.ChainConfig) error {
 		var err error
 
 		if err := args.setDefaults(ctx, getEVM, statedb, header, vm.BlockNumberOrHashWithNumber(rpc.BlockNumber(header.Number.Int64()))); err != nil {
