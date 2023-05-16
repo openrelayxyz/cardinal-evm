@@ -1,7 +1,7 @@
 package api
 
 import (
-	// "encoding/json"
+	"encoding/json"
 	"math/big"
 	"fmt"
 	"github.com/openrelayxyz/cardinal-evm/vm"
@@ -9,9 +9,11 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/state"
 	"github.com/openrelayxyz/cardinal-evm/types"
+	ctypes "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-evm/params"
 	"github.com/openrelayxyz/cardinal-evm/api/tracers"
 	"github.com/openrelayxyz/cardinal-rpc"
+	log "github.com/inconshreveable/log15"
 )
 
 type PrivateDebugAPI struct {
@@ -49,10 +51,13 @@ func NewPublicDebugAPI(s storage.Storage, evmmgr *vm.EVMManager, chainid int64) 
 
 
 func (api *PublicDebugAPI) TraceCall(ctx *rpc.CallContext, args TransactionArgs, blockNrOrHash *vm.BlockNumberOrHash, config *tracers.TraceCallConfig) (interface{}, error) {
-	var tracer tracers.TracerResult
+	var tracerFn func(*tracers.Context, json.RawMessage) (tracers.TracerResult, error)
+	var tracerConfig json.RawMessage
 	if config == nil {
-		tracer = vm.NewStructLogger(&vm.LogConfig{})
+		log.Debug("Tracer fn set", "id", 0)
+		tracerFn = func(*tracers.Context, json.RawMessage) (tracers.TracerResult, error) { return vm.NewStructLogger(&vm.LogConfig{}), nil }
 	} else {
+		tracerConfig = config.TracerConfig
 		if config.StateOverrides != nil {
 			return nil, fmt.Errorf("state overrides not supported")
 		}
@@ -68,32 +73,34 @@ func (api *PublicDebugAPI) TraceCall(ctx *rpc.CallContext, args TransactionArgs,
 			}
 		}
 		if config.Tracer != nil {
-			tracerFn, ok := tracers.Registry[*config.Tracer]
+			fn, ok := tracers.Registry[*config.Tracer]
 			if !ok {
 				return nil, fmt.Errorf("only builtin tracers are supported")
 			}
-			t, err := tracerFn(&tracers.Context{}, config.TracerConfig)
-			if err != nil {
-				return nil, err
-			}
-			tracer = t
+			log.Info("Found tracer", "name", *config.Tracer)
+			log.Debug("Tracer fn set", "id", 1)
+			tracerFn = fn
 	
 		} else {
-			tracer = vm.NewStructLogger(&vm.LogConfig{
-				DisableMemory: !config.EnableMemory,
-				DisableStack: config.DisableStack,
-				DisableStorage: config.DisableStorage,
-				DisableReturnData: !config.EnableReturnData,
-				Debug: false, // This would control printing to console, which we don't want to expose to public
-				Limit:  config.Limit,
-			})
+			log.Debug("Tracer fn set", "id", 2)
+			tracerFn = func(*tracers.Context, json.RawMessage) (tracers.TracerResult, error) {
+				return vm.NewStructLogger(&vm.LogConfig{
+					DisableMemory: !config.EnableMemory,
+					DisableStack: config.DisableStack,
+					DisableStorage: config.DisableStorage,
+					DisableReturnData: !config.EnableReturnData,
+					Debug: false, // This would control printing to console, which we don't want to expose to public
+					Limit:  config.Limit,
+				}), nil
+			}
 		}
 	}
 	if blockNrOrHash == nil {
 		latest := vm.BlockNumberOrHashWithNumber(-1)
 		blockNrOrHash = &latest
 	}
-	err := api.evmmgr.View(*blockNrOrHash, args.From, ctx, func(header *types.Header, statedb state.StateDB, getEVM func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, chaincfg *params.ChainConfig) error {
+	var result interface{}
+	err := api.evmmgr.View(*blockNrOrHash, args.From, ctx, func(header *types.Header, blockHash ctypes.Hash, statedb state.StateDB, getEVM func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, chaincfg *params.ChainConfig) error {
 		var err error
 
 		if err := args.setDefaults(ctx, getEVM, statedb, header, vm.BlockNumberOrHashWithNumber(rpc.BlockNumber(header.Number.Int64()))); err != nil {
@@ -105,15 +112,26 @@ func (api *PublicDebugAPI) TraceCall(ctx *rpc.CallContext, args TransactionArgs,
 		gasPrice := args.GasPrice.ToInt()
 		if gasPrice == nil { gasPrice = new(big.Int) }
 		msg := NewMessage(args.from(), args.To, uint64(*args.Nonce), value, uint64(*args.Gas), gasPrice, big.NewInt(0), big.NewInt(0), args.data(), nil, false)
-
+		tracer, err := tracerFn(&tracers.Context{
+			BlockHash: blockHash,
+			BlockNumber: header.Number,
+			TxIndex: 0,
+			TxHash: ctypes.Hash{},
+		}, tracerConfig)
+		if err != nil {
+			return err
+		}
+		log.Debug("Tracer initialized")
 		_, err = ApplyMessage(getEVM(statedb.Copy(), &vm.Config{Tracer: tracer, Debug: true, NoBaseFee: true}, args.from(), msg.GasPrice()), msg, new(GasPool).AddGas(msg.Gas()))
 		if err != nil {
 			return fmt.Errorf("failed to apply transaction: err: %v", err)
 		}
+		result = tracer.Result()
+		log.Debug("Tracer result", "result", result)
 		
 		return err
 	})
-	return tracer.Result(), err
+	return result, err
 }
 
 func (s *PrivateDebugAPI) TraceStructLog(ctx *rpc.CallContext, args TransactionArgs, blockNrOrHash *vm.BlockNumberOrHash) ([]vm.StructLog, error) {
