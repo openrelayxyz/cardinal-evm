@@ -146,7 +146,7 @@ func (args *TransactionArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (M
 // setDefaults provides values such that transactions will execute
 // successfully. Unlike the go-ethereum verson of this method, this is not
 // intended to be sane recommendations for gas prices based on mempool.
-func (args *TransactionArgs) setDefaults(ctx *rpc.CallContext, getEVM func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, db state.StateDB, header *types.Header, blockNrOrHash vm.BlockNumberOrHash) error {
+func (args *TransactionArgs) setDefaults(ctx *rpc.CallContext, getEVM func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, db state.StateDB, header *types.Header, blockNrOrHash vm.BlockNumberOrHash, vmcfg *vm.Config) error {
 	if args.From == nil {
 		args.From = &(common.Address{})
 	}
@@ -157,7 +157,11 @@ func (args *TransactionArgs) setDefaults(ctx *rpc.CallContext, getEVM func(state
 	// 	args.MaxFeePerGas = (*hexutil.Big)(header.BaseFee)
 	// }
 	if args.GasPrice == nil {
-		args.GasPrice = (*hexutil.Big)(header.BaseFee)
+		if !vmcfg.NoBaseFee {
+			args.GasPrice = (*hexutil.Big)(header.BaseFee)
+		} else {
+			args.GasPrice = new(hexutil.Big)
+		}
 	}
 	if args.Value == nil {
 		args.Value = new(hexutil.Big)
@@ -167,7 +171,7 @@ func (args *TransactionArgs) setDefaults(ctx *rpc.CallContext, getEVM func(state
 		args.Nonce = (*hexutil.Uint64)(&nonce)
 	}
 	if args.Gas == nil {
-		gas, _, err := DoEstimateGas(ctx, getEVM, *args, &PreviousState{db.ALCalcCopy(), header}, blockNrOrHash, header.GasLimit, true)
+		gas, _, err := DoEstimateGas(ctx, getEVM, *args, &PreviousState{db.ALCalcCopy(), header}, blockNrOrHash, header.GasLimit, true, vmcfg)
 		if err != nil {
 			return err
 		}

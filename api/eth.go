@@ -191,7 +191,7 @@ func (diff *StateOverride) Apply(state state.StateDB) error {
 	return nil
 }
 
-func DoCall(cctx *rpc.CallContext, getEVM func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, args TransactionArgs, prevState *PreviousState, blockNrOrHash vm.BlockNumberOrHash, overrides *StateOverride, timeout time.Duration, globalGasCap uint64) (*ExecutionResult, *PreviousState, error) {
+func DoCall(cctx *rpc.CallContext, getEVM func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, args TransactionArgs, prevState *PreviousState, blockNrOrHash vm.BlockNumberOrHash, overrides *StateOverride, timeout time.Duration, globalGasCap uint64, vmcfg *vm.Config) (*ExecutionResult, *PreviousState, error) {
 	defer func(start time.Time) { log.Debug("Executing EVM call finished", "runtime", time.Since(start)) }(time.Now())
 	if prevState == nil || prevState.header == nil || prevState.state == nil {
 		return nil, nil, fmt.Errorf("both header and state must be set")
@@ -217,7 +217,7 @@ func DoCall(cctx *rpc.CallContext, getEVM func(state.StateDB, *vm.Config, common
 	if err != nil {
 		return nil, nil, err
 	}
-	evm := getEVM(prevState.state, nil, args.from(), msg.GasPrice())
+	evm := getEVM(prevState.state, vmcfg, args.from(), msg.GasPrice())
 	// Wait for the context to be done and cancel the evm. Even if the
 	// EVM has finished, cancelling may be done (repeatedly)
 	go func() {
@@ -313,7 +313,7 @@ func (s *PublicBlockChainAPI) Call(ctx *rpc.CallContext, args TransactionArgs, b
 		if gasCap < 30000000 {
 			gasCap = 30000000
 		}
-		result, _, err := DoCall(ctx, evmFn, args, &PreviousState{statedb, header}, blockNrOrHash, overrides, timeout, gasCap)
+		result, _, err := DoCall(ctx, evmFn, args, &PreviousState{statedb, header}, blockNrOrHash, overrides, timeout, gasCap, nil)
 		if err != nil {
 			return err
 		}
@@ -356,7 +356,7 @@ func (e estimateGasError) Error() string {
 	return errMsg
 }
 
-func DoEstimateGas(ctx *rpc.CallContext, getEVM func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, args TransactionArgs, prevState *PreviousState, blockNrOrHash vm.BlockNumberOrHash, gasCap uint64, approx bool) (hexutil.Uint64, *PreviousState, error) {
+func DoEstimateGas(ctx *rpc.CallContext, getEVM func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, args TransactionArgs, prevState *PreviousState, blockNrOrHash vm.BlockNumberOrHash, gasCap uint64, approx bool, vmcfg *vm.Config) (hexutil.Uint64, *PreviousState, error) {
 	// Binary search the gas requirement, as it may be higher than the amount used
 	var (
 		lo        uint64 = params.TxGas - 1
@@ -412,7 +412,7 @@ func DoEstimateGas(ctx *rpc.CallContext, getEVM func(state.StateDB, *vm.Config, 
 	executable := func(gas uint64) (bool, *ExecutionResult, error) {
 		args.Gas = (*hexutil.Uint64)(&gas)
 
-		result, prevS, err := DoCall(ctx, getEVM, args, prevState.copy(), blockNrOrHash, nil, 0, gasCap)
+		result, prevS, err := DoCall(ctx, getEVM, args, prevState.copy(), blockNrOrHash, nil, 0, gasCap, vmcfg)
 		if prevS != nil && !result.Failed() {
 			stateData = prevS
 		}
@@ -474,7 +474,7 @@ func (s *PublicBlockChainAPI) EstimateGas(ctx *rpc.CallContext, args Transaction
 	var gas hexutil.Uint64
 	err := s.evmmgr.View(bNrOrHash, args.From, &vm.Config{NoBaseFee: true}, ctx, func(statedb state.StateDB, header *types.Header, evmFn func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM) error {
 		var err error
-		gas, _, err = DoEstimateGas(ctx, evmFn, args, &PreviousState{statedb, header}, bNrOrHash, header.GasLimit*2, false)
+		gas, _, err = DoEstimateGas(ctx, evmFn, args, &PreviousState{statedb, header}, bNrOrHash, header.GasLimit*2, false, nil)
 		return err
 	})
 	if err != nil {
@@ -530,7 +530,7 @@ func (s *PublicBlockChainAPI) CreateAccessList(ctx *rpc.CallContext, args Transa
 // If the transaction itself fails, an vmErr is returned.
 func AccessList(ctx *rpc.CallContext, db state.StateDB, header *types.Header, chaincfg *params.ChainConfig, getEVM func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, blockNrOrHash vm.BlockNumberOrHash, args TransactionArgs) (acl types.AccessList, gasUsed uint64, vmErr error, err error) {
 	noGas := args.Gas == nil
-	if err := args.setDefaults(ctx, getEVM, db, header, blockNrOrHash); err != nil {
+	if err := args.setDefaults(ctx, getEVM, db, header, blockNrOrHash, nil); err != nil {
 		return nil, 0, nil, err
 	}
 	var to common.Address

@@ -137,7 +137,7 @@ func NewAccessListTracer(acl types.AccessList, from, to common.Address, precompi
 	}
 }
 
-func (a *AccessListTracer) CaptureStart(from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
+func (a *AccessListTracer) CaptureStart(env *EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
 }
 
 func (a *AccessListTracer) CaptureEnter(typ OpCode, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {}
@@ -168,6 +168,9 @@ func (*AccessListTracer) CaptureFault(pc uint64, op OpCode, gas, cost uint64, sc
 }
 
 func (*AccessListTracer) CaptureEnd(output []byte, gasUsed uint64, t time.Duration, err error) {}
+
+func (*AccessListTracer) CaptureTxStart(gasLimit uint64) {}
+func (*AccessListTracer) CaptureTxEnd(restGas uint64) {}
 
 // AccessList returns the current accesslist maintained by the tracer.
 func (a *AccessListTracer) AccessList() types.AccessList {
