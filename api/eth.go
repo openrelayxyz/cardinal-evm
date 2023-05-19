@@ -87,7 +87,7 @@ func (s *PublicBlockChainAPI) GetBalance(ctx *rpc.CallContext, address common.Ad
 }
 
 // GetCode returns the code stored at the given address in the state for the given block number.
-func (s *PublicBlockChainAPI) GetCode(ctx *rpc.CallContext, address common.Address, blockNrOrHash vm.BlockNumberOrHash) (hexutil.Bytes, error) {
+func (s *PublicBlockChainAPI) GetCode(ctx *rpc.CallContext, address common.Address, blockNrOrHash vm.BlockNumberOrHash) (interface{}, error) {
 	var result hexutil.Bytes
 	err := s.evmmgr.View(blockNrOrHash, ctx, func(statedb state.StateDB) {
 		result = hexutil.Bytes(statedb.GetCode(address))
@@ -105,7 +105,7 @@ func (s *PublicBlockChainAPI) GetCode(ctx *rpc.CallContext, address common.Addre
 // GetStorageAt returns the storage from the state at the given address, key and
 // block number. The rpc.LatestBlockNumber and rpc.PendingBlockNumber meta block
 // numbers are also allowed.
-func (s *PublicBlockChainAPI) GetStorageAt(ctx *rpc.CallContext, address common.Address, key string, blockNrOrHash vm.BlockNumberOrHash) (hexutil.Bytes, error) {
+func (s *PublicBlockChainAPI) GetStorageAt(ctx *rpc.CallContext, address common.Address, key string, blockNrOrHash vm.BlockNumberOrHash) (interface{}, error) {
 	var result hexutil.Bytes
 	err := s.evmmgr.View(blockNrOrHash, ctx, func(statedb state.StateDB) {
 		result = hexutil.Bytes(statedb.GetState(address, ctypes.HexToHash(key)).Bytes())
@@ -191,7 +191,7 @@ func (diff *StateOverride) Apply(state state.StateDB) error {
 	return nil
 }
 
-func DoCall(cctx *rpc.CallContext, getEVM func(state.StateDB, *vm.Config, common.Address) *vm.EVM, args TransactionArgs, prevState *PreviousState, blockNrOrHash vm.BlockNumberOrHash, overrides *StateOverride, timeout time.Duration, globalGasCap uint64) (*ExecutionResult, *PreviousState, error) {
+func DoCall(cctx *rpc.CallContext, getEVM func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, args TransactionArgs, prevState *PreviousState, blockNrOrHash vm.BlockNumberOrHash, overrides *StateOverride, timeout time.Duration, globalGasCap uint64) (*ExecutionResult, *PreviousState, error) {
 	defer func(start time.Time) { log.Debug("Executing EVM call finished", "runtime", time.Since(start)) }(time.Now())
 	if prevState == nil || prevState.header == nil || prevState.state == nil {
 		return nil, nil, fmt.Errorf("both header and state must be set")
@@ -217,7 +217,7 @@ func DoCall(cctx *rpc.CallContext, getEVM func(state.StateDB, *vm.Config, common
 	if err != nil {
 		return nil, nil, err
 	}
-	evm := getEVM(prevState.state, nil, args.from())
+	evm := getEVM(prevState.state, nil, args.from(), msg.GasPrice())
 	// Wait for the context to be done and cancel the evm. Even if the
 	// EVM has finished, cancelling may be done (repeatedly)
 	go func() {
@@ -299,7 +299,7 @@ type codedError interface{
 //
 // Note, this function doesn't make and changes in the state/blockchain and is
 // useful to execute and retrieve values.
-func (s *PublicBlockChainAPI) Call(ctx *rpc.CallContext, args TransactionArgs, blockNrOrHash vm.BlockNumberOrHash, overrides *StateOverride) (hexutil.Bytes, error) {
+func (s *PublicBlockChainAPI) Call(ctx *rpc.CallContext, args TransactionArgs, blockNrOrHash vm.BlockNumberOrHash, overrides *StateOverride) (interface{}, error) {
 	var timeout time.Duration
 	if args.Gas != nil {
 		timeout = time.Duration(*args.Gas/10000000) * time.Second
@@ -308,8 +308,12 @@ func (s *PublicBlockChainAPI) Call(ctx *rpc.CallContext, args TransactionArgs, b
 		timeout = 5 * time.Second
 	}
 	var res hexutil.Bytes
-	err := s.evmmgr.View(blockNrOrHash, args.From, &vm.Config{NoBaseFee: true}, ctx, func(statedb state.StateDB, header *types.Header, evmFn func(state.StateDB, *vm.Config, common.Address) *vm.EVM) error {
-		result, _, err := DoCall(ctx, evmFn, args, &PreviousState{statedb, header}, blockNrOrHash, overrides, timeout, header.GasLimit*2)
+	err := s.evmmgr.View(blockNrOrHash, args.From, &vm.Config{NoBaseFee: true}, ctx, func(statedb state.StateDB, header *types.Header, evmFn func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM) error {
+		gasCap := header.GasLimit * 2
+		if gasCap < 30000000 {
+			gasCap = 30000000
+		}
+		result, _, err := DoCall(ctx, evmFn, args, &PreviousState{statedb, header}, blockNrOrHash, overrides, timeout, gasCap)
 		if err != nil {
 			return err
 		}
@@ -352,7 +356,7 @@ func (e estimateGasError) Error() string {
 	return errMsg
 }
 
-func DoEstimateGas(ctx *rpc.CallContext, getEVM func(state.StateDB, *vm.Config, common.Address) *vm.EVM, args TransactionArgs, prevState *PreviousState, blockNrOrHash vm.BlockNumberOrHash, gasCap uint64, approx bool) (hexutil.Uint64, *PreviousState, error) {
+func DoEstimateGas(ctx *rpc.CallContext, getEVM func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, args TransactionArgs, prevState *PreviousState, blockNrOrHash vm.BlockNumberOrHash, gasCap uint64, approx bool) (hexutil.Uint64, *PreviousState, error) {
 	// Binary search the gas requirement, as it may be higher than the amount used
 	var (
 		lo        uint64 = params.TxGas - 1
@@ -463,12 +467,12 @@ func DoEstimateGas(ctx *rpc.CallContext, getEVM func(state.StateDB, *vm.Config, 
 // EstimateGas returns an estimate of the amount of gas needed to execute the
 // given transaction against the current pending block.
 func (s *PublicBlockChainAPI) EstimateGas(ctx *rpc.CallContext, args TransactionArgs, blockNrOrHash *vm.BlockNumberOrHash) (hexutil.Uint64, error) {
-	bNrOrHash := vm.BlockNumberOrHashWithNumber(vm.PendingBlockNumber)
+	bNrOrHash := vm.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
 	if blockNrOrHash != nil {
 		bNrOrHash = *blockNrOrHash
 	}
 	var gas hexutil.Uint64
-	err := s.evmmgr.View(bNrOrHash, args.From, &vm.Config{NoBaseFee: true}, ctx, func(statedb state.StateDB, header *types.Header, evmFn func(state.StateDB, *vm.Config, common.Address) *vm.EVM) error {
+	err := s.evmmgr.View(bNrOrHash, args.From, &vm.Config{NoBaseFee: true}, ctx, func(statedb state.StateDB, header *types.Header, evmFn func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM) error {
 		var err error
 		gas, _, err = DoEstimateGas(ctx, evmFn, args, &PreviousState{statedb, header}, bNrOrHash, header.GasLimit*2, false)
 		return err
@@ -495,12 +499,12 @@ type accessListResult struct {
 // CreateAccessList creates a EIP-2930 type AccessList for the given transaction.
 // Reexec and BlockNrOrHash can be specified to create the accessList on top of a certain state.
 func (s *PublicBlockChainAPI) CreateAccessList(ctx *rpc.CallContext, args TransactionArgs, blockNrOrHash *vm.BlockNumberOrHash) (*accessListResult, error) {
-	bNrOrHash := vm.BlockNumberOrHashWithNumber(vm.PendingBlockNumber)
+	bNrOrHash := vm.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
 	if blockNrOrHash != nil {
 		bNrOrHash = *blockNrOrHash
 	}
 	var result *accessListResult
-	err := s.evmmgr.View(bNrOrHash, args.From, ctx, func(header *types.Header, statedb state.StateDB, evmFn func(state.StateDB, *vm.Config, common.Address) *vm.EVM, chaincfg *params.ChainConfig) error {
+	err := s.evmmgr.View(bNrOrHash, args.From, ctx, func(header *types.Header, statedb state.StateDB, evmFn func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, chaincfg *params.ChainConfig) error {
 		acl, gasUsed, vmerr, err := AccessList(ctx, statedb, header, chaincfg, evmFn, bNrOrHash, args)
 		if err != nil {
 			return err
@@ -524,7 +528,7 @@ func (s *PublicBlockChainAPI) CreateAccessList(ctx *rpc.CallContext, args Transa
 // AccessList creates an access list for the given transaction.
 // If the accesslist creation fails an error is returned.
 // If the transaction itself fails, an vmErr is returned.
-func AccessList(ctx *rpc.CallContext, db state.StateDB, header *types.Header, chaincfg *params.ChainConfig, getEVM func(state.StateDB, *vm.Config, common.Address) *vm.EVM, blockNrOrHash vm.BlockNumberOrHash, args TransactionArgs) (acl types.AccessList, gasUsed uint64, vmErr error, err error) {
+func AccessList(ctx *rpc.CallContext, db state.StateDB, header *types.Header, chaincfg *params.ChainConfig, getEVM func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, blockNrOrHash vm.BlockNumberOrHash, args TransactionArgs) (acl types.AccessList, gasUsed uint64, vmErr error, err error) {
 	noGas := args.Gas == nil
 	if err := args.setDefaults(ctx, getEVM, db, header, blockNrOrHash); err != nil {
 		return nil, 0, nil, err
@@ -536,7 +540,7 @@ func AccessList(ctx *rpc.CallContext, db state.StateDB, header *types.Header, ch
 		to = crypto.CreateAddress(args.from(), uint64(*args.Nonce))
 	}
 	// Retrieve the precompiles since they don't need to be added to the access list
-	precompiles := vm.ActivePrecompiles(chaincfg.Rules(header.Number))
+	precompiles := vm.ActivePrecompiles(chaincfg.Rules(header.Number, header.Difficulty.Cmp(new(big.Int)) == 0, new(big.Int).SetInt64(int64(header.Time))))
 
 	// Create an initial tracer
 	tracer := vm.NewAccessListTracer(nil, args.from(), to, precompiles)
@@ -550,7 +554,7 @@ func AccessList(ctx *rpc.CallContext, db state.StateDB, header *types.Header, ch
 	if gasPrice == nil { gasPrice = new(big.Int) }
 	msg := NewMessage(args.from(), args.To, uint64(*args.Nonce), value, uint64(*args.Gas), gasPrice, big.NewInt(0), big.NewInt(0), args.data(), tracer.AccessList(), false)
 
-	_, err = ApplyMessage(getEVM(db.ALCalcCopy(), &vm.Config{Tracer: tracer, Debug: true, NoBaseFee: true}, args.from()), msg, new(GasPool).AddGas(msg.Gas()))
+	_, err = ApplyMessage(getEVM(db.ALCalcCopy(), &vm.Config{Tracer: tracer, Debug: true, NoBaseFee: true}, args.from(), msg.GasPrice()), msg, new(GasPool).AddGas(msg.Gas()))
 	if err != nil {
 		return nil, 0, nil, fmt.Errorf("failed to apply transaction: err: %v", err)
 	}
@@ -566,7 +570,7 @@ func AccessList(ctx *rpc.CallContext, db state.StateDB, header *types.Header, ch
 		gas += 2400
 	}
 	msg = NewMessage(args.from(), args.To, uint64(*args.Nonce), value, uint64(*args.Gas)+2400, gasPrice, big.NewInt(0), big.NewInt(0), args.data(), tracer.AccessList(), false)
-	res, err := ApplyMessage(getEVM(db.Copy(), &vm.Config{Tracer: tracer, Debug: true, NoBaseFee: true}, args.from()), msg, new(GasPool).AddGas(msg.Gas()))
+	res, err := ApplyMessage(getEVM(db.Copy(), &vm.Config{Tracer: tracer, Debug: true, NoBaseFee: true}, args.from(), msg.GasPrice()), msg, new(GasPool).AddGas(msg.Gas()))
 	if err != nil {
 		return nil, 0, nil, fmt.Errorf("failed to apply transaction: err: %v", err)
 	}
@@ -630,7 +634,7 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx *rpc.CallContext, inpu
 		}
 
 		// Should supply enough intrinsic gas
-		gas, err := IntrinsicGas(tx.Data(), tx.AccessList(), tx.To() == nil, true, chaincfg.IsIstanbul(header.Number))
+		gas, err := IntrinsicGas(tx.Data(), tx.AccessList(), tx.To() == nil, true, chaincfg.IsIstanbul(header.Number), chaincfg.IsShanghai(new(big.Int).SetInt64(int64(header.Time))))
 		if err != nil {
 			return err
 		}

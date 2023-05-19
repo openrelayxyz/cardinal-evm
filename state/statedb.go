@@ -20,6 +20,7 @@ import (
 	// log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
+	"github.com/openrelayxyz/cardinal-evm/params"
 	"github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-storage"
 	"github.com/openrelayxyz/cardinal-storage/current"
@@ -249,19 +250,24 @@ func (sdb *stateDB) Empty(addr common.Address) bool {
 	sobj := sdb.getAccount(addr)
 	return sobj.deleted || sobj.suicided || sobj.empty(sdb.tx, sdb.chainid)
 }
-func (sdb *stateDB) PrepareAccessList(sender common.Address, dst *common.Address, precompiles []common.Address, txAccesses types.AccessList) {
-	sdb.AddAddressToAccessList(sender)
-	if dst != nil {
-		sdb.AddAddressToAccessList(*dst)
-		// If it's a create-tx, the destination will be added inside evm.create
-	}
-	for _, addr := range precompiles {
-		sdb.AddAddressToAccessList(addr)
-	}
-	for _, el := range txAccesses {
-		sdb.AddAddressToAccessList(el.Address)
-		for _, key := range el.StorageKeys {
-			sdb.AddSlotToAccessList(el.Address, key)
+func (sdb *stateDB) PrepareAccessList(rules params.Rules, sender, coinbase common.Address, dst *common.Address, precompiles []common.Address, txAccesses types.AccessList) {
+	if rules.IsBerlin {
+		sdb.AddAddressToAccessList(sender)
+		if dst != nil {
+			sdb.AddAddressToAccessList(*dst)
+			// If it's a create-tx, the destination will be added inside evm.create
+		}
+		for _, addr := range precompiles {
+			sdb.AddAddressToAccessList(addr)
+		}
+		for _, el := range txAccesses {
+			sdb.AddAddressToAccessList(el.Address)
+			for _, key := range el.StorageKeys {
+				sdb.AddSlotToAccessList(el.Address, key)
+			}
+		}
+		if rules.IsShanghai {
+			sdb.AddAddressToAccessList(coinbase)
 		}
 	}
 }

@@ -17,9 +17,9 @@ import (
 	"github.com/openrelayxyz/plugeth-utils/restricted/rlp"
 	"github.com/openrelayxyz/plugeth-utils/restricted/types"
 	"github.com/openrelayxyz/plugeth-utils/restricted/params"
+	"github.com/openrelayxyz/plugeth-utils/restricted/hexutil"
 	"github.com/savaki/cloudmetrics"
 	"github.com/pubnub/go-metrics-statsd"
-	"gopkg.in/urfave/cli.v1"
 	"strings"
 	"sync"
 )
@@ -31,12 +31,16 @@ var (
 	config *params.ChainConfig
 	chainid int64
 	producer transports.Producer
+	pluginLoader core.PluginLoader
 	startBlock uint64
 	pendingReorgs map[core.Hash]func()
 	gethHeightGauge = metrics.NewMajorGauge("/geth/height")
 	gethPeersGauge = metrics.NewMajorGauge("/geth/peers")
 	masterHeightGauge = metrics.NewMajorGauge("/master/height")
+	blockAgeTimer = metrics.NewMajorTimer("/geth/age")
 	blockUpdatesByNumber func(number int64) (*types.Block, *big.Int, types.Receipts, map[core.Hash]struct{}, map[core.Hash][]byte, map[core.Hash]map[core.Hash][]byte, map[core.Hash][]byte, error)
+
+	addBlockHook func(number int64, hash, parent ctypes.Hash, weight *big.Int, updates map[string][]byte, deletes map[string]struct{})
 
 	Flags = *flag.NewFlagSet("cardinal-plugin", flag.ContinueOnError)
 	txPoolTopic = Flags.String("cardinal.txpool.topic", "", "Topic for mempool transaction data")
@@ -52,13 +56,15 @@ var (
 	reorgThreshold = Flags.Int("cardinal.reorg.threshold", 128, "The number of blocks for clients to support quick reorgs")
 	statsdaddr = Flags.String("cardinal.statsd.addr", "", "UDP address for a statsd endpoint")
 	cloudwatchns = Flags.String("cardinal.cloudwatch.namespace", "", "CloudWatch Namespace for cardinal metrics")
+	minActiveProducers = Flags.Uint("cardinal.min.producers", 0, "The minimum number of healthy producers for maintenance operations like state trie flush to take place")
 )
 
-func Initialize(ctx *cli.Context, loader core.PluginLoader, logger core.Logger) {
+func Initialize(ctx core.Context, loader core.PluginLoader, logger core.Logger) {
 	ready.Add(1)
 	log = logger
 	log.Info("Cardinal EVM plugin initializing")
 	pendingReorgs = make(map[core.Hash]func())
+	pluginLoader = loader
 	fnList := loader.Lookup("BlockUpdatesByNumber", func(item interface{}) bool {
 		_, ok := item.(func(number int64) (*types.Block, *big.Int, types.Receipts, map[core.Hash]struct{}, map[core.Hash][]byte, map[core.Hash]map[core.Hash][]byte, map[core.Hash][]byte, error))
 		log.Info("Found BlockUpdates hook", "matches", ok)
@@ -78,6 +84,24 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 	defer ready.Done()
 	config = b.ChainConfig()
 	chainid = config.ChainID.Int64()
+
+	items := pluginLoader.Lookup("CardinalAddBlockHook", func(v interface{}) bool {
+		_, ok := v.(func(int64, ctypes.Hash, ctypes.Hash, *big.Int, map[string][]byte, map[string]struct{}))
+		return ok
+	})
+
+	addBlockFns := []func(int64, ctypes.Hash, ctypes.Hash, *big.Int, map[string][]byte, map[string]struct{}){}
+	for _, v := range items {
+		if fn, ok := v.(func(int64, ctypes.Hash, ctypes.Hash, *big.Int, map[string][]byte, map[string]struct{})); ok {
+			addBlockFns = append(addBlockFns, fn)
+		}
+	}
+	addBlockHook = func(number int64, hash, parent ctypes.Hash, td *big.Int, updates map[string][]byte, deletes map[string]struct{}) {
+		for _, fn := range addBlockFns {
+			fn(number, hash, parent, td, updates, deletes)
+		}
+	}
+
 	if *defaultTopic == "" { *defaultTopic = fmt.Sprintf("cardinal-%v", chainid) }
 	if *blockTopic == "" { *blockTopic = fmt.Sprintf("%v-block", *defaultTopic) }
 	if *logTopic == "" { *logTopic = fmt.Sprintf("%v-logs", *defaultTopic) }
@@ -88,26 +112,40 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 	var err error
 	brokers := []transports.ProducerBrokerParams{
 		{
-			URL: "ws://localhost:8555",
+			URL: "ws://0.0.0.0:8555",
 		},
+	}
+	schema := map[string]string{
+		fmt.Sprintf("c/%x/a/", chainid): *stateTopic,
+		fmt.Sprintf("c/%x/s", chainid): *stateTopic,
+		fmt.Sprintf("c/%x/c/", chainid): *codeTopic,
+		fmt.Sprintf("c/%x/b/[0-9a-z]+/h", chainid): *blockTopic,
+		fmt.Sprintf("c/%x/b/[0-9a-z]+/d", chainid): *blockTopic,
+		fmt.Sprintf("c/%x/b/[0-9a-z]+/w", chainid): *blockTopic,
+		fmt.Sprintf("c/%x/b/[0-9a-z]+/u/", chainid): *blockTopic,
+		fmt.Sprintf("c/%x/n/", chainid): *blockTopic,
+		fmt.Sprintf("c/%x/b/[0-9a-z]+/t/", chainid): *txTopic,
+		fmt.Sprintf("c/%x/b/[0-9a-z]+/r/", chainid): *receiptTopic,
+		fmt.Sprintf("c/%x/b/[0-9a-z]+/l/", chainid): *logTopic,
+	}
+
+	// Let plugins add schema updates for any values they will provide.
+	schemaFns := pluginLoader.Lookup("UpdateStreamsSchema", func(i interface{}) bool {
+		_, ok := i.(func(map[string]string))
+		return ok
+	})
+	for _, fni := range schemaFns {
+		fn, ok := fni.(func(map[string]string))
+		if ok {
+			fn(schema)
+		}
 	}
 
 	if strings.HasPrefix(*brokerURL, "kafka://") {
 		brokers = append(brokers, transports.ProducerBrokerParams{
 			URL: *brokerURL,
 			DefaultTopic: *defaultTopic,
-			Schema: map[string]string{
-				fmt.Sprintf("c/%x/a/", chainid): *stateTopic,
-				fmt.Sprintf("c/%x/s", chainid): *stateTopic,
-				fmt.Sprintf("c/%x/c/", chainid): *codeTopic,
-				fmt.Sprintf("c/%x/b/[0-9a-z]+/h", chainid): *blockTopic,
-				fmt.Sprintf("c/%x/b/[0-9a-z]+/d", chainid): *blockTopic,
-				fmt.Sprintf("c/%x/b/[0-9a-z]+/u/", chainid): *blockTopic,
-				fmt.Sprintf("c/%x/n/", chainid): *blockTopic,
-				fmt.Sprintf("c/%x/b/[0-9a-z]+/t/", chainid): *txTopic,
-				fmt.Sprintf("c/%x/b/[0-9a-z]+/r/", chainid): *receiptTopic,
-				fmt.Sprintf("c/%x/b/[0-9a-z]+/l/", chainid): *logTopic,
-			},
+			Schema: schema,
 		})
 	}
 	producer, err = transports.ResolveMuxProducer(
@@ -115,6 +153,45 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 		&resumer{},
 	)
 	if err != nil { panic(err.Error()) }
+	if minap := *minActiveProducers; minap > 0 {
+		go func() {
+			client, err := stack.Attach()
+			for err != nil {
+				time.Sleep(500 * time.Second)
+				client, err = stack.Attach()
+			}
+			t := time.NewTicker(5 * time.Second)
+			enabled := true
+			for range t.C {
+				pc := producer.ProducerCount(time.Minute)
+				if  pc >= minap && !enabled {
+					// If there are adequate healthy producers, the flush interval should be 1 hour
+					var res any
+					client.Call(&res, "debug_setTrieFlushInterval", "1h") // We're not error checking this in case we're on a node that doesn't support this method
+					enabled = true
+				} else if pc < minap && enabled {
+					// If there aren't enough healthy producers, set the flush interval very high
+					var res any
+					client.Call(&res, "debug_setTrieFlushInterval", "72h") // We're not error checking this in case we're on a node that doesn't support this method
+					enabled = false
+				}
+				// I feel like it's useful to note the behavior of debug_setTrieFlushInterval here.
+				// A trie flush interval of 1 hour does not mean that the trie will be flushed every hour.
+				// It means that the trie will be flushed after 1 hour of time spent processing blocks.
+				// The intent is that if you have an unclean shutdown and a node has to start back
+				// up from the last trie flush, it should take no more than 1 hour of processing to
+				// catch back up. If it takes 500ms to process a block, and blocks come out every 12
+				// seconds, it will take ~24 hours to accumulate an hour of block processing, so the
+				// trie flush will only happen once every 24 hours. Setting the trie flush interval to
+				// 72 hours then means that a trie flush may only happen every couple of months, but that
+				// an unclean restart will take less than 72 hours to resume.
+				//
+				// Needless to say, you don't want to find yourself in that position, so it's advised to
+				// make sure you have multiple healthy masters if you are setting the --cardinal.min.producers
+				// flag
+			}
+		}()
+	}
 	if *brokerURL != "" {
 		go func() {
 			t := time.NewTicker(time.Second * 30)
@@ -249,7 +326,7 @@ func (*resumer) GetBlock(ctx context.Context, number uint64) (*delivery.PendingB
 		return nil
 	}
 	hash := block.Hash()
-	updates, deletes, _, batchUpdates := getUpdates(block, td, receipts, destructs, accounts, storage, code)
+	weight, updates, deletes, _, batchUpdates := getUpdates(block, td, receipts, destructs, accounts, storage, code)
 	// Since we're just sending a single PendingBatch, we need to merge in
 	// updates. Once we add support for plugins altering the above, we may
 	// need to handle deletes in batchUpdates.
@@ -260,7 +337,7 @@ func (*resumer) GetBlock(ctx context.Context, number uint64) (*delivery.PendingB
 	}
 	return &delivery.PendingBatch{
 		Number: int64(number),
-		Weight: td,
+		Weight: weight,
 		ParentHash: ctypes.Hash(block.ParentHash()),
 		Hash: ctypes.Hash(hash),
 		Values: updates,
@@ -274,16 +351,19 @@ func (r *resumer) BlocksFrom(ctx context.Context, number uint64, hash ctypes.Has
 	}
 	ch := make(chan *delivery.PendingBatch)
 	go func() {
+		reset := false
+		defer close(ch)
 		for i := number; ; i++ {
 			if pb := r.GetBlock(ctx, i); pb != nil {
-				if pb.Number == int64(number) && pb.Hash != hash {
+				if pb.Number == int64(number) && (pb.Hash != hash) && !reset {
+					reset = true
 					i -= uint64(*reorgThreshold)
 					continue
 				}
 				select {
-				case ch <- pb:
 				case <-ctx.Done():
 					return
+				case ch <- pb:
 				}
 			} else {
 				return
@@ -300,13 +380,17 @@ func BUPostReorg(common core.Hash, oldChain []core.Hash, newChain []core.Hash) {
 	}
 }
 
-func getUpdates(block *types.Block, td *big.Int, receipts types.Receipts, destructs map[core.Hash]struct{}, accounts map[core.Hash][]byte, storage map[core.Hash]map[core.Hash][]byte, code map[core.Hash][]byte) (map[string][]byte, map[string]struct{}, map[string]ctypes.Hash, map[ctypes.Hash]map[string][]byte) {
+func getUpdates(block *types.Block, td *big.Int, receipts types.Receipts, destructs map[core.Hash]struct{}, accounts map[core.Hash][]byte, storage map[core.Hash]map[core.Hash][]byte, code map[core.Hash][]byte) (*big.Int, map[string][]byte, map[string]struct{}, map[string]ctypes.Hash, map[ctypes.Hash]map[string][]byte) {
 	hash := block.Hash()
 	headerBytes, _ := rlp.EncodeToBytes(block.Header())
 	updates := map[string][]byte{
 		fmt.Sprintf("c/%x/b/%x/h", chainid, hash.Bytes()): headerBytes,
 		fmt.Sprintf("c/%x/b/%x/d", chainid, hash.Bytes()): td.Bytes(),
 		fmt.Sprintf("c/%x/n/%x", chainid, block.Number().Int64()): hash[:],
+	}
+	if block.Withdrawals().Len() > 0 {
+		withdrawalsBytes, _ := rlp.EncodeToBytes(block.Withdrawals())
+		updates[fmt.Sprintf("c/%x/b/%x/w", chainid, hash.Bytes())] = withdrawalsBytes
 	}
 	for i, tx := range block.Transactions() {
 		updates[fmt.Sprintf("c/%x/b/%x/t/%x", chainid, hash.Bytes(), i)], _ = tx.MarshalBinary()
@@ -355,12 +439,9 @@ func getUpdates(block *types.Block, td *big.Int, receipts types.Receipts, destru
 		}
 	}
 
-	// TODO: Allow plugins the opportunity to alter td, updates, deletes,
-	// batches, etc. So that chain-specific plugins can add the information
-	// they're going to need. Allow plugins the opportunity to send their own
-	// batches
-
-	return updates, deletes, batches, batchUpdates
+	weight := new(big.Int).Set(td)
+	addBlockHook(block.Number().Int64(), ctypes.Hash(hash), ctypes.Hash(block.ParentHash()), weight, updates, deletes)
+	return weight, updates, deletes, batches, batchUpdates
 }
 
 func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, destructs map[core.Hash]struct{}, accounts map[core.Hash][]byte, storage map[core.Hash]map[core.Hash][]byte, code map[core.Hash][]byte) {
@@ -373,27 +454,104 @@ func BlockUpdates(block *types.Block, td *big.Int, receipts types.Receipts, dest
 		return
 	}
 	hash := block.Hash()
-	updates, deletes, batches, batchUpdates := getUpdates(block, td, receipts, destructs, accounts, storage, code)
+	weight, updates, deletes, batches, batchUpdates := getUpdates(block, td, receipts, destructs, accounts, storage, code)
 	log.Info("Producing block to cardinal-streams", "hash", hash, "number", block.NumberU64())
 	gethHeightGauge.Update(block.Number().Int64())
 	masterHeightGauge.Update(block.Number().Int64())
+	producer.SetHealth(time.Since(time.Unix(int64(block.Time()), 0)) < 2 * time.Minute)
+	blockAgeTimer.UpdateSince(time.Unix(int64(block.Time()), 0))
 	if err := producer.AddBlock(
 		block.Number().Int64(),
 		ctypes.Hash(hash),
 		ctypes.Hash(block.ParentHash()),
-		td,
+		weight,
 		updates,
 		deletes,
 		batches,
 	); err != nil {
 		log.Error("Failed to send block", "block", hash, "err", err)
 		panic(err.Error())
-		return
 	}
-	for batchid, batch := range batchUpdates {
-		if err := producer.SendBatch(batchid, []string{}, batch); err != nil {
+	for batchid, update := range batchUpdates {
+		if err := producer.SendBatch(batchid, []string{}, update); err != nil {
 			log.Error("Failed to send state batch", "block", hash, "err", err)
 			return
 		}
+	}
+}
+
+func PreTrieCommit(core.Hash) {
+	if producer != nil {
+		producer.SetHealth(false)
+	}
+}
+func PostTrieCommit(core.Hash) {
+	if producer != nil {
+		producer.SetHealth(true)
+	}
+}
+
+
+type cardinalAPI struct {
+	stack   core.Node
+	blockUpdatesByNumber func(int64) (*types.Block, *big.Int, types.Receipts, map[core.Hash]struct{}, map[core.Hash][]byte, map[core.Hash]map[core.Hash][]byte, map[core.Hash][]byte, error)
+}
+
+func (api *cardinalAPI) ReproduceBlocks(start restricted.BlockNumber, end *restricted.BlockNumber) (bool, error) {
+	client, err := api.stack.Attach()
+	if err != nil {
+		return false, err
+	}
+	var currentBlock hexutil.Uint64
+	client.Call(&currentBlock, "eth_blockNumber")
+	fromBlock := start.Int64()
+	if fromBlock < 0 {
+		fromBlock = int64(currentBlock)
+	}
+	var toBlock int64
+	if end == nil {
+		toBlock = fromBlock
+	} else {
+		toBlock = end.Int64()
+	}
+	if toBlock < 0 {
+		toBlock = int64(currentBlock)
+	}
+	for i := fromBlock; i <= toBlock; i++ {
+		block, td, receipts, destructs, accounts, storage, code, err := api.blockUpdatesByNumber(i)
+		if err != nil {
+			return false, err
+		}
+		BlockUpdates(block, td, receipts, destructs, accounts, storage, code)
+	}
+	return true, nil
+}
+
+func GetAPIs(stack core.Node, backend restricted.Backend) []core.API {
+	items := pluginLoader.Lookup("BlockUpdatesByNumber", func(v interface{}) bool {
+		_, ok := v.(func(int64) (*types.Block, *big.Int, types.Receipts, map[core.Hash]struct{}, map[core.Hash][]byte, map[core.Hash]map[core.Hash][]byte, map[core.Hash][]byte, error))
+		return ok
+	})
+	if len(items) == 0 {
+		log.Warn("Could not load BlockUpdatesByNumber. cardinal_reproduceBlocks will not be available")
+		return []core.API{}
+	}
+	v := items[0].(func(int64) (*types.Block, *big.Int, types.Receipts, map[core.Hash]struct{}, map[core.Hash][]byte, map[core.Hash]map[core.Hash][]byte, map[core.Hash][]byte, error))
+	return []core.API{
+		{
+			Namespace:	"cardinal",
+			Version:		"1.0",
+			Service:		&cardinalAPI{
+				stack,
+				v,
+			},
+			Public:		true,
+		},
+		{
+			Namespace: "cardinalmetrics",
+			Version: "1.0",
+			Service: &metrics.MetricsAPI{},
+			Public: true,
+		},
 	}
 }

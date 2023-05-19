@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"gopkg.in/urfave/cli.v1"
 	"github.com/openrelayxyz/plugeth-utils/core"
 	"github.com/openrelayxyz/plugeth-utils/restricted/types"
 	"github.com/openrelayxyz/plugeth-utils/restricted/hexutil"
@@ -63,8 +62,8 @@ var (
 	emptyRoot = core.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421").Bytes()
 	// emptyCode is the known hash of the empty EVM bytecode.
 	emptyCode = crypto.Keccak256(nil)
-	Subcommands = map[string]func(*cli.Context, []string) error {
-		"statedump": func(*cli.Context, []string) error {
+	Subcommands = map[string]func(core.Context, []string) error {
+		"statedump": func(core.Context, []string) error {
 			log.Info("Starting state dump")
 			db := backend.ChainDb()
 			snaprootbytes, _ := db.Get(snapRootKey)
@@ -109,6 +108,9 @@ var (
 				}
 				if !bytes.Equal(acct.CodeHash, emptyCode) {
 					v, err := db.Get(append(codePrefix, acct.CodeHash...))
+					if len(v) == 0 {
+						v, err = db.Get(acct.CodeHash)
+					}
 					if err != nil { return err }
 					codeKey := fmt.Sprintf("c/%x/c/%x", chainID, acct.CodeHash)
 					jsonStream.Encode(output{Key: codeKey, Value: hexutil.Bytes(v)})

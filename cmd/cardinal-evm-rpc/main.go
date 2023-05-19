@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math/big"
 	"net"
 	_ "net/http/pprof"
 	"net/http"
@@ -25,7 +26,9 @@ import (
 
 func main() {
 	resumptionTime := flag.Int64("resumption.ts", -1, "Resume from a timestamp instead of the offset committed to the database")
+	blockRollback := flag.Int64("block.rollback", 0, "Rollback to block N before syncing. If N < 0, rolls back from head before starting or syncing.")
 	exitWhenSynced := flag.Bool("exitwhensynced", false, "Automatically shutdown after syncing is complete")
+	shanghaiTime := flag.Int64("shanghai.time", -1, "Override shanghai hardfork time")
 	debug := flag.Bool("debug", false, "Enable debug APIs")
 
 	flag.CommandLine.Parse(os.Args[1:])
@@ -60,19 +63,40 @@ func main() {
 	// TODO: Once Cardinal streams supports it, pass multiple brokers into the stream
 	broker := cfg.Brokers[0]
 
+	heightCh := make(chan int64, 1024)
+
 	tm := transports.NewTransportManager(cfg.Concurrency)
 	if cfg.HttpPort != 0 {
 		tm.AddHTTPServer(cfg.HttpPort)
 	}
+	if cfg.BlockWaitTime > 0 {
+		tm.SetBlockWaitDuration(time.Duration(cfg.BlockWaitTime) * time.Millisecond)
+	}
+	tm.RegisterHeightFeed(heightCh)
 	s, err := resolver.ResolveStorage(cfg.DataDir, cfg.ReorgThreshold, cfg.whitelist)
 	if err != nil {
 		log.Error("Error opening current storage", "error", err, "datadir", cfg.DataDir)
 		os.Exit(1)
 	}
+	if *blockRollback < 0 {
+		_, n, _, _ := s.LatestBlock()
+		*blockRollback = int64(n) + *blockRollback
+	}
+	if *blockRollback != 0 {
+		if err := s.Rollback(uint64(*blockRollback)); err != nil {
+			log.Error("Rollback error", "err", err)
+			s.Close()
+			os.Exit(1)
+		}
+	}
 	chaincfg, ok := params.ChainLookup[cfg.Chainid]
 	if !ok {
 		log.Error("Unsupported chainid", "chain", cfg.Chainid)
+		s.Close()
 		os.Exit(1)
+	}
+	if *shanghaiTime >= 0 {
+		chaincfg.ShanghaiTime = big.NewInt(*shanghaiTime)
 	}
 	sm, err := streams.NewStreamManager(
 		cfg.brokers,
@@ -81,6 +105,7 @@ func main() {
 		s,
 		cfg.whitelist,
 		*resumptionTime,
+		heightCh,
 	)
 	if err != nil {
 		log.Error("Error connecting streams", "err", err)
@@ -104,6 +129,7 @@ func main() {
 			http.ListenAndServe("localhost:6060", nil)
 		}()
 		tm.Register("debug", sm.API())
+		tm.Register("debug", api.NewDebugAPI(s, mgr, cfg.Chainid))
 		tm.Register("debug", &metrics.MetricsAPI{})
 	}
 	log.Debug("Starting stream")
@@ -121,7 +147,7 @@ func main() {
 		s.Close()
 		if sm.Processed() == 0 {
 			log.Info("Shutting down without processing any messages.")
-			os.Exit(1)
+			os.Exit(3)
 		}
 		os.Exit(0)
 	}
@@ -195,6 +221,7 @@ func main() {
 	}
 
 	tm.RegisterHealthCheck(cfg.HealthChecks)
+	tm.RegisterHealthCheck(sm)
 	cfg.HealthChecks.Start(tm.Caller())
 	if err := tm.Run(cfg.HealthCheckPort); err != nil {
 		log.Error("Critical Error. Shutting down.", "error", err)

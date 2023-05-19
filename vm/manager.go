@@ -13,6 +13,7 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/schema"
 	"github.com/openrelayxyz/cardinal-evm/state"
 	"github.com/openrelayxyz/cardinal-evm/types"
+	"github.com/openrelayxyz/cardinal-evm/engine"
 	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-storage"
 	ctypes "github.com/openrelayxyz/cardinal-types"
@@ -26,7 +27,7 @@ var (
 	statedbType     = reflect.TypeOf((*state.StateDB)(nil)).Elem()
 	evmType         = reflect.TypeOf((*EVM)(nil))
 	storageTxType   = reflect.TypeOf((*storage.Transaction)(nil)).Elem()
-	evmFnType       = reflect.TypeOf((*func(state.StateDB, *Config, common.Address) *EVM)(nil)).Elem()
+	evmFnType       = reflect.TypeOf((*func(state.StateDB, *Config, common.Address, *big.Int) *EVM)(nil)).Elem()
 	chainConfigType = reflect.TypeOf((*params.ChainConfig)(nil))
 )
 
@@ -46,7 +47,7 @@ func NewEVMManager(s storage.Storage, chainid int64, vmcfg Config, chaincfg *par
 
 func (mgr *EVMManager) View(inputs ...interface{}) error {
 	var hash *ctypes.Hash
-	var blockNo *BlockNumber
+	var blockNo *rpc.BlockNumber
 	var ctx context.Context
 	var callback *reflect.Value
 	var sender common.Address
@@ -185,7 +186,7 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
 			if evmPos >= 0 {
 				blockCtx := BlockContext{
 					GetHash:     tx.NumberToHash,
-					Coinbase:    header.Coinbase,
+					Coinbase:    engine.Author(header, mgr.chaincfg.Engine),
 					GasLimit:    header.GasLimit,
 					BlockNumber: header.Number,
 					Time:        new(big.Int).SetUint64(header.Time),
@@ -201,18 +202,26 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
 				argVals[evmPos] = reflect.ValueOf(NewEVM(blockCtx, TxContext{sender, gasPrice}, statedb, mgr.chaincfg, *vmcfg))
 			}
 			if evmfnPos >= 0 {
-				argVals[evmfnPos] = reflect.ValueOf(func(sdb state.StateDB, cvmcfg *Config, sender common.Address) *EVM {
+				// TODO: evmfunc needs to take a gas price variable.
+				argVals[evmfnPos] = reflect.ValueOf(func(sdb state.StateDB, cvmcfg *Config, sender common.Address, gp *big.Int) *EVM {
 					blockCtx := BlockContext{
 						GetHash:     tx.NumberToHash,
-						Coinbase:    header.Coinbase,
+						Coinbase:    engine.Author(header, mgr.chaincfg.Engine),
 						GasLimit:    header.GasLimit,
 						BlockNumber: header.Number,
 						Time:        new(big.Int).SetUint64(header.Time),
 						Difficulty:  header.Difficulty,
 						BaseFee:     header.BaseFee,
 					}
+					if header.Difficulty.Cmp(new(big.Int)) == 0 {
+						blockCtx.Random = &header.MixDigest
+					}
 					if gasPrice == nil {
-						gasPrice = header.BaseFee
+						if gp != nil {
+							gasPrice = gp
+						} else {
+							gasPrice = header.BaseFee
+						}
 					}
 					if vmcfg == nil {
 						vmcfg = &mgr.vmcfg
