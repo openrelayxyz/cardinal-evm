@@ -147,6 +147,10 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 			DefaultTopic: *defaultTopic,
 			Schema: schema,
 		})
+	} else if strings.HasPrefix(*brokerURL, "file://") {
+		brokers = append(brokers, transports.ProducerBrokerParams{
+			URL: *brokerURL,
+		})
 	}
 	producer, err = transports.ResolveMuxProducer(
 		brokers,
