@@ -152,6 +152,7 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 			URL: *brokerURL,
 		})
 	}
+	log.Info("Producing to brokers", "brokers", brokers, "burl", *brokerURL)
 	producer, err = transports.ResolveMuxProducer(
 		brokers,
 		&resumer{},
