@@ -12,8 +12,8 @@ require (
 	github.com/inconshreveable/log15 v0.0.0-20201112154412-8562bdadbbac
 	github.com/jedisct1/go-minisign v0.0.0-20190909160543-45766022959e
 	github.com/openrelayxyz/cardinal-rpc v1.1.0
-	github.com/openrelayxyz/cardinal-storage v1.2.0-archive-0
-	github.com/openrelayxyz/cardinal-streams v1.4.0-filestream-2
+	github.com/openrelayxyz/cardinal-storage v1.2.0-archive-2
+	github.com/openrelayxyz/cardinal-streams v1.4.0-filestream-3
 	github.com/openrelayxyz/cardinal-types v1.0.0
 	github.com/openrelayxyz/plugeth-utils v1.1.0
 	github.com/pubnub/go-metrics-statsd v0.0.0-20170124014003-7da61f429d6b

@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	log "github.com/inconshreveable/log15"
 	"os"
 	"math/big"
 	"errors"
@@ -22,8 +23,8 @@ type genesisBlock struct {
 	Config params.ChainConfig      `json:"config"`
 	Hash types.Hash                `json:"hash"`
 	ParentHash types.Hash          `json:"parentHash"`
-	Number uint64                  `json:"number"`
-	Weight int64                   `json:"difficulty"`
+	Number hexutil.Uint64          `json:"number"`
+	Weight hexutil.Uint64          `json:"difficulty"`
 	Alloc      GenesisAlloc        `json:"alloc"`
 }
 
@@ -51,8 +52,8 @@ func genesisInit(dbpath, genesispath string, archival bool) error {
 	if gb.Hash == (types.Hash{}) {
 		return errors.New("hash must be set in genesis file")
 	}
-	var emptyAccount state.Account
-	init.SetBlockData(gb.Hash, gb.ParentHash, gb.Number, new(big.Int).SetInt64(gb.Weight))
+	var emptyAccount *state.Account
+	init.SetBlockData(gb.Hash, gb.ParentHash, uint64(gb.Number), new(big.Int).SetInt64(int64(gb.Weight)))
 	for addr, alloc := range gb.Alloc {
 		if len(alloc.Code) != 0 {
 			return errors.New("code in genesis block unsupported")
@@ -67,6 +68,7 @@ func genesisInit(dbpath, genesispath string, archival bool) error {
 		if err != nil { return err }
 		key := fmt.Sprintf("c/%x/a/%x/d", gb.Config.ChainID, crypto.Keccak256(addr[:]))
 		init.AddData([]byte(key), data)
+		log.Debug("Added allocation", "addr", addr, "balance", acct.Balance, "key", key, "data", data)
 	}
 	init.Close()
 	return nil

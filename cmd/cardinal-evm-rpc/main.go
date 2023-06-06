@@ -63,7 +63,7 @@ func main() {
 	}
 
 	if *genesisJson != "" {
-		if err := genesisInit(*genesisJson, cfg.DataDir, *initArchive); err != nil {
+		if err := genesisInit(cfg.DataDir, *genesisJson, *initArchive); err != nil {
 			log.Error("Error initializing", "err", err)
 			os.Exit(1)
 		}
