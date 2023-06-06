@@ -28,6 +28,8 @@ func main() {
 	resumptionTime := flag.Int64("resumption.ts", -1, "Resume from a timestamp instead of the offset committed to the database")
 	blockRollback := flag.Int64("block.rollback", 0, "Rollback to block N before syncing. If N < 0, rolls back from head before starting or syncing.")
 	exitWhenSynced := flag.Bool("exitwhensynced", false, "Automatically shutdown after syncing is complete")
+	initArchive := flag.Bool("init.archive", false, "When initializing from genesis, should this be an archival database?")
+	genesisJson := flag.String("init.genesis", "", "File containing genesis block JSON for database initialization")
 	shanghaiTime := flag.Int64("shanghai.time", -1, "Override shanghai hardfork time")
 	debug := flag.Bool("debug", false, "Enable debug APIs")
 
@@ -58,6 +60,14 @@ func main() {
 	if len(cfg.Brokers) == 0 {
 		log.Error("No brokers specified")
 		os.Exit(1)
+	}
+
+	if *genesisJson != "" {
+		if err := genesisInit(*genesisJson, cfg.DataDir, *initArchive); err != nil {
+			log.Error("Error initializing", "err", err)
+			os.Exit(1)
+		}
+		log.Info("Initialization completed")
 	}
 
 	// TODO: Once Cardinal streams supports it, pass multiple brokers into the stream
