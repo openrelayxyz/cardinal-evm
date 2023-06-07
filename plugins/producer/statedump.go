@@ -63,6 +63,7 @@ var (
 	// emptyCode is the known hash of the empty EVM bytecode.
 	emptyCode = crypto.Keccak256(nil)
 	Subcommands = map[string]func(core.Context, []string) error {
+		"triedump": trieDump,
 		"statedump": func(core.Context, []string) error {
 			log.Info("Starting state dump")
 			db := backend.ChainDb()
