@@ -137,6 +137,7 @@ func trieDump (ctx core.Context, args []string) error {
 			}
 			c := oldStorageTrie.NodeIterator(nil)
 			d := storageTrie.NodeIterator(nil)
+			storageChanges[k] = map[string][]byte{}
 			COMPARE_STORAGE:
 			for {
 				switch compareNodes(c, d) {
@@ -180,10 +181,8 @@ func trieDump (ctx core.Context, args []string) error {
 		}
 		for k, v := range alteredAccounts {
 			log.Info("Altered", "block", i, "account", []byte(k), "data", v)
-			if sm, ok := storageChanges[k]; ok {
-				for sk, sv := range sm {
-					log.Info("Storage key", "key", sk, "val", sv)
-				}
+			for sk, sv := range storageChanges[k] {
+				log.Info("Storage key", "key", sk, "val", sv)
 			}
 		}
 		lastTrie = currentTrie
