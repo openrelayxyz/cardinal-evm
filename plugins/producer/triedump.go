@@ -42,7 +42,7 @@ func trieDump (ctx core.Context, args []string) error {
 	var lastTrie core.Trie
 	lastTrie, err = backend.GetTrie(lastHeader.Root)
 	if err != nil {
-		log.Error("error getting trie", "block", i)
+		log.Error("error getting trie", "block", startBlock)
 	}
 	for i := startBlock+1; i <= endBlock; i++ {
 		headerBytes, err := backend.HeaderByNumber(context.Background(), i)
@@ -115,6 +115,7 @@ func trieDump (ctx core.Context, args []string) error {
 			log.Info("Altered", "account", []byte(k), "data", v)
 		}
 	}
+	return nil
 }
 
 
