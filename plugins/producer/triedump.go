@@ -1,6 +1,7 @@
 package main
 
 import (
+	// "fmt"
 	"bytes"
 	"context"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 
 func trieDump (ctx core.Context, args []string) error {
 	log.Info("Starting trie dump")
+	// chainConfig := backend.ChainConfig()
 	header := &types.Header{}
 	rlp.DecodeBytes(backend.CurrentHeader(), &header)
 	startBlock := int64(0)
@@ -63,7 +65,7 @@ func trieDump (ctx core.Context, args []string) error {
 		b := currentTrie.NodeIterator(nil)
 
 		alteredAccounts := map[string]acct{}
-		destructedAccounts := map[string]struct{}{}
+		oldAccounts := map[string]acct{}
 
 
 		COMPARE_NODES:
@@ -73,13 +75,16 @@ func trieDump (ctx core.Context, args []string) error {
 				// Node exists in lastTrie but not currentTrie
 				// This is a deletion
 				if a.Leaf() {
-					destructedAccounts[string(a.LeafKey())] = struct{}{}
+					account, err := fullAccount(b.LeafBlob())
+					if err != nil {
+						log.Warn("Found invalid account in acount trie")
+						continue
+					}
+					oldAccounts[string(a.LeafKey())] = account
 				}
 
 				// b jumped past a; advance a
-				if !a.Next(true) {
-					break COMPARE_NODES
-				}
+				a.Next(true)
 			case 1:
 				// Node exists in currentTrie but not lastTrie
 				// This is an addition
@@ -108,12 +113,80 @@ func trieDump (ctx core.Context, args []string) error {
 				}
 			}
 		}
-		for k := range destructedAccounts {
+		storageChanges := map[string]map[string][]byte{}
+		for k, acct := range alteredAccounts {
+			if bytes.Equal(acct.Root, emptyRoot) {
+				// Empty trie, nothing to see here
+				continue
+			}
+			var oldStorageTrie core.Trie
+			if oldAcct, ok := oldAccounts[k]; ok {
+				delete(oldAccounts, k)
+				if bytes.Equal(acct.Root, oldAcct.Root) {
+					// Storage didn't change
+					continue
+				}
+				oldStorageTrie, err = backend.GetTrie(core.BytesToHash(oldAcct.Root))
+			} else {
+				oldStorageTrie, err = backend.GetTrie(core.BytesToHash(emptyRoot))
+			}
+			storageTrie, err := backend.GetTrie(core.BytesToHash(acct.Root))
+			if err != nil {
+				log.Error("error getting trie for account", "acct", k)
+				return err
+			}
+			c := oldStorageTrie.NodeIterator(nil)
+			d := storageTrie.NodeIterator(nil)
+			COMPARE_STORAGE:
+			for {
+				switch compareNodes(c, d) {
+				case -1:
+					// Node exists in lastTrie but not currentTrie
+					// This is a deletion
+					if c.Leaf() {
+						storageChanges[k][string(c.LeafKey())] = []byte{}
+						// storageChanges[fmt.Sprintf("c/%x/c/%x", chainConfig.ChainID, []byte(k), c.LeafKey())] = []byte{}
+					}
+
+					// c jumped past d; advance d
+					c.Next(true)
+				case 1:
+					// Node exists in currentTrie but not lastTrie
+					// This is an addition
+
+					if d.Leaf() {
+						storageChanges[k][string(c.LeafKey())] = d.LeafBlob()
+					}
+
+					if !d.Next(true) {
+						break COMPARE_STORAGE
+					}
+
+				case 0:
+					// a and b are identical; skip this whole subtree if the nodes have hashes
+					hasHash := c.Hash() == core.Hash{}
+					if !d.Next(hasHash) {
+						break COMPARE_STORAGE
+					}
+					if !c.Next(hasHash) {
+						break COMPARE_STORAGE
+					}
+				}
+			}
+
+		}
+		for k := range oldAccounts {
 			log.Info("Destructed", "account", []byte(k))
 		}
 		for k, v := range alteredAccounts {
-			log.Info("Altered", "account", []byte(k), "data", v)
+			log.Info("Altered", "block", i, "account", []byte(k), "data", v)
+			if sm, ok := storageChanges[k]; ok {
+				for sk, sv := range sm {
+					log.Info("Storage key", "key", sk, "val", sv)
+				}
+			}
 		}
+		lastTrie = currentTrie
 	}
 	return nil
 }
