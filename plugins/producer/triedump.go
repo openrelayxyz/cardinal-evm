@@ -75,7 +75,7 @@ func trieDump (ctx core.Context, args []string) error {
 				// Node exists in lastTrie but not currentTrie
 				// This is a deletion
 				if a.Leaf() {
-					account, err := fullAccount(b.LeafBlob())
+					account, err := fullAccount(a.LeafBlob())
 					if err != nil {
 						log.Warn("Found invalid account in acount trie")
 						continue
