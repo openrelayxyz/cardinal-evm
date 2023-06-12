@@ -73,6 +73,7 @@ func stateTrieUpdatesByNumber(i int64) (map[core.Hash]struct{}, map[core.Hash][]
 	b := currentTrie.NodeIterator(nil)
 	alteredAccounts := map[string]acct{}
 	oldAccounts := map[string]acct{}
+	codeChanges := map[core.Hash]struct{}{}
 
 	COMPARE_NODES:
 	for {
@@ -128,8 +129,14 @@ func stateTrieUpdatesByNumber(i int64) (map[core.Hash]struct{}, map[core.Hash][]
 				// Storage didn't change
 				continue
 			}
+			if !bytes.Equal(oldAcct.CodeHash, acct.CodeHash) {
+				codeChanges[core.BytesToHash(acct.CodeHash)] = struct{}{}
+			}
 			oldStorageTrie, err = backend.GetTrie(core.BytesToHash(oldAcct.Root))
 		} else {
+			if !bytes.Equal(acct.CodeHash, emptyCode) {
+				codeChanges[core.BytesToHash(acct.CodeHash)] = struct{}{}
+			}
 			oldStorageTrie, err = backend.GetTrie(core.BytesToHash(emptyRoot))
 		}
 		if bytes.Equal(acct.Root, emptyRoot) {
@@ -191,15 +198,17 @@ func stateTrieUpdatesByNumber(i int64) (map[core.Hash]struct{}, map[core.Hash][]
 		for sk, sv := range storageChanges[k] {
 			storage[core.BytesToHash([]byte(k))][core.BytesToHash([]byte(sk))] = sv
 		}
-		if !bytes.Equal(v.CodeHash, emptyCode) {
-			c, _ := db.Get(append(codePrefix, v.CodeHash...))
+	}
+	for codeHash := range codeChanges {
+		if !bytes.Equal(codeHash.Bytes(), emptyCode) {
+			c, _ := db.Get(append(codePrefix, codeHash.Bytes()...))
 			if len(c) == 0 {
-				c, err = db.Get(v.CodeHash)
+				c, err = db.Get(codeHash.Bytes())
 				if err != nil {
 					return nil, nil, nil, nil, err
 				}
 			}
-			code[core.BytesToHash(v.CodeHash)] = c
+			code[core.BytesToHash(codeHash.Bytes())] = c
 		}
 	}
 	return destructs, accounts, storage, code, nil
