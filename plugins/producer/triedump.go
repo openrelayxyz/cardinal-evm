@@ -156,7 +156,7 @@ func trieDump (ctx core.Context, args []string) error {
 					// This is an addition
 
 					if d.Leaf() {
-						storageChanges[k][string(c.LeafKey())] = d.LeafBlob()
+						storageChanges[k][string(d.LeafKey())] = d.LeafBlob()
 					}
 
 					if !d.Next(true) {
