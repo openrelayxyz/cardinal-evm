@@ -193,7 +193,10 @@ func stateTrieUpdatesByNumber(i int64) (map[core.Hash]struct{}, map[core.Hash][]
 		destructs[core.BytesToHash([]byte(k))] = struct{}{}
 	}
 	for k, v := range alteredAccounts {
-		accounts[core.BytesToHash([]byte(k))] = v.rlp
+		accounts[core.BytesToHash([]byte(k))], err = v.slimRLP()
+		if err != nil {
+			return nil, nil, nil, nil, err
+		}
 		storage[core.BytesToHash([]byte(k))] = map[core.Hash][]byte{}
 		for sk, sv := range storageChanges[k] {
 			storage[core.BytesToHash([]byte(k))][core.BytesToHash([]byte(sk))] = sv

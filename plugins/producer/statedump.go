@@ -39,7 +39,20 @@ type acct struct {
 	Balance  *big.Int
 	Root     []byte
 	CodeHash []byte
-	rlp []byte
+}
+
+func (a *acct) slimRLP() ([]byte, error) {
+	slim := &acct{
+		Nonce: a.Nonce,
+		Balance: a.Balance,
+	}
+	if !bytes.Equal(a.Root, emptyRoot[:]) {
+		slim.Root = a.Root
+	}
+	if !bytes.Equal(a.CodeHash, emptyRoot[:]) {
+		slim.Root = a.CodeHash
+	}
+	return rlp.EncodeToBytes(a)
 }
 
 // fullAccount decodes the data on the 'slim RLP' format and return
@@ -55,7 +68,6 @@ func fullAccount(data []byte) (acct, error) {
 	if len(account.CodeHash) == 0 {
 		account.CodeHash = emptyCode[:]
 	}
-	account.rlp = data
 	return account, nil
 }
 
