@@ -115,10 +115,6 @@ func trieDump (ctx core.Context, args []string) error {
 		}
 		storageChanges := map[string]map[string][]byte{}
 		for k, acct := range alteredAccounts {
-			if bytes.Equal(acct.Root, emptyRoot) {
-				// Empty trie, nothing to see here
-				continue
-			}
 			var oldStorageTrie core.Trie
 			if oldAcct, ok := oldAccounts[k]; ok {
 				delete(oldAccounts, k)
@@ -129,6 +125,10 @@ func trieDump (ctx core.Context, args []string) error {
 				oldStorageTrie, err = backend.GetTrie(core.BytesToHash(oldAcct.Root))
 			} else {
 				oldStorageTrie, err = backend.GetTrie(core.BytesToHash(emptyRoot))
+			}
+			if bytes.Equal(acct.Root, emptyRoot) {
+				// Empty trie, nothing to see here
+				continue
 			}
 			storageTrie, err := backend.GetTrie(core.BytesToHash(acct.Root))
 			if err != nil {
