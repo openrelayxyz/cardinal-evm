@@ -39,6 +39,7 @@ type acct struct {
 	Balance  *big.Int
 	Root     []byte
 	CodeHash []byte
+	rlp []byte
 }
 
 // fullAccount decodes the data on the 'slim RLP' format and return
@@ -54,6 +55,7 @@ func fullAccount(data []byte) (acct, error) {
 	if len(account.CodeHash) == 0 {
 		account.CodeHash = emptyCode[:]
 	}
+	account.rlp = data
 	return account, nil
 }
 

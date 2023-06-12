@@ -330,6 +330,13 @@ func (*resumer) GetBlock(ctx context.Context, number uint64) (*delivery.PendingB
 		log.Warn("Error retrieving block", "number", number, "err", err)
 		return nil
 	}
+	if destructs == nil || accounts == nil || storage == nil || code == nil {
+		destructs, accounts, storage, code, err = stateTrieUpdatesByNumber(int64(number))
+		if err != nil {
+			log.Warn("Could not retrieve block state", "err", err)
+		}
+	}
+
 	hash := block.Hash()
 	weight, updates, deletes, _, batchUpdates := getUpdates(block, td, receipts, destructs, accounts, storage, code)
 	// Since we're just sending a single PendingBatch, we need to merge in
