@@ -52,7 +52,7 @@ func (a *acct) slimRLP() ([]byte, error) {
 	if !bytes.Equal(a.CodeHash, emptyRoot[:]) {
 		slim.Root = a.CodeHash
 	}
-	return rlp.EncodeToBytes(a)
+	return rlp.EncodeToBytes(slim)
 }
 
 // fullAccount decodes the data on the 'slim RLP' format and return
