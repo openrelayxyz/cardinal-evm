@@ -49,7 +49,7 @@ func (a *acct) slimRLP() ([]byte, error) {
 	if !bytes.Equal(a.Root, emptyRoot[:]) {
 		slim.Root = a.Root
 	}
-	if !bytes.Equal(a.CodeHash, emptyRoot[:]) {
+	if !bytes.Equal(a.CodeHash, emptyCode[:]) {
 		slim.Root = a.CodeHash
 	}
 	return rlp.EncodeToBytes(slim)
