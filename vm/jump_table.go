@@ -81,6 +81,7 @@ func validate(jt JumpTable) JumpTable {
 func newShanghaiInstructionSet() JumpTable {
 	instructionSet := newMergeInstructionSet()
 	enable3860(&instructionSet)
+	enable3855(&instructionSet)
 	return validate(instructionSet)
 }
 
