@@ -529,6 +529,8 @@ func (api *cardinalAPI) ReproduceBlocks(start restricted.BlockNumber, end *restr
 	if toBlock < 0 {
 		toBlock = int64(currentBlock)
 	}
+	oldStartBlock := startBlock
+	startBlock = 0
 	for i := fromBlock; i <= toBlock; i++ {
 		block, td, receipts, destructs, accounts, storage, code, err := api.blockUpdatesByNumber(i)
 		if err != nil {
@@ -536,6 +538,7 @@ func (api *cardinalAPI) ReproduceBlocks(start restricted.BlockNumber, end *restr
 		}
 		BlockUpdates(block, td, receipts, destructs, accounts, storage, code)
 	}
+	startBlock = oldStartBlock
 	return true, nil
 }
 
