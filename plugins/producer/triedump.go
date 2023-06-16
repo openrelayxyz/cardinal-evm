@@ -195,7 +195,7 @@ func stateTrieUpdatesByNumber(i int64) (map[core.Hash]struct{}, map[core.Hash][]
 		destructs[core.BytesToHash([]byte(k))] = struct{}{}
 	}
 	for k, v := range alteredAccounts {
-		accounts[core.BytesToHash([]byte(k))], err = rlp.EncodeToBytes(v) //v.slimRLP()
+		accounts[core.BytesToHash([]byte(k))], err = v.slimRLP()
 		if err != nil {
 			return nil, nil, nil, nil, err
 		}
