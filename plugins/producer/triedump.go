@@ -158,7 +158,9 @@ func stateTrieUpdatesByNumber(i int64) (map[core.Hash]struct{}, map[core.Hash][]
 				// Node exists in lastTrie but not currentTrie
 				// This is a deletion
 				if c.Leaf() {
-					storageChanges[k][string(c.LeafKey())] = []byte{}
+					if _, ok := storageChanges[k][string(c.LeafKey())]; !ok {
+						storageChanges[k][string(c.LeafKey())] = []byte{}
+					}
 					// storageChanges[fmt.Sprintf("c/%x/c/%x", chainConfig.ChainID, []byte(k), c.LeafKey())] = []byte{}
 				}
 
@@ -193,7 +195,7 @@ func stateTrieUpdatesByNumber(i int64) (map[core.Hash]struct{}, map[core.Hash][]
 		destructs[core.BytesToHash([]byte(k))] = struct{}{}
 	}
 	for k, v := range alteredAccounts {
-		accounts[core.BytesToHash([]byte(k))], err = v.slimRLP()
+		accounts[core.BytesToHash([]byte(k))], err = rlp.EncodeToBytes(v) //v.slimRLP()
 		if err != nil {
 			return nil, nil, nil, nil, err
 		}
