@@ -10,6 +10,7 @@ import (
 	"github.com/openrelayxyz/plugeth-utils/restricted/rlp"
 	"github.com/openrelayxyz/plugeth-utils/restricted/types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
+	"regexp"
 	"time"
 	"strconv"
 )
@@ -53,9 +54,20 @@ func InitializeNode(s core.Node, b restricted.Backend) {
 }
 
 func UpdateStreamsSchema(schema map[string]string) {
-	schema[fmt.Sprintf("c/%x/b/[0-9a-z]+/br/", chainid)] = schema[fmt.Sprintf("c/%x/b/[0-9a-z]+/r/", chainid)]
-	schema[fmt.Sprintf("c/%x/b/[0-9a-z]+/bl/", chainid)] = schema[fmt.Sprintf("c/%x/b/[0-9a-z]+/l/", chainid)]
-	schema[fmt.Sprintf("c/%x/b/[0-9a-z]+/bs", chainid)] = schema[fmt.Sprintf("c/%x/b/[0-9a-z]+/h", chainid)]
+	acctRe := regexp.MustCompile("c/([0-9a-z]+)/a/")
+	var cid string
+	for k := range schema {
+		if match := acctRe.FindStringSubmatch(k); match != nil {
+			cid = match[1]
+			break
+		}
+	}
+	if cid == "" {
+		panic("Error finding chainid in schema")
+	}
+	schema[fmt.Sprintf("c/%x/b/[0-9a-z]+/br/", cid)] = schema[fmt.Sprintf("c/%x/b/[0-9a-z]+/r/", cid)]
+	schema[fmt.Sprintf("c/%x/b/[0-9a-z]+/bl/", cid)] = schema[fmt.Sprintf("c/%x/b/[0-9a-z]+/l/", cid)]
+	schema[fmt.Sprintf("c/%x/b/[0-9a-z]+/bs", cid)] = schema[fmt.Sprintf("c/%x/b/[0-9a-z]+/h", cid)]
 }
 
 func CardinalAddBlockHook(number int64, hash, parent ctypes.Hash, weight *big.Int, updates map[string][]byte, deletes map[string]struct{}) {
