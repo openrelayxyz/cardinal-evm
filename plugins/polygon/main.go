@@ -10,8 +10,6 @@ import (
 	"github.com/openrelayxyz/plugeth-utils/restricted/rlp"
 	"github.com/openrelayxyz/plugeth-utils/restricted/types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
-	"time"
-	"strconv"
 )
 
 var (
@@ -21,17 +19,11 @@ var (
 	stack core.Node
 	chainid int64
 	client core.Client
-	targetVerbosity int
 )
 
 func Initialize(ctx core.Context, loader core.PluginLoader, logger core.Logger) {
 	log = logger
 	log.Info("Cardinal EVM polygon plugin initializing")
-	var err error
-	targetVerbosity, err = strconv.Atoi(ctx.String("verbosity"))
-	if err != nil {
-		targetVerbosity = 3
-	}
 }
 
 func InitializeNode(s core.Node, b restricted.Backend) {
@@ -44,11 +36,6 @@ func InitializeNode(s core.Node, b restricted.Backend) {
 	if err != nil {
 		log.Warn("Failed to initialize RPC client, cannot process block")
 	}
-	var x interface{}
-	client.Call(&x, "debug_verbosity", targetVerbosity + 1)
-	time.AfterFunc(30 * time.Second, func() {
-		client.Call(&x, "debug_verbosity", targetVerbosity + 1)
-	})
 	log.Info("Cardinal EVM resetting log level")
 }
 
