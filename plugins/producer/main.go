@@ -357,7 +357,11 @@ func (r *resumer) BlocksFrom(ctx context.Context, number uint64, hash ctypes.Has
 			if pb := r.GetBlock(ctx, i); pb != nil {
 				if pb.Number == int64(number) && (pb.Hash != hash) && !reset {
 					reset = true
-					i -= uint64(*reorgThreshold)
+					if i < 128 {
+						i = 0
+					} else {
+						i -= uint64(*reorgThreshold)
+					}
 					continue
 				}
 				select {
