@@ -51,9 +51,9 @@ func UpdateStreamsSchema(schema map[string]string) {
 	if cid == "" {
 		panic("Error finding chainid in schema")
 	}
-	schema[fmt.Sprintf("c/%x/b/[0-9a-z]+/br/", cid)] = schema[fmt.Sprintf("c/%x/b/[0-9a-z]+/r/", cid)]
-	schema[fmt.Sprintf("c/%x/b/[0-9a-z]+/bl/", cid)] = schema[fmt.Sprintf("c/%x/b/[0-9a-z]+/l/", cid)]
-	schema[fmt.Sprintf("c/%x/b/[0-9a-z]+/bs", cid)] = schema[fmt.Sprintf("c/%x/b/[0-9a-z]+/h", cid)]
+	schema[fmt.Sprintf("c/%v/b/[0-9a-z]+/br/", cid)] = schema[fmt.Sprintf("c/%v/b/[0-9a-z]+/r/", cid)]
+	schema[fmt.Sprintf("c/%v/b/[0-9a-z]+/bl/", cid)] = schema[fmt.Sprintf("c/%v/b/[0-9a-z]+/l/", cid)]
+	schema[fmt.Sprintf("c/%v/b/[0-9a-z]+/bs", cid)] = schema[fmt.Sprintf("c/%v/b/[0-9a-z]+/h", cid)]
 }
 
 func CardinalAddBlockHook(number int64, hash, parent ctypes.Hash, weight *big.Int, updates map[string][]byte, deletes map[string]struct{}) {
