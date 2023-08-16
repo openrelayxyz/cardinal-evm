@@ -10,6 +10,7 @@ import (
 	"github.com/openrelayxyz/plugeth-utils/restricted/rlp"
 	"github.com/openrelayxyz/plugeth-utils/restricted/types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
+	"regexp"
 )
 
 var (
