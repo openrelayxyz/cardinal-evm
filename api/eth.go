@@ -616,7 +616,7 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx *rpc.CallContext, inpu
 		if s.emitter == nil {
 			return errors.New("This api is not configured for accepting transactions")
 		}
-		msg, err := tx.AsMessage(types.MakeSigner(chaincfg, header.Number), header.BaseFee)
+		msg, err := tx.AsMessage(types.MakeSigner(chaincfg, header.Number, header.Time), header.BaseFee)
 		if err != nil {
 			return err
 		}
