@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/big"
 	"testing"
 
 	"github.com/holiman/uint256"
@@ -652,6 +653,48 @@ func TestCreate2Addreses(t *testing.T) {
 		expected := common.BytesToAddress(common.FromHex(tt.expected))
 		if !bytes.Equal(expected.Bytes(), address.Bytes()) {
 			t.Errorf("test %d: expected %s, got %s", i, expected.String(), address.String())
+		}
+	}
+}
+
+func TestBlobHash(t *testing.T) {
+	type testcase struct {
+		name   string
+		idx    uint64
+		expect types.Hash
+		hashes []types.Hash
+	}
+	var (
+		zero  = types.Hash{0}
+		one   = types.Hash{1}
+		two   = types.Hash{2}
+		three = types.Hash{3}
+	)
+	for _, tt := range []testcase{
+		{name: "[{1}]", idx: 0, expect: one, hashes: []types.Hash{one}},
+		{name: "[1,{2},3]", idx: 2, expect: three, hashes: []types.Hash{one, two, three}},
+		{name: "out-of-bounds (empty)", idx: 10, expect: zero, hashes: []types.Hash{}},
+		{name: "out-of-bounds", idx: 25, expect: zero, hashes: []types.Hash{one, two, three}},
+		{name: "out-of-bounds (nil)", idx: 25, expect: zero, hashes: nil},
+	} {
+		var (
+			env            = NewEVM(BlockContext{}, TxContext{BlobHashes: tt.hashes}, nil, params.TestChainConfig, Config{})
+			stack          = newstack()
+			pc             = uint64(0)
+			evmInterpreter = env.interpreter
+		)
+		stack.push(uint256.NewInt(tt.idx))
+		opBlobHash(&pc, evmInterpreter, &ScopeContext{nil, stack, nil})
+		if len(stack.data) != 1 {
+			t.Errorf("Expected one item on stack after %v, got %d: ", tt.name, len(stack.data))
+		}
+		actual := stack.pop()
+		expected, overflow := uint256.FromBig(new(big.Int).SetBytes(tt.expect.Bytes()))
+		if overflow {
+			t.Errorf("Testcase %v: invalid overflow", tt.name)
+		}
+		if actual.Cmp(expected) != 0 {
+			t.Errorf("Testcase %v: expected  %x, got %x", tt.name, expected, actual)
 		}
 	}
 }

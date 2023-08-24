@@ -53,6 +53,7 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
 	var sender common.Address
 	var gasPrice *big.Int
 	var vmcfg *Config
+	var blobHashes []ctypes.Hash
 	var callMeta *rpc.CallMetadata
 	for i, input := range inputs {
 		switch v := input.(type) {
@@ -73,6 +74,8 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
 			if v != nil {
 				sender = *v
 			}
+		case []ctypes.Hash:
+			blobHashes = v
 		case *big.Int:
 			gasPrice = v
 		case *Config:
@@ -199,7 +202,7 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
 				if vmcfg == nil {
 					vmcfg = &mgr.vmcfg
 				}
-				argVals[evmPos] = reflect.ValueOf(NewEVM(blockCtx, TxContext{sender, gasPrice}, statedb, mgr.chaincfg, *vmcfg))
+				argVals[evmPos] = reflect.ValueOf(NewEVM(blockCtx, TxContext{sender, gasPrice, blobHashes}, statedb, mgr.chaincfg, *vmcfg))
 			}
 			if evmfnPos >= 0 {
 				// TODO: evmfunc needs to take a gas price variable.
@@ -229,7 +232,7 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
 					if cvmcfg == nil {
 						cvmcfg = vmcfg
 					}
-					return NewEVM(blockCtx, TxContext{sender, gasPrice}, sdb, mgr.chaincfg, *cvmcfg)
+					return NewEVM(blockCtx, TxContext{sender, gasPrice, blobHashes}, sdb, mgr.chaincfg, *cvmcfg)
 				})
 			}
 			out = callback.Call(argVals)

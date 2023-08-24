@@ -55,6 +55,7 @@ var (
 	londonInstructionSet           = newLondonInstructionSet()
 	mergeInstructionSet            = newMergeInstructionSet()
 	shanghaiInstructionSet         = newShanghaiInstructionSet()
+	cancunInstructionSet           = newCancunInstructionSet()
 )
 
 // JumpTable contains the EVM opcodes supported at a given fork.
@@ -76,6 +77,13 @@ func validate(jt JumpTable) JumpTable {
 		}
 	}
 	return jt
+}
+
+func newCancunInstructionSet() JumpTable {
+	instructionSet := newShanghaiInstructionSet()
+	// TODO: This IS NOT complete. There are other cancun opcodes, this is just from 4844
+	enable4844(&instructionSet) // BLOBHASH opcode
+	return validate(instructionSet)
 }
 
 func newShanghaiInstructionSet() JumpTable {

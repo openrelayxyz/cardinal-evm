@@ -195,3 +195,27 @@ func enable3855(jt *JumpTable) {
 		maxStack:    maxStack(0, 1),
 	}
 }
+
+// opBlobHash implements the BLOBHASH opcode
+func opBlobHash(pc *uint64, interpreter *EVMInterpreter, scope *ScopeContext) ([]byte, error) {
+	index := scope.Stack.peek()
+	if index.LtUint64(uint64(len(interpreter.evm.TxContext.BlobHashes))) {
+		blobHash := interpreter.evm.TxContext.BlobHashes[index.Uint64()]
+		index.SetBytes32(blobHash[:])
+	} else {
+		index.Clear()
+	}
+	return nil, nil
+}
+
+// enable4844 applies EIP-4844 (DATAHASH opcode)
+func enable4844(jt *JumpTable) {
+	// New opcode
+	jt[BLOBHASH] = &operation{
+		execute:     opBlobHash,
+		constantGas: GasFastestStep,
+		minStack:    minStack(1, 1),
+		maxStack:    maxStack(1, 1),
+	}
+}
+
