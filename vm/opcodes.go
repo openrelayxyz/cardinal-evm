@@ -217,6 +217,12 @@ const (
 	SELFDESTRUCT OpCode = 0xff
 )
 
+// 0xb0 range.
+const (
+	TLOAD  OpCode = 0xb3
+	TSTORE OpCode = 0xb4
+)
+
 // Since the opcodes aren't all in order we can't use a regular slice.
 var opCodeToString = map[OpCode]string{
 	// 0x0 range - arithmetic ops.

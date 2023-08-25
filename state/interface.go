@@ -32,6 +32,8 @@ type StateDB interface {
 	GetCommittedState(common.Address, ctypes.Hash) ctypes.Hash
 	GetState(common.Address, ctypes.Hash) ctypes.Hash
 	SetState(common.Address, ctypes.Hash, ctypes.Hash)
+	GetTransientState(common.Address, ctypes.Hash) ctypes.Hash
+	SetTransientState(common.Address, ctypes.Hash, ctypes.Hash)
 	SetStorage(common.Address, map[ctypes.Hash]ctypes.Hash)
 	SetBalance(common.Address, *big.Int)
 

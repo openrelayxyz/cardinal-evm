@@ -22,6 +22,7 @@ import (
 
 	"github.com/holiman/uint256"
 	"github.com/openrelayxyz/cardinal-evm/params"
+	"github.com/openrelayxyz/cardinal-types"
 )
 
 var activators = map[int]func(*JumpTable){
@@ -219,3 +220,41 @@ func enable4844(jt *JumpTable) {
 	}
 }
 
+// enable1153 applies EIP-1153 "Transient Storage"
+// - Adds TLOAD that reads from transient storage
+// - Adds TSTORE that writes to transient storage
+func enable1153(jt *JumpTable) {
+	jt[TLOAD] = &operation{
+		execute:     opTload,
+		constantGas: params.WarmStorageReadCostEIP2929,
+		minStack:    minStack(1, 1),
+		maxStack:    maxStack(1, 1),
+	}
+
+	jt[TSTORE] = &operation{
+		execute:     opTstore,
+		constantGas: params.WarmStorageReadCostEIP2929,
+		minStack:    minStack(2, 0),
+		maxStack:    maxStack(2, 0),
+	}
+}
+
+// opTload implements TLOAD opcode
+func opTload(pc *uint64, interpreter *EVMInterpreter, scope *ScopeContext) ([]byte, error) {
+	loc := scope.Stack.peek()
+	hash := types.Hash(loc.Bytes32())
+	val := interpreter.evm.StateDB.GetTransientState(scope.Contract.Address(), hash)
+	loc.SetBytes(val.Bytes())
+	return nil, nil
+}
+
+// opTstore implements TSTORE opcode
+func opTstore(pc *uint64, interpreter *EVMInterpreter, scope *ScopeContext) ([]byte, error) {
+	if interpreter.readOnly {
+		return nil, ErrWriteProtection
+	}
+	loc := scope.Stack.pop()
+	val := scope.Stack.pop()
+	interpreter.evm.StateDB.SetTransientState(scope.Contract.Address(), loc.Bytes32(), val.Bytes32())
+	return nil, nil
+}
