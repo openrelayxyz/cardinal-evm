@@ -81,9 +81,10 @@ func validate(jt JumpTable) JumpTable {
 
 func newCancunInstructionSet() JumpTable {
 	instructionSet := newShanghaiInstructionSet()
-	// TODO: This IS NOT complete. There are other cancun opcodes, this is just from 4844
 	enable4844(&instructionSet) // BLOBHASH opcode
-	enable1153(&instructionSet)
+	enable1153(&instructionSet) // Transient storage
+	enable5656(&instructionSet) // EIP-5656 (MCOPY opcode)
+	enable6780(&instructionSet) // EIP-6780 SELFDESTRUCT only in same transaction
 	return validate(instructionSet)
 }
 

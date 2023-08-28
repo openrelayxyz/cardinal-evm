@@ -133,6 +133,7 @@ func (sdb *stateDB) CreateAccount(addr common.Address) {
 		account: &Account{},
 		dirty:   make(Storage),
 		clean:   make(Storage),
+		created: true,
 	}
 	sdb.journal = append(sdb.journal, journalEntry{&addr, func(sdb *stateDB) { sdb.state[addr] = prev }})
 	if !prev.deleted && !prev.suicided {
@@ -247,6 +248,13 @@ func (sdb *stateDB) Suicide(addr common.Address) bool {
 		sdb.journal = append(sdb.journal, *je)
 	}
 	return ok
+}
+func (sdb *stateDB) SelfDestruct6780(addr common.Address) {
+	sobj := sdb.getAccount(addr)
+	if sobj.created {
+		sdb.Suicide(addr)
+		return
+	}
 }
 func (sdb *stateDB) HasSuicided(addr common.Address) bool {
 	sobj := sdb.getAccount(addr)
