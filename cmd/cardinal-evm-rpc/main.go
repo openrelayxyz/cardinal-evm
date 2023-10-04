@@ -119,8 +119,8 @@ func main() {
 		os.Exit(1)
 	}
 	mgr := vm.NewEVMManager(s, cfg.Chainid, vm.Config{}, chaincfg)
-	tm.Register("eth", api.NewETHAPI(s, mgr, cfg.Chainid))
-	tm.Register("ethercattle", api.NewEtherCattleBlockChainAPI(mgr))
+	tm.Register("eth", api.NewETHAPI(s, mgr, cfg.Chainid, cfg.GasLimitOpts.RPCGasLimit()))
+	tm.Register("ethercattle", api.NewEtherCattleBlockChainAPI(mgr, cfg.GasLimitOpts.RPCGasLimit()))
 	tm.Register("web3", &api.Web3API{})
 	tm.Register("net", &api.NetAPI{chaincfg.NetworkID})
 	if broker.URL != "" && cfg.TransactionTopic != "" {
