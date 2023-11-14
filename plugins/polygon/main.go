@@ -10,8 +10,7 @@ import (
 	"github.com/openrelayxyz/plugeth-utils/restricted/rlp"
 	"github.com/openrelayxyz/plugeth-utils/restricted/types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
-	"time"
-	"strconv"
+	"regexp"
 )
 
 var (
@@ -21,17 +20,11 @@ var (
 	stack core.Node
 	chainid int64
 	client core.Client
-	targetVerbosity int
 )
 
 func Initialize(ctx core.Context, loader core.PluginLoader, logger core.Logger) {
 	log = logger
 	log.Info("Cardinal EVM polygon plugin initializing")
-	var err error
-	targetVerbosity, err = strconv.Atoi(ctx.String("verbosity"))
-	if err != nil {
-		targetVerbosity = 3
-	}
 }
 
 func InitializeNode(s core.Node, b restricted.Backend) {
@@ -44,18 +37,24 @@ func InitializeNode(s core.Node, b restricted.Backend) {
 	if err != nil {
 		log.Warn("Failed to initialize RPC client, cannot process block")
 	}
-	var x interface{}
-	client.Call(&x, "debug_verbosity", targetVerbosity + 1)
-	time.AfterFunc(30 * time.Second, func() {
-		client.Call(&x, "debug_verbosity", targetVerbosity + 1)
-	})
 	log.Info("Cardinal EVM resetting log level")
 }
 
 func UpdateStreamsSchema(schema map[string]string) {
-	schema[fmt.Sprintf("c/%x/b/[0-9a-z]+/br/", chainid)] = schema[fmt.Sprintf("c/%x/b/[0-9a-z]+/r/", chainid)]
-	schema[fmt.Sprintf("c/%x/b/[0-9a-z]+/bl/", chainid)] = schema[fmt.Sprintf("c/%x/b/[0-9a-z]+/l/", chainid)]
-	schema[fmt.Sprintf("c/%x/b/[0-9a-z]+/bs", chainid)] = schema[fmt.Sprintf("c/%x/b/[0-9a-z]+/h", chainid)]
+	acctRe := regexp.MustCompile("c/([0-9a-z]+)/a/")
+	var cid string
+	for k := range schema {
+		if match := acctRe.FindStringSubmatch(k); match != nil {
+			cid = match[1]
+			break
+		}
+	}
+	if cid == "" {
+		panic("Error finding chainid in schema")
+	}
+	schema[fmt.Sprintf("c/%v/b/[0-9a-z]+/br/", cid)] = schema[fmt.Sprintf("c/%v/b/[0-9a-z]+/r/", cid)]
+	schema[fmt.Sprintf("c/%v/b/[0-9a-z]+/bl/", cid)] = schema[fmt.Sprintf("c/%v/b/[0-9a-z]+/l/", cid)]
+	schema[fmt.Sprintf("c/%v/b/[0-9a-z]+/bs", cid)] = schema[fmt.Sprintf("c/%v/b/[0-9a-z]+/h", cid)]
 }
 
 func CardinalAddBlockHook(number int64, hash, parent ctypes.Hash, weight *big.Int, updates map[string][]byte, deletes map[string]struct{}) {

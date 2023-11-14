@@ -369,7 +369,11 @@ func (r *resumer) BlocksFrom(ctx context.Context, number uint64, hash ctypes.Has
 			if pb := r.GetBlock(ctx, i); pb != nil {
 				if pb.Number == int64(number) && (pb.Hash != hash) && !reset {
 					reset = true
-					i -= uint64(*reorgThreshold)
+					if i < 128 {
+						i = 0
+					} else {
+						i -= uint64(*reorgThreshold)
+					}
 					continue
 				}
 				select {
@@ -529,6 +533,8 @@ func (api *cardinalAPI) ReproduceBlocks(start restricted.BlockNumber, end *restr
 	if toBlock < 0 {
 		toBlock = int64(currentBlock)
 	}
+	oldStartBlock := startBlock
+	startBlock = 0
 	for i := fromBlock; i <= toBlock; i++ {
 		block, td, receipts, destructs, accounts, storage, code, err := api.blockUpdatesByNumber(i)
 		if err != nil {
@@ -536,6 +542,7 @@ func (api *cardinalAPI) ReproduceBlocks(start restricted.BlockNumber, end *restr
 		}
 		BlockUpdates(block, td, receipts, destructs, accounts, storage, code)
 	}
+	startBlock = oldStartBlock
 	return true, nil
 }
 
