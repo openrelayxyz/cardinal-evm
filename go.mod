@@ -10,7 +10,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d
 	github.com/holiman/uint256 v1.2.3
 	github.com/inconshreveable/log15 v0.0.0-20201112154412-8562bdadbbac
-	github.com/jedisct1/go-minisign v0.0.0-20190909160543-45766022959e
+	github.com/jedisct1/go-minisign v0.0.0-20230811132847-661be99b8267
 	github.com/openrelayxyz/cardinal-rpc v1.1.0
 	github.com/openrelayxyz/cardinal-storage v1.1.1
 	github.com/openrelayxyz/cardinal-streams v1.4.1
@@ -18,9 +18,9 @@ require (
 	github.com/openrelayxyz/plugeth-utils v1.4.0
 	github.com/pubnub/go-metrics-statsd v0.0.0-20170124014003-7da61f429d6b
 	github.com/savaki/cloudmetrics v0.0.0-20160314183336-c82bfea3c09e
-	github.com/stretchr/testify v1.8.1
-	golang.org/x/crypto v0.12.0
-	golang.org/x/sys v0.11.0
+	github.com/stretchr/testify v1.8.4
+	golang.org/x/crypto v0.14.0
+	golang.org/x/sys v0.13.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
@@ -55,7 +55,7 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.15.15 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
-	github.com/mattn/go-isatty v0.0.16 // indirect
+	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/openrelayxyz/drumline v1.0.1 // indirect
@@ -67,8 +67,8 @@ require (
 	github.com/xdg/scram v1.0.3 // indirect
 	github.com/xdg/stringprep v1.0.3 // indirect
 	go.opencensus.io v0.22.5 // indirect
-	golang.org/x/net v0.10.0 // indirect
-	golang.org/x/text v0.12.0 // indirect
+	golang.org/x/net v0.17.0 // indirect
+	golang.org/x/text v0.13.0 // indirect
 	google.golang.org/protobuf v1.26.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
