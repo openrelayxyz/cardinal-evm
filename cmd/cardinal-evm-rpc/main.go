@@ -29,7 +29,7 @@ func main() {
 	resumptionTime := flag.Int64("resumption.ts", -1, "Resume from a timestamp instead of the offset committed to the database")
 	blockRollback := flag.Int64("block.rollback", 0, "Rollback to block N before syncing. If N < 0, rolls back from head before starting or syncing.")
 	exitWhenSynced := flag.Bool("exitwhensynced", false, "Automatically shutdown after syncing is complete")
-	shanghaiTime := flag.Int64("shanghai.time", -1, "Override shanghai hardfork time")
+	shanghaiBlock := flag.Int64("shanghai.block", -1, "Override shanghai hardfork time")
 	debug := flag.Bool("debug", false, "Enable debug APIs")
 
 	flag.CommandLine.Parse(os.Args[1:])
@@ -102,8 +102,8 @@ func main() {
 		db.Close()
 		os.Exit(1)
 	}
-	if *shanghaiTime >= 0 {
-		chaincfg.ShanghaiTime = big.NewInt(*shanghaiTime)
+	if *shanghaiBlock >= 0 {
+		chaincfg.ShanghaiBlock = big.NewInt(*shanghaiBlock)
 	}
 	sm, err := streams.NewStreamManager(
 		cfg.brokers,
