@@ -243,6 +243,28 @@ var (
 		Engine:              BorEngine,
 	}
 
+	HoleskyChainConfig = &ChainConfig{
+		ChainID:                       big.NewInt(17000),
+		NetworkID:                     big.NewInt(17000),
+		HomesteadBlock:                big.NewInt(0),
+		DAOForkBlock:                  nil,
+		DAOForkSupport:                true,
+		EIP150Block:                   big.NewInt(0),
+		EIP155Block:                   big.NewInt(0),
+		EIP158Block:                   big.NewInt(0),
+		ByzantiumBlock:                big.NewInt(0),
+		ConstantinopleBlock:           big.NewInt(0),
+		PetersburgBlock:               big.NewInt(0),
+		IstanbulBlock:                 big.NewInt(0),
+		MuirGlacierBlock:              nil,
+		BerlinBlock:                   big.NewInt(0),
+		LondonBlock:                   big.NewInt(0),
+		TerminalTotalDifficulty:       big.NewInt(0),
+		ShanghaiTime:                  big.NewInt(1696000704),
+		Ethash:                        new(EthashConfig),
+		Engine:                        ETHashEngine,
+	}
+
 	// AllEthashProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Ethash consensus.
 	//
@@ -268,6 +290,7 @@ var ChainLookup = map[int64]*ChainConfig{
 	4:   RinkebyChainConfig,
 	5:   GoerliChainConfig,
 	137: BorMainnetChainConfig,
+	17000: HoleskyChainConfig,
 	80001: BorMumbaiChainConfig,
 	1337802: KilnChainConfig,
 	11155111: SepoliaChainConfig,
