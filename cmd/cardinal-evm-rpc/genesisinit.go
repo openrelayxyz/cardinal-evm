@@ -32,8 +32,8 @@ type GenesisAlloc map[common.Address]GenesisAccount
 
 // GenesisAccount is an account in the state of the genesis block.
 type GenesisAccount struct {
-	Code       []byte                      `json:"code,omitempty"`
-	Storage    map[types.Hash]types.Hash `json:"storage,omitempty"`
+	Code       hexutil.Bytes               `json:"code,omitempty"`
+	Storage    map[types.Hash]types.Hash   `json:"storage,omitempty"`
 	Balance    *hexutil.Big                `json:"balance"`
 	Nonce      uint64                      `json:"nonce,omitempty"`
 }
@@ -56,10 +56,13 @@ func genesisInit(dbpath, genesispath string, archival bool) error {
 	init.SetBlockData(gb.Hash, gb.ParentHash, uint64(gb.Number), new(big.Int).SetInt64(int64(gb.Weight)))
 	for addr, alloc := range gb.Alloc {
 		if len(alloc.Code) != 0 {
-			return errors.New("code in genesis block unsupported")
+			codeKey := fmt.Sprintf("c/%x/c/%x", gb.Config.ChainID, crypto.Keccak256(alloc.Code))
+			init.AddData([]byte(codeKey), alloc.Code)
 		}
-		if len(alloc.Storage) != 0 {
-			return errors.New("storage in genesis block unsupported")
+		
+		for storage, value := range alloc.Storage{
+			key := fmt.Sprintf("c/%x/a/%x/s/%x", gb.Config.ChainID, crypto.Keccak256(addr[:]), crypto.Keccak256(storage[:]))
+			init.AddData([]byte(key), value.Bytes())
 		}
 		acct := emptyAccount.Copy()
 		acct.Nonce = alloc.Nonce
