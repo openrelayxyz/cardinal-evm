@@ -37,6 +37,7 @@ import (
 	ctypes "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	log "github.com/inconshreveable/log15"
+	"github.com/hashicorp/golang-lru"
 )
 
 // PublicBlockChainAPI provides an API to access the Ethereum blockchain.
@@ -594,10 +595,12 @@ type TransactionEmitter interface {
 type PublicTransactionPoolAPI struct {
 	emitter TransactionEmitter
 	evmmgr  *vm.EVMManager
+	sentCache *lru.Cache
 }
 
 func NewPublicTransactionPoolAPI(emitter TransactionEmitter, evmmgr *vm.EVMManager) *PublicTransactionPoolAPI {
-	return &PublicTransactionPoolAPI{emitter, evmmgr}
+	cache, _ := lru.New(8192)
+	return &PublicTransactionPoolAPI{emitter, evmmgr, cache}
 }
 
 // SendRawTransaction will add the signed transaction to the transaction pool.
@@ -607,7 +610,12 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx *rpc.CallContext, inpu
 	if err := tx.UnmarshalBinary(input); err != nil {
 		return ctypes.Hash{}, err
 	}
-	return tx.Hash(), s.evmmgr.View(func(currentState state.StateDB, header *types.Header, chaincfg *params.ChainConfig) error {
+	hash := tx.Hash()
+	if ok, _ := s.sentCache.ContainsOrAdd(hash, struct{}{}); ok {
+		return ctypes.Hash{}, fmt.Errorf("already known")
+	}
+
+	return hash, s.evmmgr.View(func(currentState state.StateDB, header *types.Header, chaincfg *params.ChainConfig) error {
 		if ctx != nil {
 			if err := ctx.Context().Err(); err != nil {
 				return err
