@@ -15,6 +15,52 @@ var (
 	headerCache *lru.Cache
 )
 
+func traverseIterators(a, b core.NodeIterator, add, delete func(k, v []byte)) {
+	// Advance both iterators initially
+	hasA := a.Next(true)
+	hasB := b.Next(true)
+
+	for hasA && hasB {
+
+		switch compareNodes(a, b) {
+		case -1: // a is behind b
+			if a.Leaf() {
+				delete(a.LeafKey(), a.LeafBlob())
+			}
+			hasA = a.Next(true) // advance only a
+		case 1: // a is ahead of b
+			if b.Leaf() {
+				add(b.LeafKey(), b.LeafBlob())
+			}
+			hasB = b.Next(true) // advance only d
+		case 0: // nodes are equal
+			if a.Leaf() && b.Leaf() {
+				if !bytes.Equal(a.LeafBlob(), b.LeafBlob()) {
+					add(b.LeafKey(), b.LeafBlob())
+				}
+			}
+			hasA = a.Next(false)
+			hasB = b.Next(false) // advance both iterators
+		}
+	}
+
+	// Handle remaining nodes in A
+	for hasA {
+		if a.Leaf() {
+			delete(a.LeafKey(), a.LeafBlob())
+		}
+		hasA = a.Next(true)
+	}
+
+	// Handle remaining nodes in B
+	for hasB {
+		if b.Leaf() {
+			add(b.LeafKey(), b.LeafBlob())
+		}
+		hasB = b.Next(true)
+	}
+}
+
 func stateTrieUpdatesByNumber(i int64) (map[core.Hash]struct{}, map[core.Hash][]byte, map[core.Hash]map[core.Hash][]byte, map[core.Hash][]byte, error) {
 	if headerCache == nil {
 		headerCache, _ = lru.New(64)
@@ -75,62 +121,37 @@ func stateTrieUpdatesByNumber(i int64) (map[core.Hash]struct{}, map[core.Hash][]
 	oldAccounts := map[string]acct{}
 	codeChanges := map[core.Hash]struct{}{}
 
-	COMPARE_NODES:
-	for {
-		switch compareNodes(a, b) {
-		case -1:
-			// Node exists in lastTrie but not currentTrie
-			// This is a deletion
-			if a.Leaf() {
-				account, err := fullAccount(a.LeafBlob())
-				if err != nil {
-					log.Warn("Found invalid account in acount trie")
-					continue
-				}
-				oldAccounts[string(a.LeafKey())] = account
-			}
 
-			// b jumped past a; advance a
-			a.Next(true)
-		case 1:
-			// Node exists in currentTrie but not lastTrie
-			// This is an addition
-
-			if b.Leaf() {
-				account, err := fullAccount(b.LeafBlob())
-				if err != nil {
-					log.Warn("Found invalid account in acount trie")
-					continue
-				}
-				alteredAccounts[string(b.LeafKey())] = account
-			}
-
-			if !b.Next(true) {
-				break COMPARE_NODES
-			}
-
-		case 0:
-			// a and b are identical; skip this whole subtree if the nodes have hashes
-			hasHash := a.Hash() == core.Hash{}
-			if !b.Next(hasHash) {
-				break COMPARE_NODES
-			}
-			if !a.Next(hasHash) {
-				break COMPARE_NODES
-			}
+	traverseIterators(a, b, func(k, v []byte){
+		// Added accounts
+		account, err := fullAccount(v)
+		if err != nil {
+			log.Warn("Found invalid account in acount trie")
+			return
 		}
-	}
+		alteredAccounts[string(k)] = account
+	}, 
+	func(k, v []byte) {
+		// Deleted accounts
+		account, err := fullAccount(v)
+		if err != nil {
+			log.Warn("Found invalid account in acount trie")
+			return
+		}
+		oldAccounts[string(k)] = account
+	})
 	storageChanges := map[string]map[string][]byte{}
+	// TODO: Iteration of the altered accounts could potentially be parallelized
 	for k, acct := range alteredAccounts {
 		var oldStorageTrie core.Trie
 		if oldAcct, ok := oldAccounts[k]; ok {
 			delete(oldAccounts, k)
+			if !bytes.Equal(oldAcct.CodeHash, acct.CodeHash) {
+				codeChanges[core.BytesToHash(acct.CodeHash)] = struct{}{}
+			}
 			if bytes.Equal(acct.Root, oldAcct.Root) {
 				// Storage didn't change
 				continue
-			}
-			if !bytes.Equal(oldAcct.CodeHash, acct.CodeHash) {
-				codeChanges[core.BytesToHash(acct.CodeHash)] = struct{}{}
 			}
 			oldStorageTrie, err = backend.GetTrie(core.BytesToHash(oldAcct.Root))
 		} else {
@@ -138,10 +159,6 @@ func stateTrieUpdatesByNumber(i int64) (map[core.Hash]struct{}, map[core.Hash][]
 				codeChanges[core.BytesToHash(acct.CodeHash)] = struct{}{}
 			}
 			oldStorageTrie, err = backend.GetTrie(core.BytesToHash(emptyRoot))
-		}
-		if bytes.Equal(acct.Root, emptyRoot) {
-			// Empty trie, nothing to see here
-			continue
 		}
 		storageTrie, err := backend.GetTrie(core.BytesToHash(acct.Root))
 		if err != nil {
@@ -151,45 +168,16 @@ func stateTrieUpdatesByNumber(i int64) (map[core.Hash]struct{}, map[core.Hash][]
 		c := oldStorageTrie.NodeIterator(nil)
 		d := storageTrie.NodeIterator(nil)
 		storageChanges[k] = map[string][]byte{}
-		COMPARE_STORAGE:
-		for {
-			switch compareNodes(c, d) {
-			case -1:
-				// Node exists in lastTrie but not currentTrie
-				// This is a deletion
-				if c.Leaf() {
-					if _, ok := storageChanges[k][string(c.LeafKey())]; !ok {
-						storageChanges[k][string(c.LeafKey())] = []byte{}
-					}
-					// storageChanges[fmt.Sprintf("c/%x/c/%x", chainConfig.ChainID, []byte(k), c.LeafKey())] = []byte{}
-				}
+		traverseIterators(c, d, func(key, v []byte) {
+			// Add Storage
+			storageChanges[k][string(key)] = v
 
-				// c jumped past d; advance d
-				c.Next(true)
-			case 1:
-				// Node exists in currentTrie but not lastTrie
-				// This is an addition
-
-				if d.Leaf() {
-					storageChanges[k][string(d.LeafKey())] = d.LeafBlob()
-				}
-
-				if !d.Next(true) {
-					break COMPARE_STORAGE
-				}
-
-			case 0:
-				// a and b are identical; skip this whole subtree if the nodes have hashes
-				hasHash := c.Hash() == core.Hash{}
-				if !d.Next(hasHash) {
-					break COMPARE_STORAGE
-				}
-				if !c.Next(hasHash) {
-					break COMPARE_STORAGE
-				}
+		}, func(key, v []byte) {
+			// Delete Storage
+			if _, ok := storageChanges[k][string(key)]; !ok {
+				storageChanges[k][string(key)] = []byte{}
 			}
-		}
-
+		})
 	}
 	for k := range oldAccounts {
 		destructs[core.BytesToHash([]byte(k))] = struct{}{}
@@ -410,11 +398,11 @@ func compareNodes(a, b core.NodeIterator) int {
 	} else if b.Leaf() && !a.Leaf() {
 		return 1
 	}
-	if cmp := bytes.Compare(a.Hash().Bytes(), b.Hash().Bytes()); cmp != 0 {
-		return cmp
-	}
-	if a.Leaf() && b.Leaf() {
-		return bytes.Compare(a.LeafBlob(), b.LeafBlob())
-	}
+	// if cmp := bytes.Compare(a.Hash().Bytes(), b.Hash().Bytes()); cmp != 0 {
+	// 	return cmp
+	// }
+	// if a.Leaf() && b.Leaf() {
+	// 	return bytes.Compare(a.LeafBlob(), b.LeafBlob())
+	// }
 	return 0
 }
