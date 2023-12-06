@@ -19,9 +19,10 @@ func traverseIterators(a, b core.NodeIterator, add, delete func(k, v []byte)) {
 	// Advance both iterators initially
 	hasA := a.Next(true)
 	hasB := b.Next(true)
+	counter := 0
 
 	for hasA && hasB {
-
+		counter++
 		switch compareNodes(a, b) {
 		case -1: // a is behind b
 			if a.Leaf() {
@@ -46,6 +47,7 @@ func traverseIterators(a, b core.NodeIterator, add, delete func(k, v []byte)) {
 
 	// Handle remaining nodes in A
 	for hasA {
+		counter++
 		if a.Leaf() {
 			delete(a.LeafKey(), a.LeafBlob())
 		}
@@ -54,11 +56,13 @@ func traverseIterators(a, b core.NodeIterator, add, delete func(k, v []byte)) {
 
 	// Handle remaining nodes in B
 	for hasB {
+		counter++
 		if b.Leaf() {
 			add(b.LeafKey(), b.LeafBlob())
 		}
 		hasB = b.Next(true)
 	}
+	log.Info("Processed tries.", "nodes", counter)
 }
 
 func stateTrieUpdatesByNumber(i int64) (map[core.Hash]struct{}, map[core.Hash][]byte, map[core.Hash]map[core.Hash][]byte, map[core.Hash][]byte, error) {
