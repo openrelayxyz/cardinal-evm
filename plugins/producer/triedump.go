@@ -37,7 +37,7 @@ func traverseIterators(a, b core.NodeIterator, add, delete func(k, v []byte), al
 		case 0: // nodes are equal
 			if a.Leaf() && b.Leaf() {
 				if !bytes.Equal(a.LeafBlob(), b.LeafBlob()) {
-					alter(b.LeafKey(), b.LeafBlob(), a.LeafKey(), b.LeafKey())
+					alter(a.LeafKey(), a.LeafBlob(), b.LeafKey(), b.LeafBlob())
 					// add(b.LeafKey(), b.LeafBlob())
 				}
 			}
@@ -180,6 +180,10 @@ func stateTrieUpdatesByNumber(i int64) (map[core.Hash]struct{}, map[core.Hash][]
 		} else {
 			if !bytes.Equal(acct.CodeHash, emptyCode) {
 				codeChanges[core.BytesToHash(acct.CodeHash)] = struct{}{}
+			}
+			if bytes.Equal(acct.Root, emptyRoot) {
+				// Storage for new account is empty
+				continue
 			}
 			oldStorageTrie, err = backend.GetTrie(core.BytesToHash(emptyRoot))
 		}
