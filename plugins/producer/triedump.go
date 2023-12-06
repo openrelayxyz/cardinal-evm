@@ -40,8 +40,12 @@ func traverseIterators(a, b core.NodeIterator, add, delete func(k, v []byte)) {
 					add(b.LeafKey(), b.LeafBlob())
 				}
 			}
-			hasA = a.Next(false)
-			hasB = b.Next(false) // advance both iterators
+			descend := a.Hash() != b.Hash()
+			if !descend && a.Hash() == (core.Hash{}) {
+				descend = true
+			}
+			hasA = a.Next(descend)
+			hasB = b.Next(descend) // advance both iterators
 		}
 	}
 
