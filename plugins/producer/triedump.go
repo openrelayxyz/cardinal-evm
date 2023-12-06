@@ -15,7 +15,7 @@ var (
 	headerCache *lru.Cache
 )
 
-func traverseIterators(a, b core.NodeIterator, add, delete func(k, v []byte)) {
+func traverseIterators(a, b core.NodeIterator, add, delete func(k, v []byte), alter func(k1, v1, k2, v2 []byte)) {
 	// Advance both iterators initially
 	hasA := a.Next(true)
 	hasB := b.Next(true)
@@ -37,7 +37,8 @@ func traverseIterators(a, b core.NodeIterator, add, delete func(k, v []byte)) {
 		case 0: // nodes are equal
 			if a.Leaf() && b.Leaf() {
 				if !bytes.Equal(a.LeafBlob(), b.LeafBlob()) {
-					add(b.LeafKey(), b.LeafBlob())
+					alter(b.LeafKey(), b.LeafBlob(), a.LeafKey(), b.LeafKey())
+					// add(b.LeafKey(), b.LeafBlob())
 				}
 			}
 			descend := a.Hash() != b.Hash()
@@ -147,6 +148,20 @@ func stateTrieUpdatesByNumber(i int64) (map[core.Hash]struct{}, map[core.Hash][]
 			return
 		}
 		oldAccounts[string(k)] = account
+	},
+	func(oldk, oldv, newk, newv []byte) {
+		account, err := fullAccount(oldv)
+		if err != nil {
+			log.Warn("Found invalid account in acount trie")
+			return
+		}
+		oldAccounts[string(oldk)] = account
+		account, err = fullAccount(newv)
+		if err != nil {
+			log.Warn("Found invalid account in acount trie")
+			return
+		}
+		alteredAccounts[string(newk)] = account
 	})
 	storageChanges := map[string]map[string][]byte{}
 	// TODO: Iteration of the altered accounts could potentially be parallelized
@@ -185,6 +200,8 @@ func stateTrieUpdatesByNumber(i int64) (map[core.Hash]struct{}, map[core.Hash][]
 			if _, ok := storageChanges[k][string(key)]; !ok {
 				storageChanges[k][string(key)] = []byte{}
 			}
+		}, func(oldk, oldv, newk, newv []byte) {
+			storageChanges[k][string(newk)] = newv
 		})
 	}
 	for k := range oldAccounts {
