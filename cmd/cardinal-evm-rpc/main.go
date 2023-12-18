@@ -30,7 +30,7 @@ func main() {
 	exitWhenSynced := flag.Bool("exitwhensynced", false, "Automatically shutdown after syncing is complete")
 	initArchive := flag.Bool("init.archive", false, "When initializing from genesis, should this be an archival database?")
 	genesisJson := flag.String("init.genesis", "", "File containing genesis block JSON for database initialization")
-	shanghaiTime := flag.Int64("shanghai.time", -1, "Override shanghai hardfork time")
+	shanghaiBlock := flag.Int64("shanghai.block", -1, "Override shanghai hardfork time")
 	debug := flag.Bool("debug", false, "Enable debug APIs")
 
 	flag.CommandLine.Parse(os.Args[1:])
@@ -105,8 +105,8 @@ func main() {
 		s.Close()
 		os.Exit(1)
 	}
-	if *shanghaiTime >= 0 {
-		chaincfg.ShanghaiTime = big.NewInt(*shanghaiTime)
+	if *shanghaiBlock >= 0 {
+		chaincfg.ShanghaiBlock = big.NewInt(*shanghaiBlock)
 	}
 	sm, err := streams.NewStreamManager(
 		cfg.brokers,
@@ -122,8 +122,8 @@ func main() {
 		os.Exit(1)
 	}
 	mgr := vm.NewEVMManager(s, cfg.Chainid, vm.Config{}, chaincfg)
-	tm.Register("eth", api.NewETHAPI(s, mgr, cfg.Chainid))
-	tm.Register("ethercattle", api.NewEtherCattleBlockChainAPI(mgr))
+	tm.Register("eth", api.NewETHAPI(s, mgr, cfg.Chainid, cfg.GasLimitOpts.RPCGasLimit()))
+	tm.Register("ethercattle", api.NewEtherCattleBlockChainAPI(mgr, cfg.GasLimitOpts.RPCGasLimit()))
 	tm.Register("web3", &api.Web3API{})
 	tm.Register("net", &api.NetAPI{chaincfg.NetworkID})
 	if broker.URL != "" && cfg.TransactionTopic != "" {

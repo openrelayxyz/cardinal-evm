@@ -9,6 +9,9 @@ import (
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-streams/transports"
+	"github.com/openrelayxyz/cardinal-evm/api"
+	etypes "github.com/openrelayxyz/cardinal-evm/types"
+	log "github.com/inconshreveable/log15"
 	"io/ioutil"
 	"os"
 )
@@ -38,6 +41,29 @@ type cloudwatchOpts struct {
 	Minor       bool              `yaml:"include.minor"`
 }
 
+type gasLimitOpts struct {
+	Type string `yaml:"type"`
+	Scalar uint64 `yaml:"scalar"`
+}
+
+func (glo *gasLimitOpts) RPCGasLimit() api.RPCGasLimit {
+	switch glo.Type {
+	case "raw":
+		return func(*etypes.Header) uint64 { return glo.Scalar }
+	case "block":
+		return func(h *etypes.Header) uint64 { 
+			cap := glo.Scalar * h.GasLimit 
+			if cap < 30000000 {
+				cap = 30000000
+			}
+			return cap
+		}
+	default:
+		log.Warn("Unknown RPCGasLimit Method. Defaulting to 2x block gas limit.", "name", glo.Type)
+		return func(h *etypes.Header) uint64 { return 2 * h.GasLimit }
+	}
+}
+
 type Config struct {
 	HttpPort int64 `yaml:"http.port"`
 	Concurrency int `yaml:"concurrency"`
@@ -55,6 +81,7 @@ type Config struct {
 	Statsd *statsdOpts `yaml:"statsd"`
 	CloudWatch *cloudwatchOpts `yaml:"cloudwatch"`
 	BlockWaitTime int64 `yaml:"block.wait.ms"`
+	GasLimitOpts *gasLimitOpts `yaml:"gas.limit"`
 	brokers []transports.BrokerParams
 	whitelist map[uint64]types.Hash
 }
@@ -128,6 +155,20 @@ func LoadConfig(fname string) (*Config, error) {
 				cfg.Brokers[i].StateTopic,
 			},
 			Rollback: cfg.Brokers[i].Rollback,
+		}
+	}
+	if cfg.GasLimitOpts == nil {
+		cfg.GasLimitOpts = &gasLimitOpts{}
+	}
+	if cfg.GasLimitOpts.Type == "" {
+		cfg.GasLimitOpts.Type = "block"
+	}
+	if cfg.GasLimitOpts.Scalar == 0 {
+		switch cfg.GasLimitOpts.Type {
+		case "block":
+			cfg.GasLimitOpts.Scalar = 2
+		case "raw": 
+			cfg.GasLimitOpts.Scalar = 30000000
 		}
 	}
 	return &cfg, nil

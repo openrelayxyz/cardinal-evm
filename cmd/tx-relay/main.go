@@ -39,7 +39,7 @@ func main() {
 		return
 	}
 	defer consumerGroup.Close()
-	cache, _ := lru.New(512)
+	cache, _ := lru.New(8192)
 	for {
 		handler := relayConsumerGroup{
 			url: rpcEndpoint,

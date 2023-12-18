@@ -37,7 +37,10 @@ import (
 	ctypes "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	log "github.com/inconshreveable/log15"
+	"github.com/hashicorp/golang-lru"
 )
+
+type RPCGasLimit func(*types.Header) uint64
 
 // PublicBlockChainAPI provides an API to access the Ethereum blockchain.
 // It offers only methods that operate on public data that is freely available to anyone.
@@ -45,11 +48,12 @@ type PublicBlockChainAPI struct {
 	storage storage.Storage
 	evmmgr  *vm.EVMManager
 	chainid int64
+	gasLimit RPCGasLimit
 }
 
 // NewPublicBlockChainAPI creates a new Ethereum blockchain API.
-func NewETHAPI(s storage.Storage, evmmgr *vm.EVMManager, chainid int64) *PublicBlockChainAPI {
-	return &PublicBlockChainAPI{storage: s, evmmgr: evmmgr, chainid: chainid}
+func NewETHAPI(s storage.Storage, evmmgr *vm.EVMManager, chainid int64, gasLimit RPCGasLimit) *PublicBlockChainAPI {
+	return &PublicBlockChainAPI{storage: s, evmmgr: evmmgr, chainid: chainid, gasLimit: gasLimit}
 }
 
 // ChainId is the EIP-155 replay-protection chain id for the current ethereum chain config.
@@ -309,10 +313,7 @@ func (s *PublicBlockChainAPI) Call(ctx *rpc.CallContext, args TransactionArgs, b
 	}
 	var res hexutil.Bytes
 	err := s.evmmgr.View(blockNrOrHash, args.From, &vm.Config{NoBaseFee: true}, ctx, func(statedb state.StateDB, header *types.Header, evmFn func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM) error {
-		gasCap := header.GasLimit * 2
-		if gasCap < 30000000 {
-			gasCap = 30000000
-		}
+		gasCap := s.gasLimit(header)
 		result, _, err := DoCall(ctx, evmFn, args, &PreviousState{statedb, header}, blockNrOrHash, overrides, timeout, gasCap)
 		if err != nil {
 			return err
@@ -484,7 +485,7 @@ func (s *PublicBlockChainAPI) EstimateGas(ctx *rpc.CallContext, args Transaction
 	var gas hexutil.Uint64
 	err := s.evmmgr.View(bNrOrHash, args.From, &vm.Config{NoBaseFee: true}, ctx, func(statedb state.StateDB, header *types.Header, evmFn func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM) error {
 		var err error
-		gas, _, err = DoEstimateGas(ctx, evmFn, args, &PreviousState{statedb, header}, bNrOrHash, header.GasLimit*2, false)
+		gas, _, err = DoEstimateGas(ctx, evmFn, args, &PreviousState{statedb, header}, bNrOrHash, s.gasLimit(header), false)
 		return err
 	})
 	if err != nil {
@@ -594,10 +595,12 @@ type TransactionEmitter interface {
 type PublicTransactionPoolAPI struct {
 	emitter TransactionEmitter
 	evmmgr  *vm.EVMManager
+	sentCache *lru.Cache
 }
 
 func NewPublicTransactionPoolAPI(emitter TransactionEmitter, evmmgr *vm.EVMManager) *PublicTransactionPoolAPI {
-	return &PublicTransactionPoolAPI{emitter, evmmgr}
+	cache, _ := lru.New(8192)
+	return &PublicTransactionPoolAPI{emitter, evmmgr, cache}
 }
 
 // SendRawTransaction will add the signed transaction to the transaction pool.
@@ -607,7 +610,12 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx *rpc.CallContext, inpu
 	if err := tx.UnmarshalBinary(input); err != nil {
 		return ctypes.Hash{}, err
 	}
-	return tx.Hash(), s.evmmgr.View(func(currentState state.StateDB, header *types.Header, chaincfg *params.ChainConfig) error {
+	hash := tx.Hash()
+	if ok, _ := s.sentCache.ContainsOrAdd(hash, struct{}{}); ok {
+		return ctypes.Hash{}, fmt.Errorf("already known")
+	}
+
+	return hash, s.evmmgr.View(func(currentState state.StateDB, header *types.Header, chaincfg *params.ChainConfig) error {
 		if ctx != nil {
 			if err := ctx.Context().Err(); err != nil {
 				return err
@@ -644,7 +652,7 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx *rpc.CallContext, inpu
 		}
 
 		// Should supply enough intrinsic gas
-		gas, err := IntrinsicGas(tx.Data(), tx.AccessList(), tx.To() == nil, true, chaincfg.IsIstanbul(header.Number), chaincfg.IsShanghai(new(big.Int).SetInt64(int64(header.Time))))
+		gas, err := IntrinsicGas(tx.Data(), tx.AccessList(), tx.To() == nil, true, chaincfg.IsIstanbul(header.Number), chaincfg.IsShanghai(new(big.Int).SetInt64(int64(header.Time)), header.Number))
 		if err != nil {
 			return err
 		}
