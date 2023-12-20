@@ -12,7 +12,7 @@ require (
 	github.com/inconshreveable/log15 v0.0.0-20201112154412-8562bdadbbac
 	github.com/jedisct1/go-minisign v0.0.0-20230811132847-661be99b8267
 	github.com/openrelayxyz/cardinal-rpc v1.1.0
-	github.com/openrelayxyz/cardinal-storage v1.1.1
+	github.com/openrelayxyz/cardinal-storage v1.2.0
 	github.com/openrelayxyz/cardinal-streams v1.4.1
 	github.com/openrelayxyz/cardinal-types v1.0.0
 	github.com/openrelayxyz/plugeth-utils v1.4.0
@@ -26,7 +26,10 @@ require (
 
 require (
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
+	github.com/RoaringBitmap/roaring v0.9.4 // indirect
 	github.com/aws/aws-sdk-go v1.42.20 // indirect
+	github.com/bits-and-blooms/bitset v1.2.0 // indirect
+	github.com/boltdb/bolt v1.3.1 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect
@@ -58,6 +61,7 @@ require (
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
+	github.com/mschoch/smat v0.2.0 // indirect
 	github.com/openrelayxyz/drumline v1.0.1 // indirect
 	github.com/pierrec/lz4 v2.6.0+incompatible // indirect
 	github.com/pkg/errors v0.9.1 // indirect

@@ -16,8 +16,7 @@ import (
 	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-rpc/transports"
 	"github.com/openrelayxyz/cardinal-streams/delivery"
-	"github.com/openrelayxyz/cardinal-storage/current"
-	"github.com/openrelayxyz/cardinal-storage/db/badgerdb"
+	"github.com/openrelayxyz/cardinal-storage/resolver"
 	"github.com/savaki/cloudmetrics"
 	"github.com/pubnub/go-metrics-statsd"
 	"strconv"
@@ -29,6 +28,8 @@ func main() {
 	resumptionTime := flag.Int64("resumption.ts", -1, "Resume from a timestamp instead of the offset committed to the database")
 	blockRollback := flag.Int64("block.rollback", 0, "Rollback to block N before syncing. If N < 0, rolls back from head before starting or syncing.")
 	exitWhenSynced := flag.Bool("exitwhensynced", false, "Automatically shutdown after syncing is complete")
+	initArchive := flag.Bool("init.archive", false, "When initializing from genesis, should this be an archival database?")
+	genesisJson := flag.String("init.genesis", "", "File containing genesis block JSON for database initialization")
 	shanghaiBlock := flag.Int64("shanghai.block", -1, "Override shanghai hardfork time")
 	debug := flag.Bool("debug", false, "Enable debug APIs")
 
@@ -61,6 +62,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	if *genesisJson != "" {
+		if err := genesisInit(cfg.DataDir, *genesisJson, *initArchive); err != nil {
+			log.Error("Error initializing", "err", err)
+			os.Exit(1)
+		}
+		log.Info("Initialization completed")
+	}
+
 	// TODO: Once Cardinal streams supports it, pass multiple brokers into the stream
 	broker := cfg.Brokers[0]
 
@@ -74,11 +83,7 @@ func main() {
 		tm.SetBlockWaitDuration(time.Duration(cfg.BlockWaitTime) * time.Millisecond)
 	}
 	tm.RegisterHeightFeed(heightCh)
-	db, err := badgerdb.New(cfg.DataDir)
-	if err != nil {
-		log.Error("Error opening badgerdb", "error", err)
-	}
-	s, err := current.Open(db, cfg.ReorgThreshold, cfg.whitelist)
+	s, err := resolver.ResolveStorage(cfg.DataDir, cfg.ReorgThreshold, cfg.whitelist)
 	if err != nil {
 		log.Error("Error opening current storage", "error", err, "datadir", cfg.DataDir)
 		os.Exit(1)
@@ -91,7 +96,6 @@ func main() {
 		if err := s.Rollback(uint64(*blockRollback)); err != nil {
 			log.Error("Rollback error", "err", err)
 			s.Close()
-			db.Close()
 			os.Exit(1)
 		}
 	}
@@ -99,7 +103,6 @@ func main() {
 	if !ok {
 		log.Error("Unsupported chainid", "chain", cfg.Chainid)
 		s.Close()
-		db.Close()
 		os.Exit(1)
 	}
 	if *shanghaiBlock >= 0 {
@@ -152,7 +155,6 @@ func main() {
 		sm.Close()
 		s.Vacuum(cfg.RollbackThreshold, time.Duration(cfg.VacuumTime) * time.Second)
 		s.Close()
-		db.Close()
 		if sm.Processed() == 0 {
 			log.Info("Shutting down without processing any messages.")
 			os.Exit(3)
@@ -235,11 +237,9 @@ func main() {
 		log.Error("Critical Error. Shutting down.", "error", err)
 		sm.Close()
 		s.Close()
-		db.Close()
 		os.Exit(1)
 	}
 	tm.Stop()
 	sm.Close()
 	s.Close()
-	db.Close()
 }

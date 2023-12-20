@@ -147,7 +147,12 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 			DefaultTopic: *defaultTopic,
 			Schema: schema,
 		})
+	} else if strings.HasPrefix(*brokerURL, "file://") {
+		brokers = append(brokers, transports.ProducerBrokerParams{
+			URL: *brokerURL,
+		})
 	}
+	log.Info("Producing to brokers", "brokers", brokers, "burl", *brokerURL)
 	producer, err = transports.ResolveMuxProducer(
 		brokers,
 		&resumer{},
@@ -325,6 +330,13 @@ func (*resumer) GetBlock(ctx context.Context, number uint64) (*delivery.PendingB
 		log.Warn("Error retrieving block", "number", number, "err", err)
 		return nil
 	}
+	if destructs == nil || accounts == nil || storage == nil || code == nil {
+		destructs, accounts, storage, code, err = stateTrieUpdatesByNumber(int64(number))
+		if err != nil {
+			log.Warn("Could not retrieve block state", "err", err)
+		}
+	}
+
 	hash := block.Hash()
 	weight, updates, deletes, _, batchUpdates := getUpdates(block, td, receipts, destructs, accounts, storage, code)
 	// Since we're just sending a single PendingBatch, we need to merge in

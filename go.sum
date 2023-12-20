@@ -6,6 +6,8 @@ github.com/NYTimes/gziphandler v1.1.1 h1:ZUDjpQae29j0ryrS0u/B8HZfJBtBQHjqw2rQ2cq
 github.com/NYTimes/gziphandler v1.1.1/go.mod h1:n/CVRwUEOgIxrgPvAQhUUr9oeUtvrhMomdKFjzJNB0c=
 github.com/OneOfOne/xxhash v1.2.2 h1:KMrpdQIwFcEqXDklaen+P1axHaj9BSKzvpUUfnHldSE=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
+github.com/RoaringBitmap/roaring v0.9.4 h1:ckvZSX5gwCRaJYBNe7syNawCU5oruY9gQmjXlp4riwo=
+github.com/RoaringBitmap/roaring v0.9.4/go.mod h1:icnadbWcNyfEHlYdr+tDlOTih1Bf/h+rzPpv4sbomAA=
 github.com/Shopify/sarama v1.28.0 h1:lOi3SfE6OcFlW9Trgtked2aHNZ2BIG/d6Do+PEUAqqM=
 github.com/Shopify/sarama v1.28.0/go.mod h1:j/2xTrU39dlzBmsxF1eQ2/DdWrxyBCl6pzz7a81o/ZY=
 github.com/Shopify/toxiproxy v2.1.4+incompatible h1:TKdv8HiTLgE5wdJuEML90aBgNWsokNbMijUGhmcoBJc=
@@ -13,6 +15,9 @@ github.com/Shopify/toxiproxy v2.1.4+incompatible/go.mod h1:OXgGpZ6Cli1/URJOF1DMx
 github.com/armon/consul-api v0.0.0-20180202201655-eb2c6b5be1b6/go.mod h1:grANhF5doyWs3UAsr3K4I6qtAmlQcZDesFNEHPZAzj8=
 github.com/aws/aws-sdk-go v1.42.20 h1:nQkkmTWK5N2Ao1iVzoOx1HTIxwbSWErxyZ1eiwLJWc4=
 github.com/aws/aws-sdk-go v1.42.20/go.mod h1:585smgzpB/KqRA+K3y/NL/oYRqQvpNJYvLm+LY1U59Q=
+github.com/bits-and-blooms/bitset v1.2.0 h1:Kn4yilvwNtMACtf1eYDlG8H77R07mZSPbMjLyS07ChA=
+github.com/bits-and-blooms/bitset v1.2.0/go.mod h1:gIdJ4wp64HaoK2YrL1Q5/N7Y16edYb8uY+O0FJTyyDA=
+github.com/boltdb/bolt v1.3.1 h1:JQmyP4ZBrce+ZQu0dY660FMfatumYDLun9hBCUVIkF4=
 github.com/boltdb/bolt v1.3.1/go.mod h1:clJnj/oiGkjum5o1McbSZDSLxVThjynRyGBgiAx27Ps=
 github.com/btcsuite/btcd/btcec/v2 v2.3.2 h1:5n0X6hX0Zk+6omWcihdYvdAlGf2DfasC0GMf7DClJ3U=
 github.com/btcsuite/btcd/btcec/v2 v2.3.2/go.mod h1:zYzJ8etWJQIv1Ogk7OzpWjowwOdXY1W/17j2MW85J04=
@@ -149,10 +154,12 @@ github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd h1:TRLaZ9cD/w
 github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
 github.com/modern-go/reflect2 v1.0.2 h1:xBagoLtFs94CBntxluKeaWgTMpvLxC4ur3nMaC9Gz0M=
 github.com/modern-go/reflect2 v1.0.2/go.mod h1:yWuevngMOJpCy52FWWMvUC8ws7m/LJsjYzDa0/r8luk=
+github.com/mschoch/smat v0.2.0 h1:8imxQsjDm8yFEAVBe7azKmKSgzSkZXDuKkSq9374khM=
+github.com/mschoch/smat v0.2.0/go.mod h1:kc9mz7DoBKqDyiRL7VZN8KvXQMWeTaVnttLRXOlotKw=
 github.com/openrelayxyz/cardinal-rpc v1.1.0 h1:pOXIAF32LG80tVytdg7Y6z9rYJsBD5UnPFeXfka9m/M=
 github.com/openrelayxyz/cardinal-rpc v1.1.0/go.mod h1:UZ5KxcsG51ZMBHvLpaDoIReyHpGfGTkazuSKh8Lx4q8=
-github.com/openrelayxyz/cardinal-storage v1.1.1 h1:PVVNmFoZp1lMII05X7wQHQ8lyAOukJbDRKBcEyOZ4yM=
-github.com/openrelayxyz/cardinal-storage v1.1.1/go.mod h1:2gzby7ZlqFh3g3jvfqWErN+6uGAx2vbbid0Usy8z6U4=
+github.com/openrelayxyz/cardinal-storage v1.2.0 h1:hhhLFuURQttBshDMUamlCnX3TsiZL0UvZMwox9Lm2nc=
+github.com/openrelayxyz/cardinal-storage v1.2.0/go.mod h1:DYk9/5Pw1AG8rYQsexVsR8vnrMiA8K/pEtmOw3bs8n8=
 github.com/openrelayxyz/cardinal-streams v1.4.1 h1:v0jrxk8iyZpWnccQ+uGRfrktdoTuY/sZMGumLz/x7Ic=
 github.com/openrelayxyz/cardinal-streams v1.4.1/go.mod h1:c1I8beZ/p0dfSiDbIGSFN+EMgniRLWq6yKJZgo9yqaQ=
 github.com/openrelayxyz/cardinal-types v1.0.0 h1:/H+TvMIoOwp5ub+jgwlrsC41bWSHFye+oz5SLktgGhs=
