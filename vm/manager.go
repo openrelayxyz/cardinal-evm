@@ -14,6 +14,7 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/state"
 	"github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/engine"
+	"github.com/openrelayxyz/cardinal-evm/eips/eip4844"
 	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-storage"
 	ctypes "github.com/openrelayxyz/cardinal-types"
@@ -195,6 +196,7 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
 					Time:        new(big.Int).SetUint64(header.Time),
 					Difficulty:  header.Difficulty,
 					BaseFee:     header.BaseFee,
+					BlobBaseFee: eip4844.CalcBlobFee(header.ExcessBlobGas),
 				}
 				if gasPrice == nil {
 					gasPrice = header.BaseFee
@@ -215,6 +217,7 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
 						Time:        new(big.Int).SetUint64(header.Time),
 						Difficulty:  header.Difficulty,
 						BaseFee:     header.BaseFee,
+						BlobBaseFee: eip4844.CalcBlobFee(header.ExcessBlobGas),
 					}
 					if header.Difficulty.Cmp(new(big.Int)) == 0 {
 						blockCtx.Random = &header.MixDigest

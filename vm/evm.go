@@ -79,6 +79,7 @@ type BlockContext struct {
 	Time        *big.Int       // Provides information for TIME
 	Difficulty  *big.Int       // Provides information for DIFFICULTY
 	BaseFee     *big.Int       // Provides information for BASEFEE
+	BlobBaseFee *big.Int       // Provides information for BLOBFEE
 	Random      *types.Hash
 }
 
