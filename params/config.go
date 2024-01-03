@@ -88,6 +88,7 @@ var (
 		IstanbulBlock:       big.NewInt(10_500_839),
 		BerlinBlock:         big.NewInt(13_189_133),
 		LondonBlock:         big.NewInt(14_525_000),
+		ShanghaiBlock:       big.NewInt(19_250_000),
 		Ethash:              new(EthashConfig),
 		Engine:              ETHashEngine,
 		DisableOpcodes:      []int{
