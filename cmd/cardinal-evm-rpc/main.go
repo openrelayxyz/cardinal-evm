@@ -14,6 +14,7 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-evm/streams"
 	"github.com/openrelayxyz/cardinal-types/metrics"
+	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-rpc/transports"
 	"github.com/openrelayxyz/cardinal-streams/delivery"
 	"github.com/openrelayxyz/cardinal-storage/resolver"
@@ -73,7 +74,7 @@ func main() {
 	// TODO: Once Cardinal streams supports it, pass multiple brokers into the stream
 	broker := cfg.Brokers[0]
 
-	heightCh := make(chan int64, 1024)
+	heightCh := make(chan *rpc.HeightRecord, 1024)
 
 	tm := transports.NewTransportManager(cfg.Concurrency)
 	if cfg.HttpPort != 0 {
