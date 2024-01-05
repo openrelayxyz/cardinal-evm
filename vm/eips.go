@@ -26,6 +26,10 @@ import (
 )
 
 var activators = map[int]func(*JumpTable){
+	4844: enable4844,
+	7516: enable7516,
+	1153: enable1153,
+	6780: enable6780,
 	5656: enable5656,
 	3855: enable3855,
 	3860: enable3860,
