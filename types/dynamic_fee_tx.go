@@ -18,7 +18,9 @@ package types
 
 import (
 	"math/big"
+	"bytes"
 
+	"github.com/openrelayxyz/cardinal-evm/rlp"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-types"
 )
@@ -105,4 +107,12 @@ func (tx *DynamicFeeTx) rawSignatureValues() (v, r, s *big.Int) {
 
 func (tx *DynamicFeeTx) setSignatureValues(chainID, v, r, s *big.Int) {
 	tx.ChainID, tx.V, tx.R, tx.S = chainID, v, r, s
+}
+
+func (tx *DynamicFeeTx) encode(b *bytes.Buffer) error {
+	return rlp.Encode(b, tx)
+}
+
+func (tx *DynamicFeeTx) decode(input []byte) error {
+	return rlp.DecodeBytes(input, tx)
 }

@@ -17,8 +17,8 @@ require (
 	github.com/openrelayxyz/cardinal-rpc v1.2.0-sf1
 	github.com/openrelayxyz/cardinal-storage v1.2.2
 	github.com/openrelayxyz/cardinal-streams v1.4.1
-	github.com/openrelayxyz/cardinal-types v1.0.0
-	github.com/openrelayxyz/plugeth-utils v1.5.0-rc1
+	github.com/openrelayxyz/cardinal-types v1.1.1
+	github.com/openrelayxyz/plugeth-utils v1.5.0-rc3
 	github.com/pubnub/go-metrics-statsd v0.0.0-20170124014003-7da61f429d6b
 	github.com/savaki/cloudmetrics v0.0.0-20160314183336-c82bfea3c09e
 	github.com/stretchr/testify v1.8.4
@@ -30,7 +30,7 @@ require (
 require (
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
 	github.com/RoaringBitmap/roaring v0.9.4 // indirect
-	github.com/aws/aws-sdk-go v1.42.20 // indirect
+	github.com/aws/aws-sdk-go v1.44.36 // indirect
 	github.com/bits-and-blooms/bitset v1.10.0 // indirect
 	github.com/boltdb/bolt v1.3.1 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
@@ -73,7 +73,6 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
-	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	github.com/rs/cors v1.8.2 // indirect
 	github.com/supranational/blst v0.3.11 // indirect
 	github.com/xdg/scram v1.0.3 // indirect
