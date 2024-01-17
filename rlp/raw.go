@@ -28,6 +28,22 @@ type RawValue []byte
 
 var rawValueType = reflect.TypeOf(RawValue{})
 
+// StringSize returns the encoded size of a string.
+func StringSize(s string) uint64 {
+	switch {
+	case len(s) == 0:
+		return 1
+	case len(s) == 1:
+		if s[0] <= 0x7f {
+			return 1
+		} else {
+			return 2
+		}
+	default:
+		return uint64(headsize(uint64(len(s))) + len(s))
+	}
+}
+
 // BytesSize returns the encoded size of a byte slice.
 func BytesSize(b []byte) uint64 {
 	switch {
@@ -50,7 +66,8 @@ func ListSize(contentSize uint64) uint64 {
 	return uint64(headsize(contentSize)) + contentSize
 }
 
-// IntSize returns the encoded size of the integer x.
+// IntSize returns the encoded size of the integer x. Note: The return type of this
+// function is 'int' for backwards-compatibility reasons. The result is always positive.
 func IntSize(x uint64) int {
 	if x < 0x80 {
 		return 1
