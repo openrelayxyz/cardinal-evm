@@ -27,6 +27,7 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/state"
 	"github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/vm"
+	ctypes "github.com/openrelayxyz/cardinal-types"
 )
 
 /*
@@ -75,6 +76,7 @@ type Message interface {
 	CheckNonce() bool
 	Data() []byte
 	AccessList() types.AccessList
+	BlobHashes() []ctypes.Hash
 }
 
 // ExecutionResult includes all output after executing given evm

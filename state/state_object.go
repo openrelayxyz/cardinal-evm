@@ -41,6 +41,7 @@ type stateObject struct {
 	code         *codeEntry
 	dirty        Storage
 	clean        Storage
+	created      bool
 	suicided     bool
 	deleted      bool
 	nonce        *uint64
@@ -117,6 +118,7 @@ func (s *stateObject) copy() *stateObject {
 		code:     s.code,
 		dirty:    s.dirty.Copy(),
 		clean:    s.clean.Copy(),
+		created:  s.created,
 		suicided: s.suicided,
 		deleted:  s.deleted,
 	}

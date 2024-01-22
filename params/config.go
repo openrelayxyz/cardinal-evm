@@ -134,6 +134,7 @@ var (
 		BerlinBlock:         big.NewInt(0),
 		LondonBlock:         big.NewInt(0),
 		ShanghaiTime:        big.NewInt(1677557088),
+		CancunTime:          big.NewInt(1706655072),
 		Ethash:              new(EthashConfig),
 		Engine:              ETHashEngine,
 	}
@@ -180,6 +181,7 @@ var (
 		BerlinBlock:         big.NewInt(4_460_644),
 		LondonBlock:         big.NewInt(5_062_605),
 		ShanghaiTime:        big.NewInt(1678832736),
+		CancunTime:          big.NewInt(1705473120),
 		Engine:              BeaconEngine,
 		Clique: &CliqueConfig{
 			Period: 15,
@@ -267,6 +269,7 @@ var (
 		LondonBlock:                   big.NewInt(0),
 		TerminalTotalDifficulty:       big.NewInt(0),
 		ShanghaiTime:                  big.NewInt(1696000704),
+		CancunTime:                    big.NewInt(1707305664),
 		Ethash:                        new(EthashConfig),
 		Engine:                        ETHashEngine,
 	}
@@ -778,7 +781,7 @@ type Rules struct {
 	IsHomestead, IsEIP150, IsEIP155, IsEIP158               bool
 	IsByzantium, IsConstantinople, IsPetersburg, IsIstanbul bool
 	IsBerlin, IsLondon                                      bool
-	IsMerge, IsShanghai, isCancun, isPrague                 bool
+	IsMerge, IsShanghai, IsCancun, isPrague                 bool
 }
 
 // Rules ensures c's ChainID is not nil.
@@ -801,7 +804,7 @@ func (c *ChainConfig) Rules(num *big.Int, isMerge bool, timestamp *big.Int) Rule
 		IsLondon:         c.IsLondon(num),
 		IsMerge:          isMerge,
 		IsShanghai:       c.IsShanghai(timestamp, num),
-		isCancun:         c.IsCancun(timestamp),
+		IsCancun:         c.IsCancun(timestamp),
 		isPrague:         c.IsPrague(timestamp),
 	}
 }

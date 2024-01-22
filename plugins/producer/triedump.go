@@ -102,6 +102,7 @@ func stateTrieUpdatesByNumber(i int64) (map[core.Hash]struct{}, map[core.Hash][]
 	lastTrie, err = backend.GetTrie(lastHeader.Root)
 	if err != nil {
 		log.Error("error getting trie", "block", startBlock)
+		return nil, nil, nil, nil, err
 	}
 
 	if v, ok := headerCache.Get(i); ok {

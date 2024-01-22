@@ -24,4 +24,12 @@ type Header struct {
 	Nonce            [8]byte
 	BaseFee          *big.Int `rlp:"optional"`
 	WithdrawalsHash  *types.Hash `rlp:"optional"`
+	// BlobGasUsed was added by EIP-4844 and is ignored in legacy headers.
+	BlobGasUsed      *uint64 `rlp:"optional"`
+
+	// ExcessBlobGas was added by EIP-4844 and is ignored in legacy headers.
+	ExcessBlobGas    *uint64 `rlp:"optional"`
+
+	// BeaconRoot was added by EIP-4788 and is ignored in legacy headers.
+	BeaconRoot       *types.Hash `rlp:"optional"`
 }

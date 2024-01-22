@@ -14,6 +14,7 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/state"
 	"github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/engine"
+	"github.com/openrelayxyz/cardinal-evm/eips/eip4844"
 	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-storage"
 	ctypes "github.com/openrelayxyz/cardinal-types"
@@ -53,6 +54,7 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
 	var sender common.Address
 	var gasPrice *big.Int
 	var vmcfg *Config
+	var blobHashes []ctypes.Hash
 	var callMeta *rpc.CallMetadata
 	for i, input := range inputs {
 		switch v := input.(type) {
@@ -73,6 +75,8 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
 			if v != nil {
 				sender = *v
 			}
+		case []ctypes.Hash:
+			blobHashes = v
 		case *big.Int:
 			gasPrice = v
 		case *Config:
@@ -192,6 +196,7 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
 					Time:        new(big.Int).SetUint64(header.Time),
 					Difficulty:  header.Difficulty,
 					BaseFee:     header.BaseFee,
+					BlobBaseFee: eip4844.CalcBlobFee(header.ExcessBlobGas),
 				}
 				if gasPrice == nil {
 					gasPrice = header.BaseFee
@@ -199,7 +204,7 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
 				if vmcfg == nil {
 					vmcfg = &mgr.vmcfg
 				}
-				argVals[evmPos] = reflect.ValueOf(NewEVM(blockCtx, TxContext{sender, gasPrice}, statedb, mgr.chaincfg, *vmcfg))
+				argVals[evmPos] = reflect.ValueOf(NewEVM(blockCtx, TxContext{sender, gasPrice, blobHashes}, statedb, mgr.chaincfg, *vmcfg))
 			}
 			if evmfnPos >= 0 {
 				// TODO: evmfunc needs to take a gas price variable.
@@ -212,6 +217,7 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
 						Time:        new(big.Int).SetUint64(header.Time),
 						Difficulty:  header.Difficulty,
 						BaseFee:     header.BaseFee,
+						BlobBaseFee: eip4844.CalcBlobFee(header.ExcessBlobGas),
 					}
 					if header.Difficulty.Cmp(new(big.Int)) == 0 {
 						blockCtx.Random = &header.MixDigest
@@ -229,7 +235,7 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
 					if cvmcfg == nil {
 						cvmcfg = vmcfg
 					}
-					return NewEVM(blockCtx, TxContext{sender, gasPrice}, sdb, mgr.chaincfg, *cvmcfg)
+					return NewEVM(blockCtx, TxContext{sender, gasPrice, blobHashes}, sdb, mgr.chaincfg, *cvmcfg)
 				})
 			}
 			out = callback.Call(argVals)
