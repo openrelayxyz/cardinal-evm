@@ -398,26 +398,6 @@ func BUPostReorg(common core.Hash, oldChain []core.Hash, newChain []core.Hash) {
 	}
 }
 
-type numLookup struct{
-	Number hexutil.Big `json:"number"`
-}
-
-func getSafeFinalized() (*big.Int, *big.Int) {
-	client, err := stack.Attach()
-	if err != nil {
-		log.Warn("Could not stack.Attach()", "err", err)
-		return nil, nil
-	}
-	var snl, fnl numLookup
-	if err := client.Call(&snl, "eth_getBlockByNumber", "safe", false); err != nil {
-		log.Warn("Could not get safe block", "err", err)
-	}
-	if err := client.Call(&fnl, "eth_getBlockByNumber", "finalized", false); err != nil {
-		log.Warn("Could not get finalized block", "err", err)
-	}
-	return snl.Number.ToInt(), fnl.Number.ToInt()
-}
-
 func getUpdates(block *types.Block, td *big.Int, receipts types.Receipts, destructs map[core.Hash]struct{}, accounts map[core.Hash][]byte, storage map[core.Hash]map[core.Hash][]byte, code map[core.Hash][]byte) (*big.Int, map[string][]byte, map[string]struct{}, map[string]ctypes.Hash, map[ctypes.Hash]map[string][]byte) {
 	hash := block.Hash()
 	headerBytes, _ := rlp.EncodeToBytes(block.Header())
@@ -425,13 +405,6 @@ func getUpdates(block *types.Block, td *big.Int, receipts types.Receipts, destru
 		fmt.Sprintf("c/%x/b/%x/h", chainid, hash.Bytes()): headerBytes,
 		fmt.Sprintf("c/%x/b/%x/d", chainid, hash.Bytes()): td.Bytes(),
 		fmt.Sprintf("c/%x/n/%x", chainid, block.Number().Int64()): hash[:],
-	}
-	snum, fnum := getSafeFinalized()
-	if snum != nil {
-		updates[fmt.Sprintf("c/%x/n/safe", chainid)] = snum.Bytes()
-	}
-	if fnum != nil {
-		updates[fmt.Sprintf("c/%x/n/finalized", chainid)] = fnum.Bytes()
 	}
 	if block.Withdrawals().Len() > 0 {
 		withdrawalsBytes, _ := rlp.EncodeToBytes(block.Withdrawals())
