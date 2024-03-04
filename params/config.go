@@ -67,6 +67,7 @@ var (
 		BerlinBlock:         big.NewInt(12_244_000),
 		LondonBlock:         big.NewInt(12_965_000),
 		ShanghaiTime:        big.NewInt(1681338455),
+		CancunTime:          big.NewInt(1710338135),
 		Ethash:              new(EthashConfig),
 		Engine:              ETHashEngine,
 	}
