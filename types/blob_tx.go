@@ -164,6 +164,7 @@ func (tx *BlobTx) to() *common.Address    { tmp := tx.To; return &tmp }
 func (tx *BlobTx) blobGas() uint64        { return params.BlobTxBlobGasPerBlob * uint64(len(tx.BlobHashes)) }
 func (tx *BlobTx) blobGasFeeCap() *big.Int { return tx.BlobFeeCap.ToBig() }
 func (tx *BlobTx) blobHashes() []types.Hash { return tx.BlobHashes }
+func (tx *BlobTx) sidecar() *BlobTxSidecar { return tx.Sidecar }
 
 func (tx *BlobTx) effectiveGasPrice(dst *big.Int, baseFee *big.Int) *big.Int {
 	if baseFee == nil {

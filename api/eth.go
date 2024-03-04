@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"crypto/sha256"
 	// "strings"
 	"time"
 
@@ -28,6 +29,7 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/common/math"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
+	"github.com/openrelayxyz/cardinal-evm/crypto/kzg4844"
 	"github.com/openrelayxyz/cardinal-evm/params"
 	"github.com/openrelayxyz/cardinal-evm/state"
 	"github.com/openrelayxyz/cardinal-evm/types"
@@ -624,6 +626,9 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx *rpc.CallContext, inpu
 		if s.emitter == nil {
 			return errors.New("This api is not configured for accepting transactions")
 		}
+		if err := ValidateTransaction(tx, header, chaincfg); err != nil {
+			return err
+		}
 		msg, err := tx.AsMessage(types.MakeSigner(chaincfg, header.Number, header.Time), header.BaseFee)
 		if err != nil {
 			return err
@@ -651,14 +656,109 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx *rpc.CallContext, inpu
 			return ErrInsufficientFunds
 		}
 
-		// Should supply enough intrinsic gas
-		gas, err := IntrinsicGas(tx.Data(), tx.AccessList(), tx.To() == nil, true, chaincfg.IsIstanbul(header.Number), chaincfg.IsShanghai(new(big.Int).SetInt64(int64(header.Time)), header.Number))
-		if err != nil {
-			return err
-		}
-		if tx.Gas() < gas {
-			return ErrIntrinsicGas
-		}
 		return s.emitter.Emit(tx)
 	})
+}
+
+
+func ValidateTransaction(tx *types.Transaction, head *types.Header, chaincfg *params.ChainConfig) error {
+	// Ensure only transactions that have been enabled are accepted
+	if !chaincfg.IsBerlin(head.Number) && tx.Type() != types.LegacyTxType {
+		return fmt.Errorf("%w: type %d rejected, pool not yet in Berlin", types.ErrTxTypeNotSupported, tx.Type())
+	}
+	if !chaincfg.IsEIP1559(head.Number) && tx.Type() == types.DynamicFeeTxType {
+		return fmt.Errorf("%w: type %d rejected, pool not yet in London", types.ErrTxTypeNotSupported, tx.Type())
+	}
+	if !chaincfg.IsCancun(new(big.Int).SetUint64(head.Time)) && tx.Type() == types.BlobTxType {
+		return fmt.Errorf("%w: type %d rejected, pool not yet in Cancun", types.ErrTxTypeNotSupported, tx.Type())
+	}
+	// Check whether the init code size has been exceeded
+	if chaincfg.IsShanghai(head.Number, new(big.Int).SetUint64(head.Time)) && tx.To() == nil && len(tx.Data()) > params.MaxInitCodeSize {
+		return fmt.Errorf("%w: code size %v, limit %v", ErrMaxInitCodeSizeExceeded, len(tx.Data()), params.MaxInitCodeSize)
+	}
+	// Transactions can't be negative. This may never happen using RLP decoded
+	// transactions but may occur for transactions created using the RPC.
+	if tx.Value().Sign() < 0 {
+		return ErrNegativeValue
+	}
+	// Ensure the transaction doesn't exceed the current block limit gas
+	if head.GasLimit < tx.Gas() {
+		return ErrGasLimit
+	}
+	// Sanity check for extremely large numbers (supported by RLP or RPC)
+	if tx.GasFeeCap().BitLen() > 256 {
+		return ErrFeeCapVeryHigh
+	}
+	if tx.GasTipCap().BitLen() > 256 {
+		return ErrTipVeryHigh
+	}
+	// Ensure gasFeeCap is greater than or equal to gasTipCap
+	if tx.GasFeeCapIntCmp(tx.GasTipCap()) < 0 {
+		return ErrTipAboveFeeCap
+	}
+	// Ensure the transaction has more gas than the bare minimum needed to cover
+	// the transaction metadata
+	intrGas, err := IntrinsicGas(tx.Data(), tx.AccessList(), tx.To() == nil, true, chaincfg.IsIstanbul(head.Number), chaincfg.IsShanghai(head.Number, new(big.Int).SetUint64(head.Time)))
+	if err != nil {
+		return err
+	}
+	if tx.Gas() < intrGas {
+		return fmt.Errorf("%w: needed %v, allowed %v", ErrIntrinsicGas, intrGas, tx.Gas())
+	}
+	// Ensure blob transactions have valid commitments
+	if tx.Type() == types.BlobTxType {
+		sidecar := tx.BlobTxSidecar()
+		if sidecar == nil {
+			return fmt.Errorf("missing sidecar in blob transaction")
+		}
+		// Ensure the number of items in the blob transaction and various side
+		// data match up before doing any expensive validations
+		hashes := tx.BlobHashes()
+		if len(hashes) == 0 {
+			return fmt.Errorf("blobless blob transaction")
+		}
+		if len(hashes) > params.MaxBlobGasPerBlock/params.BlobTxBlobGasPerBlob {
+			return fmt.Errorf("too many blobs in transaction: have %d, permitted %d", len(hashes), params.MaxBlobGasPerBlock/params.BlobTxBlobGasPerBlob)
+		}
+		if err := validateBlobSidecar(hashes, sidecar); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateBlobSidecar(hashes []ctypes.Hash, sidecar *types.BlobTxSidecar) error {
+	if len(sidecar.Blobs) != len(hashes) {
+		return fmt.Errorf("invalid number of %d blobs compared to %d blob hashes", len(sidecar.Blobs), len(hashes))
+	}
+	if len(sidecar.Commitments) != len(hashes) {
+		return fmt.Errorf("invalid number of %d blob commitments compared to %d blob hashes", len(sidecar.Commitments), len(hashes))
+	}
+	if len(sidecar.Proofs) != len(hashes) {
+		return fmt.Errorf("invalid number of %d blob proofs compared to %d blob hashes", len(sidecar.Proofs), len(hashes))
+	}
+	// Blob quantities match up, validate that the provers match with the
+	// transaction hash before getting to the cryptography
+	hasher := sha256.New()
+	for i, want := range hashes {
+		hasher.Write(sidecar.Commitments[i][:])
+		hash := hasher.Sum(nil)
+		hasher.Reset()
+
+		var vhash ctypes.Hash
+		vhash[0] = params.BlobTxHashVersion
+		copy(vhash[1:], hash[1:])
+
+		if vhash != want {
+			return fmt.Errorf("blob %d: computed hash %#x mismatches transaction one %#x", i, vhash, want)
+		}
+	}
+	// Blob commitments match with the hashes in the transaction, verify the
+	// blobs themselves via KZG
+	for i := range sidecar.Blobs {
+		if err := kzg4844.VerifyBlobProof(sidecar.Blobs[i], sidecar.Commitments[i], sidecar.Proofs[i]); err != nil {
+			return fmt.Errorf("invalid blob %d: %v", i, err)
+		}
+	}
+	return nil
 }

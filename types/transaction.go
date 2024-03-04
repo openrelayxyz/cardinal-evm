@@ -90,6 +90,7 @@ type TxData interface {
 	to() *common.Address
 	encode(*bytes.Buffer) error
 	decode([]byte) error
+	sidecar() *BlobTxSidecar
 
 	rawSignatureValues() (v, r, s *big.Int)
 	setSignatureValues(chainID, v, r, s *big.Int)
@@ -297,6 +298,8 @@ func (tx *Transaction) BlobGasFeeCap() *big.Int { return new(big.Int).Set(tx.inn
 func (tx *Transaction) BlobGas() uint64 { return tx.inner.blobGas() }
 
 func (tx *Transaction) BlobHashes() []ctypes.Hash { return tx.inner.blobHashes() }
+
+func (tx *Transaction) BlobTxSidecar() *BlobTxSidecar { return tx.inner.sidecar() }
 
 // To returns the recipient address of the transaction.
 // For contract-creation transactions, To returns nil.

@@ -100,6 +100,7 @@ func (tx *DynamicFeeTx) to() *common.Address    { return tx.To }
 func (tx *DynamicFeeTx) blobGas() uint64 { return 0}
 func (tx *DynamicFeeTx) blobGasFeeCap() *big.Int { return nil }
 func (tx *DynamicFeeTx) blobHashes() []types.Hash { return nil }
+func (tx *DynamicFeeTx) sidecar() *BlobTxSidecar { return nil }
 
 func (tx *DynamicFeeTx) rawSignatureValues() (v, r, s *big.Int) {
 	return tx.V, tx.R, tx.S
