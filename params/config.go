@@ -230,6 +230,10 @@ var (
 		LondonBlock:         big.NewInt(23850000),
 		ShanghaiBlock:       big.NewInt(50523000),
 		Engine:              BorEngine,
+		DisableOpcodes:      []int{
+			0x49,
+			0x4a,
+		},
 	}
 	// BorMumbaiChainConfig contains the chain parameters to run a node on the Görli test network.
 	BorMumbaiChainConfig = &ChainConfig{
@@ -280,16 +284,16 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, big.NewInt(0), big.NewInt(0), nil, nil, nil, new(EthashConfig), nil, nil, ETHashEngine}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, ETHashEngine}
 
 	// AllCliqueProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Clique consensus.
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, big.NewInt(0), nil, nil, nil, nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}, nil, CliqueEngine}
+	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, big.NewInt(0), nil, nil, nil, nil, nil, nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}, nil, CliqueEngine}
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, big.NewInt(0), nil, nil, nil, nil, new(EthashConfig), nil, nil, ETHashEngine}
+	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, big.NewInt(0), nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, ETHashEngine}
 	TestRules       = TestChainConfig.Rules(new(big.Int), false, new(big.Int))
 )
 
@@ -334,7 +338,9 @@ type ChainConfig struct {
 	MuirGlacierBlock    *big.Int `json:"muirGlacierBlock,omitempty"`    // Eip-2384 (bomb delay) switch block (nil = no fork, 0 = already activated)
 	BerlinBlock         *big.Int `json:"berlinBlock,omitempty"`         // Berlin switch block (nil = no fork, 0 = already on berlin)
 	LondonBlock         *big.Int `json:"londonBlock,omitempty"`         // London switch block (nil = no fork, 0 = already on london)
-	ShanghaiBlock       *big.Int `json:"shanghaiBlock,omitempty"`         // London switch block (nil = no fork, 0 = already on london)
+	ShanghaiBlock       *big.Int `json:"shanghaiBlock,omitempty"`       // Shanghai switch block (nil = no fork, 0 = already on london)
+	CancunBlock         *big.Int `json:"cancunBlock,omitempty"`         // Cancun switch block (nil = no fork, 0 = already on london)
+	NapoliBlock         *big.Int `json:"napoliBlock,omitempty"`         // Napoli switch block (nil = no fork, 0 = already on london)
 
 	ShanghaiTime *big.Int `json:"shanghaiTime,omitempty"` // Shanghai switch time (nil = no fork, 0 = already on shanghai)
 	CancunTime   *big.Int `json:"cancunTime,omitempty"`   // Cancun switch time (nil = no fork, 0 = already on cancun)
@@ -481,8 +487,16 @@ func (c *ChainConfig) IsShanghai(time, block *big.Int) bool {
 }
 
 // IsCancun returns whether num is either equal to the Cancun fork time or greater.
-func (c *ChainConfig) IsCancun(time *big.Int) bool {
-	return isTimestampForked(c.CancunTime, time)
+func (c *ChainConfig) IsCancun(time, block *big.Int) bool {
+	if c.CancunTime != nil {
+		return isTimestampForked(c.CancunTime, time)
+	}
+	return isBlockForked(c.CancunBlock, block)
+}
+
+// IsNapoli returns whether num is either equal to the Napoli fork time or greater.
+func (c *ChainConfig) IsNapoli(block *big.Int) bool {
+	return isBlockForked(c.NapoliBlock, block)
 }
 
 // IsPrague returns whether num is either equal to the Prague fork time or greater.
@@ -782,7 +796,7 @@ type Rules struct {
 	IsHomestead, IsEIP150, IsEIP155, IsEIP158               bool
 	IsByzantium, IsConstantinople, IsPetersburg, IsIstanbul bool
 	IsBerlin, IsLondon                                      bool
-	IsMerge, IsShanghai, IsCancun, isPrague                 bool
+	IsMerge, IsShanghai, IsCancun, IsNapoli, isPrague       bool
 }
 
 // Rules ensures c's ChainID is not nil.
@@ -805,7 +819,8 @@ func (c *ChainConfig) Rules(num *big.Int, isMerge bool, timestamp *big.Int) Rule
 		IsLondon:         c.IsLondon(num),
 		IsMerge:          isMerge,
 		IsShanghai:       c.IsShanghai(timestamp, num),
-		IsCancun:         c.IsCancun(timestamp),
+		IsCancun:         c.IsCancun(timestamp, num),
+		IsNapoli:         c.IsNapoli(num),
 		isPrague:         c.IsPrague(timestamp),
 	}
 }
