@@ -231,8 +231,8 @@ var (
 		ShanghaiBlock:       big.NewInt(50523000),
 		Engine:              BorEngine,
 		DisableOpcodes:      []int{
-			0x49,
-			0x4a,
+			0x49, // BLOBHASH
+			0x4a, // BLOBBASEFEE
 		},
 	}
 	// BorMumbaiChainConfig contains the chain parameters to run a node on the Görli test network.
