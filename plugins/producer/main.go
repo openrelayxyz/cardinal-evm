@@ -44,7 +44,8 @@ var (
 	addBlockHook func(number int64, hash, parent ctypes.Hash, weight *big.Int, updates map[string][]byte, deletes map[string]struct{})
 
 	Flags = *flag.NewFlagSet("cardinal-plugin", flag.ContinueOnError)
-	txPoolTopic = Flags.String("cardinal.txpool.topic", "", "Topic for mempool transaction data")
+	txPoolTopic = Flags.String("cardinal.txpool.topic", "", "Topic for rlp encoded mempool transaction data")
+	txPoolTopicV2 = Flags.String("cardinal.txpool2.topic", "", "Topic for Unmarshalled mempool transaction data")
 	brokerURL = Flags.String("cardinal.broker.url", "", "URL of the Cardinal Broker")
 	defaultTopic = Flags.String("cardinal.default.topic", "", "Default topic for Cardinal broker")
 	blockTopic = Flags.String("cardinal.block.topic", "", "Topic for Cardinal block data")
@@ -264,21 +265,31 @@ func InitializeNode(s core.Node, b restricted.Backend) {
 					select {
 					case txEvent := <-ch:
 						for _, txBytes := range txEvent.Txs {
-							// Switch from MarshalBinary to RLP encoding to match EtherCattle's legacy format for txpool transactions
+							// We are using both UnmarshalBinary and RLP encoding to enable both the legacy format and post Cancun formats for txpool transactions
 							tx := &types.Transaction{}
-							if err := tx.UnmarshalBinary(txBytes); err != nil {
-								log.Error("Error unmarshalling")
+							if len(txBytes) == 0 {
 								continue
-							}
-							txdata, err := rlp.EncodeToBytes(tx)
-							if err == nil {
-								select {
-								case producer.Input() <- &sarama.ProducerMessage{Topic: *txPoolTopic, Value: sarama.ByteEncoder(txdata)}:
-								case err := <-producer.Errors():
-									log.Error("Error emitting: %v", "err", err.Error())
-								}
 							} else {
-								log.Warn("Error RLP encoding transactions", "err", err)
+								err := tx.UnmarshalBinary(txBytes)
+								if err == nil {
+									select {
+									case producer.Input() <- &sarama.ProducerMessage{Topic: *txPoolTopicV2, Value: sarama.ByteEncoder(txBytes)}:
+									case err := <-producer.Errors():
+										log.Error("Error emitting: %v", "err", err.Error())
+									}
+								} else {
+									log.Warn("Error unmarshalling", "err", err)
+								}
+								txdata, err := rlp.EncodeToBytes(tx)
+								if err == nil {
+									select {
+									case producer.Input() <- &sarama.ProducerMessage{Topic: *txPoolTopic, Value: sarama.ByteEncoder(txdata)}:
+									case err := <-producer.Errors():
+										log.Error("Error emitting: %v", "err", err.Error())
+									}
+								} else {
+									log.Warn("Error RLP encoding transactions", "err", err)
+								}
 							}
 						}
 					case err := <-sub.Err():
