@@ -41,6 +41,20 @@ type acct struct {
 	CodeHash []byte
 }
 
+func (a *acct) slimRLP() ([]byte, error) {
+	slim := &acct{
+		Nonce: a.Nonce,
+		Balance: a.Balance,
+	}
+	if !bytes.Equal(a.Root, emptyRoot[:]) {
+		slim.Root = a.Root
+	}
+	if !bytes.Equal(a.CodeHash, emptyCode[:]) {
+		slim.CodeHash = a.CodeHash
+	}
+	return rlp.EncodeToBytes(slim)
+}
+
 // fullAccount decodes the data on the 'slim RLP' format and return
 // the consensus format account.
 func fullAccount(data []byte) (acct, error) {
@@ -63,6 +77,7 @@ var (
 	// emptyCode is the known hash of the empty EVM bytecode.
 	emptyCode = crypto.Keccak256(nil)
 	Subcommands = map[string]func(core.Context, []string) error {
+		"triedump": trieDump,
 		"statedump": func(core.Context, []string) error {
 			log.Info("Starting state dump")
 			db := backend.ChainDb()

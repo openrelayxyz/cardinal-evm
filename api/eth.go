@@ -37,7 +37,10 @@ import (
 	ctypes "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	log "github.com/inconshreveable/log15"
+	"github.com/hashicorp/golang-lru"
 )
+
+type RPCGasLimit func(*types.Header) uint64
 
 // PublicBlockChainAPI provides an API to access the Ethereum blockchain.
 // It offers only methods that operate on public data that is freely available to anyone.
@@ -45,11 +48,12 @@ type PublicBlockChainAPI struct {
 	storage storage.Storage
 	evmmgr  *vm.EVMManager
 	chainid int64
+	gasLimit RPCGasLimit
 }
 
 // NewPublicBlockChainAPI creates a new Ethereum blockchain API.
-func NewETHAPI(s storage.Storage, evmmgr *vm.EVMManager, chainid int64) *PublicBlockChainAPI {
-	return &PublicBlockChainAPI{storage: s, evmmgr: evmmgr, chainid: chainid}
+func NewETHAPI(s storage.Storage, evmmgr *vm.EVMManager, chainid int64, gasLimit RPCGasLimit) *PublicBlockChainAPI {
+	return &PublicBlockChainAPI{storage: s, evmmgr: evmmgr, chainid: chainid, gasLimit: gasLimit}
 }
 
 // ChainId is the EIP-155 replay-protection chain id for the current ethereum chain config.
@@ -309,10 +313,7 @@ func (s *PublicBlockChainAPI) Call(ctx *rpc.CallContext, args TransactionArgs, b
 	}
 	var res hexutil.Bytes
 	err := s.evmmgr.View(blockNrOrHash, args.From, &vm.Config{NoBaseFee: true}, ctx, func(statedb state.StateDB, header *types.Header, evmFn func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM) error {
-		gasCap := header.GasLimit * 2
-		if gasCap < 30000000 {
-			gasCap = 30000000
-		}
+		gasCap := s.gasLimit(header)
 		result, _, err := DoCall(ctx, evmFn, args, &PreviousState{statedb, header}, blockNrOrHash, overrides, timeout, gasCap, nil)
 		if err != nil {
 			return err
@@ -378,17 +379,27 @@ func DoEstimateGas(ctx *rpc.CallContext, getEVM func(state.StateDB, *vm.Config, 
 		// Retrieve the block to act as the gas ceiling
 		hi = prevState.header.GasLimit
 	}
+	var feeCap *big.Int
+	if args.GasPrice != nil && (args.MaxFeePerGas != nil || args.MaxPriorityFeePerGas != nil) {
+		return 0, nil, errors.New("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
+	} else if args.GasPrice != nil {
+		feeCap = args.GasPrice.ToInt()
+	} else if args.MaxFeePerGas != nil {
+		feeCap = args.MaxFeePerGas.ToInt()
+	} else {
+		feeCap = common.Big0
+	}
 	// Recap the highest gas limit with account's available balance.
-	if args.GasPrice != nil && args.GasPrice.ToInt().BitLen() != 0 {
-		balance := prevState.state.GetBalance(*args.From)
+	if feeCap.BitLen() != 0 {
+		balance := prevState.state.GetBalance(*args.From) // from can't be nil
 		available := new(big.Int).Set(balance)
 		if args.Value != nil {
 			if args.Value.ToInt().Cmp(available) >= 0 {
-				return 0, nil, errors.New("insufficient funds for transfer")
+				return 0, nil, ErrInsufficientFundsForTransfer
 			}
 			available.Sub(available, args.Value.ToInt())
 		}
-		allowance := new(big.Int).Div(available, args.GasPrice.ToInt())
+		allowance := new(big.Int).Div(available, feeCap)
 
 		// If the allowance is larger than maximum uint64, skip checking
 		if allowance.IsUint64() && hi > allowance.Uint64() {
@@ -397,7 +408,7 @@ func DoEstimateGas(ctx *rpc.CallContext, getEVM func(state.StateDB, *vm.Config, 
 				transfer = new(hexutil.Big)
 			}
 			log.Warn("Gas estimation capped by limited funds", "original", hi, "balance", balance,
-				"sent", transfer.ToInt(), "gasprice", args.GasPrice.ToInt(), "fundable", allowance)
+				"sent", transfer.ToInt(), "maxFeePerGas", feeCap, "fundable", allowance)
 			hi = allowance.Uint64()
 		}
 	}
@@ -474,7 +485,7 @@ func (s *PublicBlockChainAPI) EstimateGas(ctx *rpc.CallContext, args Transaction
 	var gas hexutil.Uint64
 	err := s.evmmgr.View(bNrOrHash, args.From, &vm.Config{NoBaseFee: true}, ctx, func(statedb state.StateDB, header *types.Header, evmFn func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM) error {
 		var err error
-		gas, _, err = DoEstimateGas(ctx, evmFn, args, &PreviousState{statedb, header}, bNrOrHash, header.GasLimit*2, false, nil)
+		gas, _, err = DoEstimateGas(ctx, evmFn, args, &PreviousState{statedb, header}, bNrOrHash, s.gasLimit(header), false, nil)
 		return err
 	})
 	if err != nil {
@@ -584,10 +595,12 @@ type TransactionEmitter interface {
 type PublicTransactionPoolAPI struct {
 	emitter TransactionEmitter
 	evmmgr  *vm.EVMManager
+	sentCache *lru.Cache
 }
 
 func NewPublicTransactionPoolAPI(emitter TransactionEmitter, evmmgr *vm.EVMManager) *PublicTransactionPoolAPI {
-	return &PublicTransactionPoolAPI{emitter, evmmgr}
+	cache, _ := lru.New(8192)
+	return &PublicTransactionPoolAPI{emitter, evmmgr, cache}
 }
 
 // SendRawTransaction will add the signed transaction to the transaction pool.
@@ -597,7 +610,12 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx *rpc.CallContext, inpu
 	if err := tx.UnmarshalBinary(input); err != nil {
 		return ctypes.Hash{}, err
 	}
-	return tx.Hash(), s.evmmgr.View(func(currentState state.StateDB, header *types.Header, chaincfg *params.ChainConfig) error {
+	hash := tx.Hash()
+	if ok, _ := s.sentCache.ContainsOrAdd(hash, struct{}{}); ok {
+		return ctypes.Hash{}, fmt.Errorf("already known")
+	}
+
+	return hash, s.evmmgr.View(func(currentState state.StateDB, header *types.Header, chaincfg *params.ChainConfig) error {
 		if ctx != nil {
 			if err := ctx.Context().Err(); err != nil {
 				return err
@@ -606,7 +624,7 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx *rpc.CallContext, inpu
 		if s.emitter == nil {
 			return errors.New("This api is not configured for accepting transactions")
 		}
-		msg, err := tx.AsMessage(types.MakeSigner(chaincfg, header.Number), header.BaseFee)
+		msg, err := tx.AsMessage(types.MakeSigner(chaincfg, header.Number, header.Time), header.BaseFee)
 		if err != nil {
 			return err
 		}
@@ -634,7 +652,7 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx *rpc.CallContext, inpu
 		}
 
 		// Should supply enough intrinsic gas
-		gas, err := IntrinsicGas(tx.Data(), tx.AccessList(), tx.To() == nil, true, chaincfg.IsIstanbul(header.Number), chaincfg.IsShanghai(new(big.Int).SetInt64(int64(header.Time))))
+		gas, err := IntrinsicGas(tx.Data(), tx.AccessList(), tx.To() == nil, true, chaincfg.IsIstanbul(header.Number), chaincfg.IsShanghai(new(big.Int).SetInt64(int64(header.Time)), header.Number))
 		if err != nil {
 			return err
 		}

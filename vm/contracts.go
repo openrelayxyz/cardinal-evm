@@ -17,6 +17,7 @@
 package vm
 
 import (
+	"fmt"
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
@@ -28,7 +29,10 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/crypto/blake2b"
 	"github.com/openrelayxyz/cardinal-evm/crypto/bls12381"
 	"github.com/openrelayxyz/cardinal-evm/crypto/bn256"
+	"github.com/openrelayxyz/cardinal-evm/crypto/kzg4844"
+	"github.com/openrelayxyz/cardinal-evm/crypto/secp256r1"
 	"github.com/openrelayxyz/cardinal-evm/params"
+	"github.com/openrelayxyz/cardinal-types"
 
 	//lint:ignore SA1019 Needed for precompile
 	"golang.org/x/crypto/ripemd160"
@@ -92,6 +96,36 @@ var PrecompiledContractsBerlin = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{9}): &blake2F{},
 }
 
+// PrecompiledContractsCancun contains the default set of pre-compiled Ethereum
+// contracts used in the Cancun release.
+var PrecompiledContractsCancun = map[common.Address]PrecompiledContract{
+	common.BytesToAddress([]byte{1}):  &ecrecover{},
+	common.BytesToAddress([]byte{2}):  &sha256hash{},
+	common.BytesToAddress([]byte{3}):  &ripemd160hash{},
+	common.BytesToAddress([]byte{4}):  &dataCopy{},
+	common.BytesToAddress([]byte{5}):  &bigModExp{eip2565: true},
+	common.BytesToAddress([]byte{6}):  &bn256AddIstanbul{},
+	common.BytesToAddress([]byte{7}):  &bn256ScalarMulIstanbul{},
+	common.BytesToAddress([]byte{8}):  &bn256PairingIstanbul{},
+	common.BytesToAddress([]byte{9}):  &blake2F{},
+	common.BytesToAddress([]byte{20}): &kzgPointEvaluation{},
+}
+// PrecompiledContractsNapoli contains the default set of pre-compiled Ethereum
+// contracts used in the Napoli release.
+var PrecompiledContractsNapoli = map[common.Address]PrecompiledContract{
+	common.BytesToAddress([]byte{1}):  &ecrecover{},
+	common.BytesToAddress([]byte{2}):  &sha256hash{},
+	common.BytesToAddress([]byte{3}):  &ripemd160hash{},
+	common.BytesToAddress([]byte{4}):  &dataCopy{},
+	common.BytesToAddress([]byte{5}):  &bigModExp{eip2565: true},
+	common.BytesToAddress([]byte{6}):  &bn256AddIstanbul{},
+	common.BytesToAddress([]byte{7}):  &bn256ScalarMulIstanbul{},
+	common.BytesToAddress([]byte{8}):  &bn256PairingIstanbul{},
+	common.BytesToAddress([]byte{9}):  &blake2F{},
+	common.BytesToAddress([]byte{20}): &kzgPointEvaluation{},
+	common.BytesToAddress([]byte{0x01, 0x00}): &p256Verify{},
+}
+
 // PrecompiledContractsBLS contains the set of pre-compiled Ethereum
 // contracts specified in EIP-2537. These are exported for testing purposes.
 var PrecompiledContractsBLS = map[common.Address]PrecompiledContract{
@@ -107,6 +141,8 @@ var PrecompiledContractsBLS = map[common.Address]PrecompiledContract{
 }
 
 var (
+	PrecompiledAddressesNapoli    []common.Address
+	PrecompiledAddressesCancun    []common.Address
 	PrecompiledAddressesBerlin    []common.Address
 	PrecompiledAddressesIstanbul  []common.Address
 	PrecompiledAddressesByzantium []common.Address
@@ -126,11 +162,21 @@ func init() {
 	for k := range PrecompiledContractsBerlin {
 		PrecompiledAddressesBerlin = append(PrecompiledAddressesBerlin, k)
 	}
+	for k := range PrecompiledContractsCancun {
+		PrecompiledAddressesCancun = append(PrecompiledAddressesCancun, k)
+	}
+	for k := range PrecompiledContractsNapoli {
+		PrecompiledAddressesCancun = append(PrecompiledAddressesNapoli, k)
+	}
 }
 
 // ActivePrecompiles returns the precompiles enabled with the current configuration.
 func ActivePrecompiles(rules params.Rules) []common.Address {
 	switch {
+	case rules.IsNapoli:
+		return PrecompiledAddressesNapoli
+	case rules.IsCancun:
+		return PrecompiledAddressesCancun
 	case rules.IsBerlin:
 		return PrecompiledAddressesBerlin
 	case rules.IsIstanbul:
@@ -1042,4 +1088,103 @@ func (c *bls12381MapG2) Run(input []byte) ([]byte, error) {
 
 	// Encode the G2 point to 256 bytes
 	return g.EncodePoint(r), nil
+}
+
+
+// kzgPointEvaluation implements the EIP-4844 point evaluation precompile.
+type kzgPointEvaluation struct{}
+
+// RequiredGas estimates the gas required for running the point evaluation precompile.
+func (b *kzgPointEvaluation) RequiredGas(input []byte) uint64 {
+	return params.BlobTxPointEvaluationPrecompileGas
+}
+
+const (
+	blobVerifyInputLength           = 192  // Max input length for the point evaluation precompile.
+	blobCommitmentVersionKZG  uint8 = 0x01 // Version byte for the point evaluation precompile.
+	blobPrecompileReturnValue       = "000000000000000000000000000000000000000000000000000000000000100073eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001"
+)
+
+var (
+	errBlobVerifyInvalidInputLength = errors.New("invalid input length")
+	errBlobVerifyMismatchedVersion  = errors.New("mismatched versioned hash")
+	errBlobVerifyKZGProof           = errors.New("error verifying kzg proof")
+)
+
+// Run executes the point evaluation precompile.
+func (b *kzgPointEvaluation) Run(input []byte) ([]byte, error) {
+	if len(input) != blobVerifyInputLength {
+		return nil, errBlobVerifyInvalidInputLength
+	}
+	// versioned hash: first 32 bytes
+	var versionedHash types.Hash
+	copy(versionedHash[:], input[:])
+
+	var (
+		point kzg4844.Point
+		claim kzg4844.Claim
+	)
+	// Evaluation point: next 32 bytes
+	copy(point[:], input[32:])
+	// Expected output: next 32 bytes
+	copy(claim[:], input[64:])
+
+	// input kzg point: next 48 bytes
+	var commitment kzg4844.Commitment
+	copy(commitment[:], input[96:])
+	if kZGToVersionedHash(commitment) != versionedHash {
+		return nil, errBlobVerifyMismatchedVersion
+	}
+
+	// Proof: next 48 bytes
+	var proof kzg4844.Proof
+	copy(proof[:], input[144:])
+
+	if err := kzg4844.VerifyProof(commitment, point, claim, proof); err != nil {
+		return nil, fmt.Errorf("%w: %v", errBlobVerifyKZGProof, err)
+	}
+
+	return common.Hex2Bytes(blobPrecompileReturnValue), nil
+}
+
+// kZGToVersionedHash implements kzg_to_versioned_hash from EIP-4844
+func kZGToVersionedHash(kzg kzg4844.Commitment) types.Hash {
+	h := sha256.Sum256(kzg[:])
+	h[0] = blobCommitmentVersionKZG
+
+	return h
+}
+
+// P256VERIFY (secp256r1 signature verification)
+// implemented as a native contract
+type p256Verify struct{}
+
+// RequiredGas returns the gas required to execute the precompiled contract
+func (c *p256Verify) RequiredGas(input []byte) uint64 {
+	return params.P256VerifyGas
+}
+
+// Run executes the precompiled contract with given 160 bytes of param, returning the output and the used gas
+func (c *p256Verify) Run(input []byte) ([]byte, error) {
+	// Required input length is 160 bytes
+	const p256VerifyInputLength = 160
+	// Check the input length
+	if len(input) != p256VerifyInputLength {
+		// Input length is invalid
+		return nil, nil
+	}
+
+	// Extract the hash, r, s, x, y from the input
+	hash := input[0:32]
+	r, s := new(big.Int).SetBytes(input[32:64]), new(big.Int).SetBytes(input[64:96])
+	x, y := new(big.Int).SetBytes(input[96:128]), new(big.Int).SetBytes(input[128:160])
+
+	// Verify the secp256r1 signature
+	if secp256r1.Verify(hash, r, s, x, y) {
+		// Signature is valid
+		return common.LeftPadBytes(common.Big1.Bytes(), 32), nil
+	} else {
+		// Signature is invalid
+		return nil, nil
+	}
 }

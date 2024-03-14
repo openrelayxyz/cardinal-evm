@@ -18,8 +18,11 @@ package types
 
 import (
 	"math/big"
+	"bytes"
 
+	"github.com/openrelayxyz/cardinal-evm/rlp"
 	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-types"
 )
 
 type DynamicFeeTx struct {
@@ -94,6 +97,9 @@ func (tx *DynamicFeeTx) gasPrice() *big.Int     { return tx.GasFeeCap }
 func (tx *DynamicFeeTx) value() *big.Int        { return tx.Value }
 func (tx *DynamicFeeTx) nonce() uint64          { return tx.Nonce }
 func (tx *DynamicFeeTx) to() *common.Address    { return tx.To }
+func (tx *DynamicFeeTx) blobGas() uint64 { return 0}
+func (tx *DynamicFeeTx) blobGasFeeCap() *big.Int { return nil }
+func (tx *DynamicFeeTx) blobHashes() []types.Hash { return nil }
 
 func (tx *DynamicFeeTx) rawSignatureValues() (v, r, s *big.Int) {
 	return tx.V, tx.R, tx.S
@@ -101,4 +107,12 @@ func (tx *DynamicFeeTx) rawSignatureValues() (v, r, s *big.Int) {
 
 func (tx *DynamicFeeTx) setSignatureValues(chainID, v, r, s *big.Int) {
 	tx.ChainID, tx.V, tx.R, tx.S = chainID, v, r, s
+}
+
+func (tx *DynamicFeeTx) encode(b *bytes.Buffer) error {
+	return rlp.Encode(b, tx)
+}
+
+func (tx *DynamicFeeTx) decode(input []byte) error {
+	return rlp.DecodeBytes(input, tx)
 }

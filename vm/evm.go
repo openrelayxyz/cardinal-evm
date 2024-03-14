@@ -46,6 +46,10 @@ type (
 func (evm *EVM) precompile(addr common.Address) (PrecompiledContract, bool) {
 	var precompiles map[common.Address]PrecompiledContract
 	switch {
+	case evm.chainRules.IsNapoli:
+		precompiles = PrecompiledContractsNapoli
+	case evm.chainRules.IsCancun:
+		precompiles = PrecompiledContractsCancun
 	case evm.chainRules.IsBerlin:
 		precompiles = PrecompiledContractsBerlin
 	case evm.chainRules.IsIstanbul:
@@ -77,6 +81,7 @@ type BlockContext struct {
 	Time        *big.Int       // Provides information for TIME
 	Difficulty  *big.Int       // Provides information for DIFFICULTY
 	BaseFee     *big.Int       // Provides information for BASEFEE
+	BlobBaseFee *big.Int       // Provides information for BLOBFEE
 	Random      *types.Hash
 }
 
@@ -95,6 +100,7 @@ type TxContext struct {
 	// Message information
 	Origin   common.Address // Provides information for ORIGIN
 	GasPrice *big.Int       // Provides information for GASPRICE
+	BlobHashes []types.Hash // Provides information for BLOBHASH
 }
 
 // EVM is the Ethereum Virtual Machine base object and provides

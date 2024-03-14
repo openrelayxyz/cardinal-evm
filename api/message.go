@@ -3,6 +3,7 @@ package api
 import (
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/types"
+	ctypes "github.com/openrelayxyz/cardinal-types"
 	"math/big"
 )
 
@@ -17,6 +18,7 @@ type Msg struct {
 	gasTipCap  *big.Int
 	data       []byte
 	accessList types.AccessList
+	blobHashes []ctypes.Hash
 	checkNonce bool
 }
 
@@ -47,3 +49,4 @@ func (m Msg) Nonce() uint64                { return m.nonce }
 func (m Msg) Data() []byte                 { return m.data }
 func (m Msg) AccessList() types.AccessList { return m.accessList }
 func (m Msg) CheckNonce() bool             { return m.checkNonce }
+func (m Msg) BlobHashes() []ctypes.Hash     { return m.blobHashes }	

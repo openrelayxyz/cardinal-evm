@@ -12,6 +12,7 @@ import (
 	"github.com/openrelayxyz/cardinal-rpc"
 	"fmt"
 	"regexp"
+	"math/big"
 	"time"
 	log "github.com/inconshreveable/log15"
 )
@@ -42,10 +43,10 @@ type StreamManager struct{
 	chainid int64
 	lastBlockTime time.Time
 	processTime time.Duration
-	heightCh chan<- int64
+	heightCh chan<- *rpc.HeightRecord
 }
 
-func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, chainid int64, s storage.Storage, whitelist map[uint64]types.Hash, resumptionTime int64, heightCh chan<- int64 ) (*StreamManager, error) {
+func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, chainid int64, s storage.Storage, whitelist map[uint64]types.Hash, resumptionTime int64, heightCh chan<- *rpc.HeightRecord ) (*StreamManager, error) {
 	lastHash, lastNumber, lastWeight, resumption := s.LatestBlock()
 	trackedPrefixes := []*regexp.Regexp{
 		regexp.MustCompile("c/[0-9a-z]+/a/"),
@@ -96,6 +97,8 @@ func (m *StreamManager) Start() error {
 	reorgCh := make(chan map[int64]types.Hash)
 	m.sub = m.consumer.Subscribe(ch)
 	m.reorgSub = m.consumer.SubscribeReorg(reorgCh)
+	safeNumKey := fmt.Sprintf("c/%x/n/safe", m.chainid)
+	finalizedNumKey := fmt.Sprintf("c/%x/n/finalized", m.chainid)
 	go func() {
 		<-m.consumer.Ready()
 		m.ready <- struct{}{}
@@ -107,10 +110,18 @@ func (m *StreamManager) Start() error {
 			case update := <-ch:
 				start := time.Now()
 				added := update.Added()
+				var safeNum, finalizedNum *big.Int
 				for _, pb := range added {
 					updates := make([]storage.KeyValue, 0, len(pb.Values))
 					for k, v := range pb.Values {
-						updates = append(updates, storage.KeyValue{Key: []byte(k), Value: v})
+						switch k {
+						case safeNumKey:
+							safeNum = new(big.Int).SetBytes(v)
+						case finalizedNumKey:
+							finalizedNum = new(big.Int).SetBytes(v)
+						default:
+							updates = append(updates, storage.KeyValue{Key: []byte(k), Value: v})
+						}
 					}
 					deletes := make([][]byte, 0, len(pb.Deletes))
 					for k := range pb.Deletes {
@@ -143,7 +154,18 @@ func (m *StreamManager) Start() error {
 					}
 					blockAgeTimer.UpdateSince(*bt)
 				}
-				m.heightCh <- latest.Number
+				heightRecord := &rpc.HeightRecord{
+					Latest: latest.Number,
+				}
+				if safeNum != nil {
+					i := safeNum.Int64()
+					heightRecord.Safe = &i
+				}
+				if finalizedNum != nil {
+					i := finalizedNum.Int64()
+					heightRecord.Finalized = &i
+				}
+				m.heightCh <- heightRecord
 				log.Info("Imported new chain segment", params...)
 			case reorg := <-reorgCh:
 				for k := range reorg {

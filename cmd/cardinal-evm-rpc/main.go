@@ -14,10 +14,10 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-evm/streams"
 	"github.com/openrelayxyz/cardinal-types/metrics"
+	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-rpc/transports"
 	"github.com/openrelayxyz/cardinal-streams/delivery"
-	"github.com/openrelayxyz/cardinal-storage/current"
-	"github.com/openrelayxyz/cardinal-storage/db/badgerdb"
+	"github.com/openrelayxyz/cardinal-storage/resolver"
 	"github.com/savaki/cloudmetrics"
 	"github.com/pubnub/go-metrics-statsd"
 	"strconv"
@@ -29,7 +29,9 @@ func main() {
 	resumptionTime := flag.Int64("resumption.ts", -1, "Resume from a timestamp instead of the offset committed to the database")
 	blockRollback := flag.Int64("block.rollback", 0, "Rollback to block N before syncing. If N < 0, rolls back from head before starting or syncing.")
 	exitWhenSynced := flag.Bool("exitwhensynced", false, "Automatically shutdown after syncing is complete")
-	shanghaiTime := flag.Int64("shanghai.time", -1, "Override shanghai hardfork time")
+	initArchive := flag.Bool("init.archive", false, "When initializing from genesis, should this be an archival database?")
+	genesisJson := flag.String("init.genesis", "", "File containing genesis block JSON for database initialization")
+	shanghaiBlock := flag.Int64("shanghai.block", -1, "Override shanghai hardfork time")
 	debug := flag.Bool("debug", false, "Enable debug APIs")
 
 	flag.CommandLine.Parse(os.Args[1:])
@@ -61,10 +63,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	if *genesisJson != "" {
+		if err := genesisInit(cfg.DataDir, *genesisJson, *initArchive); err != nil {
+			log.Error("Error initializing", "err", err)
+			os.Exit(1)
+		}
+		log.Info("Initialization completed")
+	}
+
 	// TODO: Once Cardinal streams supports it, pass multiple brokers into the stream
 	broker := cfg.Brokers[0]
 
-	heightCh := make(chan int64, 1024)
+	heightCh := make(chan *rpc.HeightRecord, 1024)
 
 	tm := transports.NewTransportManager(cfg.Concurrency)
 	if cfg.HttpPort != 0 {
@@ -74,11 +84,7 @@ func main() {
 		tm.SetBlockWaitDuration(time.Duration(cfg.BlockWaitTime) * time.Millisecond)
 	}
 	tm.RegisterHeightFeed(heightCh)
-	db, err := badgerdb.New(cfg.DataDir)
-	if err != nil {
-		log.Error("Error opening badgerdb", "error", err)
-	}
-	s, err := current.Open(db, cfg.ReorgThreshold, cfg.whitelist)
+	s, err := resolver.ResolveStorage(cfg.DataDir, cfg.ReorgThreshold, cfg.whitelist)
 	if err != nil {
 		log.Error("Error opening current storage", "error", err, "datadir", cfg.DataDir)
 		os.Exit(1)
@@ -91,7 +97,6 @@ func main() {
 		if err := s.Rollback(uint64(*blockRollback)); err != nil {
 			log.Error("Rollback error", "err", err)
 			s.Close()
-			db.Close()
 			os.Exit(1)
 		}
 	}
@@ -99,11 +104,10 @@ func main() {
 	if !ok {
 		log.Error("Unsupported chainid", "chain", cfg.Chainid)
 		s.Close()
-		db.Close()
 		os.Exit(1)
 	}
-	if *shanghaiTime >= 0 {
-		chaincfg.ShanghaiTime = big.NewInt(*shanghaiTime)
+	if *shanghaiBlock >= 0 {
+		chaincfg.ShanghaiBlock = big.NewInt(*shanghaiBlock)
 	}
 	sm, err := streams.NewStreamManager(
 		cfg.brokers,
@@ -119,8 +123,8 @@ func main() {
 		os.Exit(1)
 	}
 	mgr := vm.NewEVMManager(s, cfg.Chainid, vm.Config{}, chaincfg)
-	tm.Register("eth", api.NewETHAPI(s, mgr, cfg.Chainid))
-	tm.Register("ethercattle", api.NewEtherCattleBlockChainAPI(mgr))
+	tm.Register("eth", api.NewETHAPI(s, mgr, cfg.Chainid, cfg.GasLimitOpts.RPCGasLimit()))
+	tm.Register("ethercattle", api.NewEtherCattleBlockChainAPI(mgr, cfg.GasLimitOpts.RPCGasLimit()))
 	tm.Register("web3", &api.Web3API{})
 	tm.Register("net", &api.NetAPI{chaincfg.NetworkID})
 	if broker.URL != "" && cfg.TransactionTopic != "" {
@@ -153,7 +157,6 @@ func main() {
 		sm.Close()
 		s.Vacuum(cfg.RollbackThreshold, time.Duration(cfg.VacuumTime) * time.Second)
 		s.Close()
-		db.Close()
 		if sm.Processed() == 0 {
 			log.Info("Shutting down without processing any messages.")
 			os.Exit(3)
@@ -236,11 +239,9 @@ func main() {
 		log.Error("Critical Error. Shutting down.", "error", err)
 		sm.Close()
 		s.Close()
-		db.Close()
 		os.Exit(1)
 	}
 	tm.Stop()
 	sm.Close()
 	s.Close()
-	db.Close()
 }

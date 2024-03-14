@@ -28,6 +28,7 @@ var (
 	log core.Logger
 	ready sync.WaitGroup
 	backend restricted.Backend
+	stack  core.Node
 	config *params.ChainConfig
 	chainid int64
 	producer transports.Producer
@@ -79,8 +80,9 @@ func strPtr(x string) *string {
 	return &x
 }
 
-func InitializeNode(stack core.Node, b restricted.Backend) {
+func InitializeNode(s core.Node, b restricted.Backend) {
 	backend = b
+	stack = s
 	defer ready.Done()
 	config = b.ChainConfig()
 	chainid = config.ChainID.Int64()
@@ -147,7 +149,12 @@ func InitializeNode(stack core.Node, b restricted.Backend) {
 			DefaultTopic: *defaultTopic,
 			Schema: schema,
 		})
+	} else if strings.HasPrefix(*brokerURL, "file://") {
+		brokers = append(brokers, transports.ProducerBrokerParams{
+			URL: *brokerURL,
+		})
 	}
+	log.Info("Producing to brokers", "brokers", brokers, "burl", *brokerURL)
 	producer, err = transports.ResolveMuxProducer(
 		brokers,
 		&resumer{},
@@ -325,6 +332,13 @@ func (*resumer) GetBlock(ctx context.Context, number uint64) (*delivery.PendingB
 		log.Warn("Error retrieving block", "number", number, "err", err)
 		return nil
 	}
+	if destructs == nil || accounts == nil || storage == nil || code == nil {
+		destructs, accounts, storage, code, err = stateTrieUpdatesByNumber(int64(number))
+		if err != nil {
+			log.Warn("Could not retrieve block state", "err", err)
+		}
+	}
+
 	hash := block.Hash()
 	weight, updates, deletes, _, batchUpdates := getUpdates(block, td, receipts, destructs, accounts, storage, code)
 	// Since we're just sending a single PendingBatch, we need to merge in
@@ -357,7 +371,11 @@ func (r *resumer) BlocksFrom(ctx context.Context, number uint64, hash ctypes.Has
 			if pb := r.GetBlock(ctx, i); pb != nil {
 				if pb.Number == int64(number) && (pb.Hash != hash) && !reset {
 					reset = true
-					i -= uint64(*reorgThreshold)
+					if int(i) < *reorgThreshold {
+						i = 0
+					} else {
+						i -= uint64(*reorgThreshold)
+					}
 					continue
 				}
 				select {
@@ -517,6 +535,8 @@ func (api *cardinalAPI) ReproduceBlocks(start restricted.BlockNumber, end *restr
 	if toBlock < 0 {
 		toBlock = int64(currentBlock)
 	}
+	oldStartBlock := startBlock
+	startBlock = 0
 	for i := fromBlock; i <= toBlock; i++ {
 		block, td, receipts, destructs, accounts, storage, code, err := api.blockUpdatesByNumber(i)
 		if err != nil {
@@ -524,6 +544,7 @@ func (api *cardinalAPI) ReproduceBlocks(start restricted.BlockNumber, end *restr
 		}
 		BlockUpdates(block, td, receipts, destructs, accounts, storage, code)
 	}
+	startBlock = oldStartBlock
 	return true, nil
 }
 

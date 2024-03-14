@@ -27,6 +27,7 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/state"
 	"github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/vm"
+	ctypes "github.com/openrelayxyz/cardinal-types"
 )
 
 /*
@@ -75,6 +76,7 @@ type Message interface {
 	CheckNonce() bool
 	Data() []byte
 	AccessList() types.AccessList
+	BlobHashes() []ctypes.Hash
 }
 
 // ExecutionResult includes all output after executing given evm
@@ -237,7 +239,7 @@ func (st *StateTransition) preCheck() error {
 		}
 	}
 	// Make sure that transaction gasFeeCap is greater than the baseFee (post london)
-	if st.evm.ChainConfig().IsLondon(st.evm.Context.BlockNumber) {
+	if st.evm.ChainConfig().IsLondon(st.evm.Context.BlockNumber) && st.evm.Context.BaseFee != nil {
 		// Skip the checks if gas fields are zero and baseFee was explicitly disabled (eth_call)
 		if !st.evm.Config.NoBaseFee || st.gasFeeCap.BitLen() > 0 || st.gasTipCap.BitLen() > 0 {
 			if l := st.gasFeeCap.BitLen(); l > 256 {
@@ -304,7 +306,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	sender := vm.AccountRef(msg.From())
 	homestead := st.evm.ChainConfig().IsHomestead(st.evm.Context.BlockNumber)
 	istanbul := st.evm.ChainConfig().IsIstanbul(st.evm.Context.BlockNumber)
-	shanghai := st.evm.ChainConfig().IsShanghai(st.evm.Context.Time)
+	shanghai := st.evm.ChainConfig().IsShanghai(st.evm.Context.Time, st.evm.Context.BlockNumber)
 	contractCreation := msg.To() == nil
 
 	// Check clauses 4-5, subtract intrinsic gas if everything is correct
@@ -350,8 +352,8 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		st.refundGas(params.RefundQuotientEIP3529)
 	}
 	effectiveTip := st.gasPrice
-	if st.evm.ChainConfig().IsLondon(st.evm.Context.BlockNumber) {
-		effectiveTip = cmath.BigMax(new(big.Int), cmath.BigMin(st.gasTipCap, new(big.Int).Sub(st.gasFeeCap, st.evm.Context.BaseFee)))
+	if st.evm.ChainConfig().IsLondon(st.evm.Context.BlockNumber) && st.evm.Context.BaseFee != nil {
+		effectiveTip = cmath.BigMin(st.gasTipCap, new(big.Int).Sub(st.gasFeeCap, st.evm.Context.BaseFee))
 	}
 	st.state.AddBalance(st.evm.Context.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), effectiveTip))
 

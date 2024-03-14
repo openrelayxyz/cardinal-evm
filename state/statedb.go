@@ -38,6 +38,7 @@ type stateDB struct {
 	tx         storage.Transaction
 	journal    []journalEntry
 	state      map[common.Address]*stateObject
+	transient map[common.Address]Storage
 	chainid    int64
 	refund     uint64
 	accessList *accessList
@@ -51,6 +52,7 @@ func NewStateDB(tx storage.Transaction, chainid int64) StateDB {
 		journal:    []journalEntry{},
 		chainid:    chainid,
 		accessList: newAccessList(),
+		transient:  make(map[common.Address]Storage),
 	}
 }
 
@@ -107,6 +109,7 @@ func (sdb *stateDB) Finalise() {
 		sobj.finalise()
 	}
 	sdb.accessList = newAccessList()
+	sdb.transient = make(map[common.Address]Storage)
 	sdb.refund = 0
 }
 
@@ -130,6 +133,7 @@ func (sdb *stateDB) CreateAccount(addr common.Address) {
 		account: &Account{},
 		dirty:   make(Storage),
 		clean:   make(Storage),
+		created: true,
 	}
 	sdb.journal = append(sdb.journal, journalEntry{&addr, func(sdb *stateDB) { sdb.state[addr] = prev }})
 	if !prev.deleted && !prev.suicided {
@@ -211,6 +215,23 @@ func (sdb *stateDB) SetState(addr common.Address, storage, data ctypes.Hash) {
 	sobj := sdb.getAccount(addr)
 	sdb.journal = append(sdb.journal, sobj.setState(crypto.Keccak256Hash(storage.Bytes()), data))
 }
+func (sdb *stateDB) SetTransientState(addr common.Address, storage, data ctypes.Hash) {
+	s, ok := sdb.transient[addr]
+	if !ok {
+		s = make(Storage)
+		sdb.transient[addr] = s
+	}
+	old := s[storage]
+	sdb.journal = append(sdb.journal, journalEntry{nil, func(sdb *stateDB) { sdb.transient[addr][storage] = old }})
+	s[storage] = data
+}
+func (sdb *stateDB) GetTransientState(addr common.Address, storage ctypes.Hash) ctypes.Hash {
+	s, ok := sdb.transient[addr]
+	if !ok {
+		return ctypes.Hash{}
+	}
+	return s[storage]
+}
 func (sdb *stateDB) SetStorage(addr common.Address, storage map[ctypes.Hash]ctypes.Hash) {
 	sobj := sdb.getAccount(addr)
 	sdb.journal = append(sdb.journal, sobj.setStorage(storage))
@@ -227,6 +248,13 @@ func (sdb *stateDB) Suicide(addr common.Address) bool {
 		sdb.journal = append(sdb.journal, *je)
 	}
 	return ok
+}
+func (sdb *stateDB) SelfDestruct6780(addr common.Address) {
+	sobj := sdb.getAccount(addr)
+	if sobj.created {
+		sdb.Suicide(addr)
+		return
+	}
 }
 func (sdb *stateDB) HasSuicided(addr common.Address) bool {
 	sobj := sdb.getAccount(addr)

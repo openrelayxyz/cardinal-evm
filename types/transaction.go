@@ -39,6 +39,7 @@ var (
 	ErrTxTypeNotSupported   = errors.New("transaction type not supported")
 	ErrGasFeeCapTooLow      = errors.New("fee cap less than base fee")
 	errEmptyTypedTx         = errors.New("empty typed transaction bytes")
+	errShortTypedTx         = errors.New("typed transaction too short")
 )
 
 // Transaction types.
@@ -46,6 +47,7 @@ const (
 	LegacyTxType = iota
 	AccessListTxType
 	DynamicFeeTxType
+	BlobTxType
 )
 
 // Transaction is an Ethereum transaction.
@@ -80,9 +82,14 @@ type TxData interface {
 	gasPrice() *big.Int
 	gasTipCap() *big.Int
 	gasFeeCap() *big.Int
+	blobGas() uint64
+	blobGasFeeCap() *big.Int
+	blobHashes() []ctypes.Hash
 	value() *big.Int
 	nonce() uint64
 	to() *common.Address
+	encode(*bytes.Buffer) error
+	decode([]byte) error
 
 	rawSignatureValues() (v, r, s *big.Int)
 	setSignatureValues(chainID, v, r, s *big.Int)
@@ -106,7 +113,7 @@ func (tx *Transaction) EncodeRLP(w io.Writer) error {
 // encodeTyped writes the canonical encoding of a typed transaction to w.
 func (tx *Transaction) encodeTyped(w *bytes.Buffer) error {
 	w.WriteByte(tx.Type())
-	return rlp.Encode(w, tx.inner)
+	return tx.inner.encode(w)
 }
 
 // MarshalBinary returns the canonical encoding of the transaction.
@@ -175,21 +182,22 @@ func (tx *Transaction) UnmarshalBinary(b []byte) error {
 
 // decodeTyped decodes a typed transaction from the canonical format.
 func (tx *Transaction) decodeTyped(b []byte) (TxData, error) {
-	if len(b) == 0 {
-		return nil, errEmptyTypedTx
+	if len(b) <= 1 {
+		return nil, errShortTypedTx
 	}
+	var inner TxData
 	switch b[0] {
 	case AccessListTxType:
-		var inner AccessListTx
-		err := rlp.DecodeBytes(b[1:], &inner)
-		return &inner, err
+		inner = new(AccessListTx)
 	case DynamicFeeTxType:
-		var inner DynamicFeeTx
-		err := rlp.DecodeBytes(b[1:], &inner)
-		return &inner, err
+		inner = new(DynamicFeeTx)
+	case BlobTxType:
+		inner = new(BlobTx)
 	default:
 		return nil, ErrTxTypeNotSupported
 	}
+	err := inner.decode(b[1:])
+	return inner, err
 }
 
 // setDecoded sets the inner transaction and size after decoding.
@@ -282,6 +290,14 @@ func (tx *Transaction) Value() *big.Int { return new(big.Int).Set(tx.inner.value
 // Nonce returns the sender account nonce of the transaction.
 func (tx *Transaction) Nonce() uint64 { return tx.inner.nonce() }
 
+// BlobGasFeeCap returns the fee cap per gas of the transaction.
+func (tx *Transaction) BlobGasFeeCap() *big.Int { return new(big.Int).Set(tx.inner.blobGasFeeCap()) }
+
+// BlobGas returns the blob gas of the transaction.
+func (tx *Transaction) BlobGas() uint64 { return tx.inner.blobGas() }
+
+func (tx *Transaction) BlobHashes() []ctypes.Hash { return tx.inner.blobHashes() }
+
 // To returns the recipient address of the transaction.
 // For contract-creation transactions, To returns nil.
 func (tx *Transaction) To() *common.Address {
@@ -294,12 +310,16 @@ func (tx *Transaction) To() *common.Address {
 	return &cpy
 }
 
-// Cost returns gas * gasPrice + value.
+// Cost returns (gas * gasPrice) + (blobGas * blobGasPrice) + value.
 func (tx *Transaction) Cost() *big.Int {
 	total := new(big.Int).Mul(tx.GasPrice(), new(big.Int).SetUint64(tx.Gas()))
+	if tx.Type() == BlobTxType {
+		total.Add(total, new(big.Int).Mul(tx.BlobGasFeeCap(), new(big.Int).SetUint64(tx.BlobGas())))
+	}
 	total.Add(total, tx.Value())
 	return total
 }
+
 
 // RawSignatureValues returns the V, R, S signature values of the transaction.
 // The return values should not be modified by the caller.
@@ -587,10 +607,11 @@ type Message struct {
 	gasTipCap  *big.Int
 	data       []byte
 	accessList AccessList
+	blobHashes []ctypes.Hash
 	isFake     bool
 }
 
-func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice, gasFeeCap, gasTipCap *big.Int, data []byte, accessList AccessList, isFake bool) Message {
+func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice, gasFeeCap, gasTipCap *big.Int, data []byte, accessList AccessList, blobHashes []ctypes.Hash, isFake bool) Message {
 	return Message{
 		from:       from,
 		to:         to,
@@ -602,6 +623,7 @@ func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *b
 		gasTipCap:  gasTipCap,
 		data:       data,
 		accessList: accessList,
+		blobHashes: blobHashes,
 		isFake:     isFake,
 	}
 }
@@ -618,6 +640,7 @@ func (tx *Transaction) AsMessage(s Signer, baseFee *big.Int) (Message, error) {
 		amount:     tx.Value(),
 		data:       tx.Data(),
 		accessList: tx.AccessList(),
+		blobHashes: tx.BlobHashes(),
 		isFake:     false,
 	}
 	// If baseFee provided, set gasPrice to effectiveGasPrice.
@@ -640,3 +663,13 @@ func (m Message) Nonce() uint64          { return m.nonce }
 func (m Message) Data() []byte           { return m.data }
 func (m Message) AccessList() AccessList { return m.accessList }
 func (m Message) IsFake() bool           { return m.isFake }
+func (m Message) BlobHashes() []ctypes.Hash { return m.blobHashes }
+
+// copyAddressPtr copies an address.
+func copyAddressPtr(a *common.Address) *common.Address {
+	if a == nil {
+		return nil
+	}
+	cpy := *a
+	return &cpy
+}

@@ -12,10 +12,11 @@ import (
 
 type EtherCattleBlockChainAPI struct {
 	evmmgr *vm.EVMManager
+	gasLimit RPCGasLimit
 }
 
-func NewEtherCattleBlockChainAPI(evmmgr *vm.EVMManager) *EtherCattleBlockChainAPI {
-	return &EtherCattleBlockChainAPI{evmmgr}
+func NewEtherCattleBlockChainAPI(evmmgr *vm.EVMManager, gasLimit RPCGasLimit) *EtherCattleBlockChainAPI {
+	return &EtherCattleBlockChainAPI{evmmgr: evmmgr, gasLimit: gasLimit}
 }
 
 // EstimateGasList returns an estimate of the amount of gas needed to execute list of
@@ -29,7 +30,7 @@ func (s *EtherCattleBlockChainAPI) EstimateGasList(ctx *rpc.CallContext, argsLis
 			gas       hexutil.Uint64
 			err       error
 			stateData = &PreviousState{statedb, header}
-			gasCap    = header.GasLimit * 2
+			gasCap    = s.gasLimit(header)
 		)
 		for idx, args := range argsList {
 			gas, stateData, err = DoEstimateGas(ctx, evmFn, args, stateData, blockNrOrHash, gasCap, fast, nil)
