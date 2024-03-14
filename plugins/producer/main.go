@@ -240,7 +240,7 @@ func InitializeNode(s core.Node, b restricted.Backend) {
 				}
 			}
 		}
-		if *txPoolTopic != "" {
+		if *txPoolTopic != "" && *txPoolTopicV2 != ""{
 			go func() {
 				// TODO: we should probably do something within Cardinal streams to
 				// generalize this so it's not Kafka specific and can work with other
