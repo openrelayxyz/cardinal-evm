@@ -45,16 +45,28 @@ func gokzgInit() {
 	}
 }
 
-// gokzgBlobToCommitment creates a small commitment out of a data blob.
-func gokzgBlobToCommitment(blob Blob) (Commitment, error) {
-	gokzgIniter.Do(gokzgInit)
+// // gokzgBlobToCommitment creates a small commitment out of a data blob.
+// func gokzgBlobToCommitment(blob Blob) (Commitment, error) {
+// 	gokzgIniter.Do(gokzgInit)
 
-	commitment, err := context.BlobToKZGCommitment((gokzg4844.Blob)(blob), 0)
+// 	commitment, err := context.BlobToKZGCommitment((gokzg4844.Blob)(blob), 0)
+// 	if err != nil {
+// 		return Commitment{}, err
+// 	}
+// 	return (Commitment)(commitment), nil
+// }
+
+// ckzgBlobToCommitment creates a small commitment out of a data blob.
+func ckzgBlobToCommitment(blob *Blob) (Commitment, error) {
+	ckzgIniter.Do(ckzgInit)
+
+	commitment, err := ckzg4844.BlobToKZGCommitment((*ckzg4844.Blob)(blob))
 	if err != nil {
 		return Commitment{}, err
 	}
 	return (Commitment)(commitment), nil
 }
+
 
 // gokzgComputeProof computes the KZG proof at the given point for the polynomial
 // represented by the blob.
