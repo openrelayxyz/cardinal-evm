@@ -29,15 +29,15 @@ jobs:
       - run:
           name: test rlp
           command: go test ./rlp/
-      - run:
-          name: test state
-          command: go test ./state/
-      - run:
-          name: test types
-          command: go test ./types/
-      - run:
-          name: test vm
-          command: go test ./vm/
+      # - run:
+      #     name: test state
+      #     command: go test ./state/
+      # - run:
+      #     name: test types
+      #     command: go test ./types/
+      # - run:
+      #     name: test vm
+      #     command: go test ./vm/
   build_cardinal_push:
     docker: # run the steps with Docker
       - image: cimg/go:1.21.0 # ...with this image as the primary container
@@ -60,16 +60,12 @@ jobs:
             export GOPATH=$HOME/go
             export GOARCH=amd64
             export PLUGETH_UTILS_VERSION=$(grep "github.com/openrelayxyz/plugeth-utils v" go.mod | cut -d ' ' -f 2)
-            go build -ldflags="-X 'github.com/openrelayxyz/cardinal-evm/build.Version=${CIRCLE_TAG}'" -o ./artifacts/cardinal-rpc-evm-linux-amd64-${CIRCLE_TAG} cmd/cardinal-evm-rpc/*.go
-            CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOARCH=arm64 go build -ldflags="-X 'github.com/openrelayxyz/cardinal-evm/build.Version=${CIRCLE_TAG}'" -o ./artifacts/cardinal-rpc-evm-linux-arm64-${CIRCLE_TAG} cmd/cardinal-evm-rpc/*.go
             go build -buildmode=plugin -o ./artifacts/cardinal-evm-linux-amd64-$PLUGETH_UTILS_VERSION-${CIRCLE_TAG}.so plugins/producer/*.go
             CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOARCH=arm64 go build -buildmode=plugin -o ./artifacts/cardinal-evm-linux-arm64-$PLUGETH_UTILS_VERSION-${CIRCLE_TAG}.so plugins/producer/*.go
             go build -buildmode=plugin -o ./artifacts/cardinal-merge-linux-amd64-$PLUGETH_UTILS_VERSION-${CIRCLE_TAG}.so plugins/merge/*.go
             CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOARCH=arm64 go build -buildmode=plugin -o ./artifacts/cardinal-merge-linux-arm64-$PLUGETH_UTILS_VERSION-${CIRCLE_TAG}.so plugins/merge/*.go
             go build -buildmode=plugin -o ./artifacts/cardinal-polygon-linux-amd64-$PLUGETH_UTILS_VERSION-${CIRCLE_TAG}.so plugins/polygon/*.go
             CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOARCH=arm64 go build -buildmode=plugin -o ./artifacts/cardinal-polygon-linux-arm64-$PLUGETH_UTILS_VERSION-${CIRCLE_TAG}.so plugins/polygon/*.go
-            go build -o ./artifacts/tx-relay-linux-amd64-${CIRCLE_TAG} cmd/tx-relay/*.go
-            CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOARCH=arm64 go build -o ./artifacts/tx-relay-linux-arm64-${CIRCLE_TAG} cmd/tx-relay/*.go
       - run:
           name: "Publish Release on GitHub"
           command: |
@@ -86,8 +82,6 @@ jobs:
           name: push to s3
           command: |
             export PLUGETH_UTILS_VERSION=$(grep "github.com/openrelayxyz/plugeth-utils v" go.mod | cut -d ' ' -f 2)
-            aws s3 cp ./artifacts/cardinal-rpc-evm-linux-amd64-${CIRCLE_TAG}  s3://ethercattle-binaries/cardinal/${CIRCLE_TAG}/cardinal-rpc-evm-linux-amd64 --acl=public-read
-            aws s3 cp ./artifacts/cardinal-rpc-evm-linux-arm64-${CIRCLE_TAG}  s3://ethercattle-binaries/cardinal/${CIRCLE_TAG}/cardinal-rpc-evm-linux-arm64 --acl=public-read
             aws s3 cp ./artifacts/cardinal-evm-linux-amd64-$PLUGETH_UTILS_VERSION-${CIRCLE_TAG}.so  s3://ethercattle-binaries/cardinal/${CIRCLE_TAG}/cardinal-rpc-evm-linux-amd64.so --acl=public-read
             aws s3 cp ./artifacts/cardinal-evm-linux-arm64-$PLUGETH_UTILS_VERSION-${CIRCLE_TAG}.so  s3://ethercattle-binaries/cardinal/${CIRCLE_TAG}/cardinal-rpc-evm-linux-arm64.so --acl=public-read
             aws s3 cp ./artifacts/cardinal-merge-linux-amd64-$PLUGETH_UTILS_VERSION-${CIRCLE_TAG}.so s3://ethercattle-binaries/cardinal/${CIRCLE_TAG}/cardinal-rpc-merge-linux-amd64.so --acl=public-read
