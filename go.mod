@@ -14,9 +14,9 @@ require (
 	github.com/holiman/uint256 v1.2.4
 	github.com/inconshreveable/log15 v0.0.0-20201112154412-8562bdadbbac
 	github.com/jedisct1/go-minisign v0.0.0-20230811132847-661be99b8267
-	github.com/openrelayxyz/cardinal-rpc v1.2.0
-	github.com/openrelayxyz/cardinal-storage v1.2.2
-	github.com/openrelayxyz/cardinal-streams v1.4.1
+	github.com/openrelayxyz/cardinal-rpc v1.2.1
+	github.com/openrelayxyz/cardinal-storage v1.3.0-waiter0
+	github.com/openrelayxyz/cardinal-streams v1.5.0-waiter1
 	github.com/openrelayxyz/cardinal-types v1.1.1
 	github.com/openrelayxyz/plugeth-utils v1.5.0
 	github.com/pubnub/go-metrics-statsd v0.0.0-20170124014003-7da61f429d6b
@@ -89,4 +89,3 @@ require (
 )
 
 replace github.com/dgraph-io/ristretto v0.1.0 => github.com/46bit/ristretto v0.1.0-with-arm-fix
-replace github.com/openrelayxyz/cardinal-streams => /home/aroberts/Projects/rivet/cardinal/cardinal-streams

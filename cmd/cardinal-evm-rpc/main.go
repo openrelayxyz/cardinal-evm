@@ -122,7 +122,8 @@ func main() {
 		log.Error("Error connecting streams", "err", err)
 		os.Exit(1)
 	}
-	mgr := vm.NewEVMManager(s, cfg.Chainid, vm.Config{}, chaincfg, sm.Waiter())
+	s.RegisterWaiter(sm.Waiter(), time.Duration(cfg.BlockWaitTime) * time.Millisecond)
+	mgr := vm.NewEVMManager(s, cfg.Chainid, vm.Config{}, chaincfg)
 	tm.Register("eth", api.NewETHAPI(s, mgr, cfg.Chainid, cfg.GasLimitOpts.RPCGasLimit()))
 	tm.Register("ethercattle", api.NewEtherCattleBlockChainAPI(mgr, cfg.GasLimitOpts.RPCGasLimit()))
 	tm.Register("web3", &api.Web3API{})
