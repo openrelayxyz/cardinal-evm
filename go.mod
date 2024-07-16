@@ -89,3 +89,4 @@ require (
 )
 
 replace github.com/dgraph-io/ristretto v0.1.0 => github.com/46bit/ristretto v0.1.0-with-arm-fix
+replace github.com/openrelayxyz/cardinal-streams => /home/aroberts/Projects/rivet/cardinal/cardinal-streams

@@ -3,6 +3,7 @@ package streams
 import (
 	"github.com/openrelayxyz/cardinal-streams/delivery"
 	"github.com/openrelayxyz/cardinal-streams/transports"
+	"github.com/openrelayxyz/cardinal-streams/waiter"
 	"github.com/openrelayxyz/cardinal-storage"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/metrics"
@@ -141,7 +142,6 @@ func (m *StreamManager) Start() error {
 						heightGauge.Update(pb.Number)
 						m.processed++
 					}
-					pb.Done()
 				}
 				latest := added[len(added) - 1]
 				processTimer.UpdateSince(start)
@@ -165,6 +165,7 @@ func (m *StreamManager) Start() error {
 					i := finalizedNum.Int64()
 					heightRecord.Finalized = &i
 				}
+				update.Done()
 				m.heightCh <- heightRecord
 				log.Info("Imported new chain segment", params...)
 			case reorg := <-reorgCh:
@@ -185,6 +186,10 @@ func (m *StreamManager) Close() {
 	m.sub.Unsubscribe()
 	m.reorgSub.Unsubscribe()
 	m.consumer.Close()
+}
+
+func (m *StreamManager) Waiter() waiter.Waiter {
+	return m.consumer.Waiter()
 }
 
 func (m *StreamManager) API() *api {
