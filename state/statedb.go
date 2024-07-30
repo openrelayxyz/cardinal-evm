@@ -86,12 +86,17 @@ func (sdb *stateDB) Copy() StateDB {
 	for addr, sobj := range sdb.state {
 		state[addr] = sobj.copy()
 	}
+	transient := make(map[common.Address]Storage)
+	for addr, sobj := range sdb.transient {
+		transient[addr] = sobj
+	}
 	journal := make([]journalEntry, len(sdb.journal))
 	copy(journal[:], sdb.journal[:])
 	return &stateDB{
 		tx:         sdb.tx,
 		journal:    journal,
 		state:      state,
+		transient:  transient,
 		chainid:    sdb.chainid,
 		refund:     sdb.refund,
 		accessList: sdb.accessList.Copy(),
