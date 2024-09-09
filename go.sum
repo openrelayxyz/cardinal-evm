@@ -176,10 +176,10 @@ github.com/mschoch/smat v0.2.0/go.mod h1:kc9mz7DoBKqDyiRL7VZN8KvXQMWeTaVnttLRXOl
 github.com/openrelayxyz/cardinal-rpc v1.1.0/go.mod h1:UZ5KxcsG51ZMBHvLpaDoIReyHpGfGTkazuSKh8Lx4q8=
 github.com/openrelayxyz/cardinal-rpc v1.2.1 h1:3RHYuP1prOHASXCvSMwJ7G2htNBRMSqPrDkdQDzR1dw=
 github.com/openrelayxyz/cardinal-rpc v1.2.1/go.mod h1:dvM++vpmtimrfMovrxoFG4n0x54IXFRfPe2w8HmtoJU=
-github.com/openrelayxyz/cardinal-storage v1.3.0-waiter0 h1:R5zgy1hC6Yc1NoXlTHda49BoxslAKBweiVjWLoy+oNM=
-github.com/openrelayxyz/cardinal-storage v1.3.0-waiter0/go.mod h1:DYk9/5Pw1AG8rYQsexVsR8vnrMiA8K/pEtmOw3bs8n8=
-github.com/openrelayxyz/cardinal-streams v1.5.0-waiter1 h1:GBQW+RRym+A38XxGBs53Neh2jXNrkdYSlQyqLBn7MKc=
-github.com/openrelayxyz/cardinal-streams v1.5.0-waiter1/go.mod h1:c1I8beZ/p0dfSiDbIGSFN+EMgniRLWq6yKJZgo9yqaQ=
+github.com/openrelayxyz/cardinal-storage v1.3.0 h1:1OZzxht6he41HYG3To95G10Uuq8aYETCbsraS4aY9sI=
+github.com/openrelayxyz/cardinal-storage v1.3.0/go.mod h1:DYk9/5Pw1AG8rYQsexVsR8vnrMiA8K/pEtmOw3bs8n8=
+github.com/openrelayxyz/cardinal-streams v1.5.0 h1:QWf5FLwu0EZmkyHZaZbSXjpHwtGcD1puzsoty145IHc=
+github.com/openrelayxyz/cardinal-streams v1.5.0/go.mod h1:c1I8beZ/p0dfSiDbIGSFN+EMgniRLWq6yKJZgo9yqaQ=
 github.com/openrelayxyz/cardinal-types v1.0.0/go.mod h1:4CzsdfRjAWXeOszcXbUuNNjEP7ZR8Np8RO3FO5TFA6E=
 github.com/openrelayxyz/cardinal-types v1.1.1 h1:Lw6Lr/eiHYCnLi851rciCzw/1S3UytUX7kj5zh3QS/Y=
 github.com/openrelayxyz/cardinal-types v1.1.1/go.mod h1:8aaMg6i94V0hhWe3V6Fzc0RSggMx+/Kabsf5o7wMf/E=

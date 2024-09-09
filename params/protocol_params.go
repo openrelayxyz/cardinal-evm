@@ -124,6 +124,7 @@ const (
 	InitialBaseFee           = 1000000000 // Initial base fee for EIP-1559 blocks.
 
 	MaxCodeSize = 24576 // Maximum bytecode to permit for a contract
+	MaxCodeSizePIP30 = 32768
 	MaxInitCodeSize = 2 * MaxCodeSize // Maximum initcode to permit in a creation transaction and create instructions
 	
 
