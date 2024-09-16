@@ -231,6 +231,34 @@ var (
 		ShanghaiBlock:       big.NewInt(50523000),
 		CancunBlock:         big.NewInt(54876000),
 		NapoliBlock:         big.NewInt(54876000),
+		Pip30Block:          big.NewInt(62278656),
+		Engine:              BorEngine,
+		DisableOpcodes:      []int{
+			0x49, // BLOBHASH
+			0x4a, // BLOBBASEFEE
+		},
+	}
+	// BorAmoyChainConfig contains the chain parameters to run a node on the Görli test network.
+	BorAmoyChainConfig = &ChainConfig{
+		ChainID:             big.NewInt(80002),
+		NetworkID:           big.NewInt(80002),
+		HomesteadBlock:      big.NewInt(0),
+		DAOForkBlock:        nil,
+		DAOForkSupport:      true,
+		EIP150Block:         big.NewInt(0),
+		EIP155Block:         big.NewInt(0),
+		EIP158Block:         big.NewInt(0),
+		ByzantiumBlock:      big.NewInt(0),
+		ConstantinopleBlock: big.NewInt(0),
+		PetersburgBlock:     big.NewInt(0),
+		IstanbulBlock:       big.NewInt(0),
+		MuirGlacierBlock:    big.NewInt(0),
+		BerlinBlock:         big.NewInt(0),
+		LondonBlock:         big.NewInt(73100),
+		ShanghaiBlock:       big.NewInt(73100),
+		CancunBlock:         big.NewInt(5423600),
+		NapoliBlock:         big.NewInt(5423600),
+		Pip30Block:          big.NewInt(11865856),
 		Engine:              BorEngine,
 		DisableOpcodes:      []int{
 			0x49, // BLOBHASH
@@ -308,6 +336,7 @@ var ChainLookup = map[int64]*ChainConfig{
 	137: BorMainnetChainConfig,
 	17000: HoleskyChainConfig,
 	80001: BorMumbaiChainConfig,
+	80002: BorAmoyChainConfig,
 	1337802: KilnChainConfig,
 	11155111: SepoliaChainConfig,
 }
