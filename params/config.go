@@ -231,6 +231,34 @@ var (
 		ShanghaiBlock:       big.NewInt(50523000),
 		CancunBlock:         big.NewInt(54876000),
 		NapoliBlock:         big.NewInt(54876000),
+		Pip30Block:          big.NewInt(62278656),
+		Engine:              BorEngine,
+		DisableOpcodes:      []int{
+			0x49, // BLOBHASH
+			0x4a, // BLOBBASEFEE
+		},
+	}
+	// BorAmoyChainConfig contains the chain parameters to run a node on the Görli test network.
+	BorAmoyChainConfig = &ChainConfig{
+		ChainID:             big.NewInt(80002),
+		NetworkID:           big.NewInt(80002),
+		HomesteadBlock:      big.NewInt(0),
+		DAOForkBlock:        nil,
+		DAOForkSupport:      true,
+		EIP150Block:         big.NewInt(0),
+		EIP155Block:         big.NewInt(0),
+		EIP158Block:         big.NewInt(0),
+		ByzantiumBlock:      big.NewInt(0),
+		ConstantinopleBlock: big.NewInt(0),
+		PetersburgBlock:     big.NewInt(0),
+		IstanbulBlock:       big.NewInt(0),
+		MuirGlacierBlock:    big.NewInt(0),
+		BerlinBlock:         big.NewInt(0),
+		LondonBlock:         big.NewInt(73100),
+		ShanghaiBlock:       big.NewInt(73100),
+		CancunBlock:         big.NewInt(5423600),
+		NapoliBlock:         big.NewInt(5423600),
+		Pip30Block:          big.NewInt(11865856),
 		Engine:              BorEngine,
 		DisableOpcodes:      []int{
 			0x49, // BLOBHASH
@@ -286,16 +314,16 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, ETHashEngine}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, ETHashEngine}
 
 	// AllCliqueProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Clique consensus.
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, big.NewInt(0), nil, nil, nil, nil, nil, nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}, nil, CliqueEngine}
+	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, big.NewInt(0), nil, nil, nil, nil, nil, nil, nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}, nil, CliqueEngine}
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, big.NewInt(0), nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, ETHashEngine}
+	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, big.NewInt(0), nil, nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, ETHashEngine}
 	TestRules       = TestChainConfig.Rules(new(big.Int), false, new(big.Int))
 )
 
@@ -308,6 +336,7 @@ var ChainLookup = map[int64]*ChainConfig{
 	137: BorMainnetChainConfig,
 	17000: HoleskyChainConfig,
 	80001: BorMumbaiChainConfig,
+	80002: BorAmoyChainConfig,
 	1337802: KilnChainConfig,
 	11155111: SepoliaChainConfig,
 }
@@ -343,6 +372,7 @@ type ChainConfig struct {
 	ShanghaiBlock       *big.Int `json:"shanghaiBlock,omitempty"`       // Shanghai switch block (nil = no fork, 0 = already on london)
 	CancunBlock         *big.Int `json:"cancunBlock,omitempty"`         // Cancun switch block (nil = no fork, 0 = already on london)
 	NapoliBlock         *big.Int `json:"napoliBlock,omitempty"`         // Napoli switch block (nil = no fork, 0 = already on london)
+	Pip30Block          *big.Int `json:"pip30Block,omitempty"`          // Pip30 switch block (nil = no fork, 0 = already on london)
 
 	ShanghaiTime *big.Int `json:"shanghaiTime,omitempty"` // Shanghai switch time (nil = no fork, 0 = already on shanghai)
 	CancunTime   *big.Int `json:"cancunTime,omitempty"`   // Cancun switch time (nil = no fork, 0 = already on cancun)
@@ -499,6 +529,11 @@ func (c *ChainConfig) IsCancun(time, block *big.Int) bool {
 // IsNapoli returns whether num is either equal to the Napoli fork time or greater.
 func (c *ChainConfig) IsNapoli(block *big.Int) bool {
 	return isBlockForked(c.NapoliBlock, block)
+}
+
+// IsPip30 returns whether num is either equal to the Pip30 fork time or greater.
+func (c *ChainConfig) IsPip30(block *big.Int) bool {
+	return isBlockForked(c.Pip30Block, block)
 }
 
 // IsPrague returns whether num is either equal to the Prague fork time or greater.
@@ -798,7 +833,8 @@ type Rules struct {
 	IsHomestead, IsEIP150, IsEIP155, IsEIP158               bool
 	IsByzantium, IsConstantinople, IsPetersburg, IsIstanbul bool
 	IsBerlin, IsLondon                                      bool
-	IsMerge, IsShanghai, IsCancun, IsNapoli, isPrague       bool
+	IsMerge, IsShanghai, IsCancun, IsNapoli, IsPip30        bool
+	isPrague                                                bool
 }
 
 // Rules ensures c's ChainID is not nil.
@@ -823,6 +859,7 @@ func (c *ChainConfig) Rules(num *big.Int, isMerge bool, timestamp *big.Int) Rule
 		IsShanghai:       c.IsShanghai(timestamp, num),
 		IsCancun:         c.IsCancun(timestamp, num),
 		IsNapoli:         c.IsNapoli(num),
+		IsPip30:          c.IsPip30(num),
 		isPrague:         c.IsPrague(timestamp),
 	}
 }
