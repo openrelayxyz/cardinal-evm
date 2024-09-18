@@ -1,9 +1,9 @@
 package streams
 
 import (
-	"github.com/openrelayxyz/cardinal-streams/delivery"
-	"github.com/openrelayxyz/cardinal-streams/transports"
-	"github.com/openrelayxyz/cardinal-streams/waiter"
+	"github.com/openrelayxyz/cardinal-streams/v2/delivery"
+	"github.com/openrelayxyz/cardinal-streams/v2/transports"
+	"github.com/openrelayxyz/cardinal-streams/v2/waiter"
 	"github.com/openrelayxyz/cardinal-storage"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/metrics"
@@ -47,7 +47,7 @@ type StreamManager struct{
 	heightCh chan<- *rpc.HeightRecord
 }
 
-func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, chainid int64, s storage.Storage, whitelist map[uint64]types.Hash, resumptionTime int64, heightCh chan<- *rpc.HeightRecord ) (*StreamManager, error) {
+func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, chainid int64, s storage.Storage, whitelist map[uint64]types.Hash, resumptionTime int64, heightCh chan<- *rpc.HeightRecord, failedReconstructPanic bool) (*StreamManager, error) {
 	lastHash, lastNumber, lastWeight, resumption := s.LatestBlock()
 	trackedPrefixes := []*regexp.Regexp{
 		regexp.MustCompile("c/[0-9a-z]+/a/"),
@@ -79,7 +79,15 @@ func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, ch
 		}
 	}
 	var err error
-	consumer, err = transports.ResolveMuxConsumer(brokerParams, resumption, int64(lastNumber), lastHash, lastWeight, reorgThreshold, trackedPrefixes, whitelist)
+	consumer, err = transports.ResolveMuxConsumer(brokerParams, resumption, &delivery.ConsumerConfig{
+		LastEmittedNum: int64(lastNumber), 
+		LastHash: lastHash, 
+		LastWeight: lastWeight, 
+		ReorgThreshold: reorgThreshold, 
+		TrackedPrefixes: trackedPrefixes, 
+		Whitelist: whitelist,
+		FailedReconstructPanic: failedReconstructPanic,
+	})
 	if err != nil { return nil, err }
 	return &StreamManager{
 		consumer: consumer,

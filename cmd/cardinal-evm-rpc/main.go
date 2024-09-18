@@ -16,7 +16,7 @@ import (
 	"github.com/openrelayxyz/cardinal-types/metrics"
 	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-rpc/transports"
-	"github.com/openrelayxyz/cardinal-streams/delivery"
+	"github.com/openrelayxyz/cardinal-streams/v2/delivery"
 	"github.com/openrelayxyz/cardinal-storage/resolver"
 	"github.com/savaki/cloudmetrics"
 	"github.com/pubnub/go-metrics-statsd"
@@ -117,6 +117,7 @@ func main() {
 		cfg.whitelist,
 		*resumptionTime,
 		heightCh,
+		*exitWhenSynced,
 	)
 	if err != nil {
 		log.Error("Error connecting streams", "err", err)

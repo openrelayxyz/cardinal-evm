@@ -5,7 +5,7 @@ import (
 	// "fmt"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	"github.com/openrelayxyz/cardinal-evm/types"
-	"github.com/openrelayxyz/cardinal-streams/transports"
+	"github.com/openrelayxyz/cardinal-streams/v2/transports"
 	"strings"
 	// log "github.com/inconshreveable/log15"
 )
