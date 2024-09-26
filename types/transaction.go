@@ -298,6 +298,15 @@ func (tx *Transaction) BlobGas() uint64 { return tx.inner.blobGas() }
 
 func (tx *Transaction) BlobHashes() []ctypes.Hash { return tx.inner.blobHashes() }
 
+// BlobTxSidecar returns the sidecar of a blob transaction, nil otherwise.
+func (tx *Transaction) BlobTxSidecar() *BlobTxSidecar {
+	if blobtx, ok := tx.inner.(*BlobTx); ok {
+		return blobtx.Sidecar
+	}
+	return nil
+}
+
+
 // To returns the recipient address of the transaction.
 // For contract-creation transactions, To returns nil.
 func (tx *Transaction) To() *common.Address {
