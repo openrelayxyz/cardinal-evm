@@ -72,9 +72,6 @@ func NewEVMInterpreter(evm *EVM, cfg Config) *EVMInterpreter {
 			cfg.JumpTable = &cancunInstructionSet
 		case evm.chainRules.IsShanghai:
 			cfg.JumpTable = &shanghaiInstructionSet
-			if !evm.chainRules.IsMerge {
-				cfg.JumpTable[RANDOM] = frontierInstructionSet[DIFFICULTY]
-			}
 		case evm.chainRules.IsMerge:
 			cfg.JumpTable = &mergeInstructionSet
 		case evm.chainRules.IsLondon:
@@ -95,6 +92,9 @@ func NewEVMInterpreter(evm *EVM, cfg Config) *EVMInterpreter {
 			cfg.JumpTable = &homesteadInstructionSet
 		default:
 			cfg.JumpTable = &frontierInstructionSet
+		}
+		if evm.chainRules.IsShanghai && !evm.chainRules.IsMerge {
+			cfg.JumpTable[RANDOM] = frontierInstructionSet[DIFFICULTY]
 		}
 		for _, op := range evm.chainConfig.DisableOpcodes {
 			cfg.JumpTable[op] = &operation{execute: opUndefined, maxStack: maxStack(0, 0)}
