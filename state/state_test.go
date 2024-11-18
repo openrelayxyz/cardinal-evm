@@ -4,6 +4,7 @@ import (
 	// "fmt"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
+	etypes "github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	"github.com/openrelayxyz/cardinal-storage"
 	"github.com/openrelayxyz/cardinal-types"
@@ -90,6 +91,32 @@ func TestPreLoadedSnapshot(t *testing.T) {
 		if v := sdb.GetCommittedState(stateobjaddr, storageaddr); v != data3 {
 			t.Errorf("wrong updated committed storage value %v, want %v", v, data3)
 		}
+		return nil
+	}); err != nil {
+		t.Errorf(err.Error())
+	}
+}
+func TestLogs(t *testing.T) {
+	if err := testWithStateDB(func(tx storage.Transaction, sdb StateDB) error {
+		sdb.AddLog(&etypes.Log{
+			Address: common.BytesToAddress([]byte("aa")),
+			Topics: []types.Hash{types.Hash{}},
+			Data: []byte("bb"),
+		})
+		if len(sdb.GetLogs(types.Hash{}, 0, types.Hash{})) != 0 {
+			t.Errorf("Got unexpected logs")
+		}
+		txhash := types.BytesToHash([]byte("11"))
+		sdb.SetTxContext(txhash, 0)
+		sdb.AddLog(&etypes.Log{
+			Address: common.BytesToAddress([]byte("aa")),
+			Topics: []types.Hash{types.Hash{}},
+			Data: []byte("bb"),
+		})
+		if c := len(sdb.GetLogs(txhash, 0, types.Hash{})); c != 1 {
+			t.Errorf("Got unexpected log count %v != 1", c)
+		}
+
 		return nil
 	}); err != nil {
 		t.Errorf(err.Error())

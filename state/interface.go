@@ -67,6 +67,8 @@ type StateDB interface {
 	ALCalcCopy() StateDB
 	Finalise()
 	Delta() map[common.Address]*Delta
+	SetTxContext(thash ctypes.Hash, ti int) 
+	GetLogs(hash ctypes.Hash, blockNumber uint64, blockHash ctypes.Hash) []*types.Log 
 
 	// ForEachStorage(common.Address, func(ctypes.Hash, ctypes.Hash) bool) error
 }
