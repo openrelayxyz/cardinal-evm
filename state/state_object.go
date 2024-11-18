@@ -23,8 +23,9 @@ func (s Storage) Copy() Storage {
 }
 
 type codeEntry struct {
-	code []byte
-	hash types.Hash
+	code  []byte
+	hash  types.Hash
+	dirty bool
 }
 
 func (c *codeEntry) getHash() types.Hash {
@@ -44,8 +45,10 @@ type stateObject struct {
 	created      bool
 	suicided     bool
 	deleted      bool
-	nonce        *uint64
-	fakeBalance  *big.Int
+	dirtyNonce   *uint64
+	cleanNonce   *uint64
+	dirtyBalance *big.Int
+	cleanBalance *big.Int
 }
 
 func (s *stateObject) kv(chainid int64) []storage.KeyValue {
@@ -75,7 +78,7 @@ func (s *stateObject) kv(chainid int64) []storage.KeyValue {
 }
 
 func (s *stateObject) equal(b *stateObject) bool {
-	if s.address != b.address || s.balanceDelta.Cmp(b.balanceDelta) != 0 || len(s.clean) != len(b.clean) || s.suicided != b.suicided || s.deleted != b.deleted || *s.nonce != *b.nonce {
+	if s.address != b.address || s.balanceDelta.Cmp(b.balanceDelta) != 0 || len(s.clean) != len(b.clean) || s.suicided != b.suicided || s.deleted != b.deleted || *s.dirtyNonce != *b.dirtyNonce {
 		return false
 	}
 	if s.account != nil && b.account != nil {
@@ -125,19 +128,60 @@ func (s *stateObject) copy() *stateObject {
 	if s.balanceDelta != nil {
 		state.balanceDelta = new(big.Int).Set(s.balanceDelta)
 	}
-	if s.nonce != nil {
-		state.nonce = &(*s.nonce)
+	if s.cleanBalance != nil {
+		state.cleanBalance = new(big.Int).Set(s.cleanBalance)
+	}
+	if s.dirtyBalance != nil {
+		state.dirtyBalance = new(big.Int).Set(s.dirtyBalance)
+	}
+	if s.dirtyNonce != nil {
+		state.dirtyNonce = &(*s.dirtyNonce)
+	}
+	if s.cleanNonce != nil {
+		state.cleanNonce = &(*s.cleanNonce)
 	}
 	return state
+}
+
+func (s *stateObject) delta() *Delta {
+	storage := s.dirty
+	var balance *big.Int
+	if s.balanceDelta != nil || s.dirtyBalance != nil {
+		balance = s.getBalance()
+	}
+	var code []byte
+	if s.code != nil && s.code.dirty {
+		code = s.code.code
+	}
+	if len(storage) > 0 || balance != nil || code != nil || s.dirtyNonce != nil {
+		return &Delta{
+			Balance: balance,
+			Nonce: s.dirtyNonce,
+			Storage: storage,
+			Code: code,
+		}
+	}
+	return nil
 }
 
 func (s *stateObject) finalise() {
 	for k, v := range s.dirty {
 		s.clean[k] = v
 	}
+	s.dirty = make(Storage)
 	if s.suicided {
 		s.deleted = true
 	}
+	if s.code != nil {
+		s.code.dirty = false
+	}
+	if s.dirtyNonce != nil {
+		s.cleanNonce = s.dirtyNonce
+		s.dirtyNonce = nil
+	}
+	s.cleanBalance = s.getBalance()
+	s.dirtyBalance = nil
+	s.balanceDelta = nil
 }
 
 func (s *stateObject) loadAccount(tx storage.Transaction, chainid int64) bool {
@@ -211,31 +255,41 @@ func (s *stateObject) addBalance(amount *big.Int) journalEntry {
 	}}
 }
 
+func (s *stateObject) getCommittedBalance() *big.Int {
+	if s.cleanBalance != nil {
+		return new(big.Int).Set(s.cleanBalance)
+	}
+	if s.account != nil && s.account.Balance != nil {
+		return new(big.Int).Set(s.account.Balance)
+	}
+	return new(big.Int)
+}
+
 func (s *stateObject) getBalance() *big.Int {
 	var balance *big.Int
 	delta := s.balanceDelta
 	if delta == nil {
 		delta = new(big.Int)
 	}
-	if s.fakeBalance != nil {
-		balance = s.fakeBalance
-	} else if s.account != nil {
-		balance = s.account.Balance
-	}
-	if balance == nil {
-		balance = new(big.Int)
+	if s.dirtyBalance != nil {
+		balance = s.dirtyBalance
+	} else {
+		balance = s.getCommittedBalance()
 	}
 	return new(big.Int).Add(delta, balance)
 }
 func (s *stateObject) setBalance(balance *big.Int) journalEntry {
-	old := s.fakeBalance
-	s.fakeBalance = balance
-	return journalEntry{&s.address, func(sdb *stateDB) { sdb.getAccount(s.address).fakeBalance = old }}
+	old := s.dirtyBalance
+	s.dirtyBalance = balance
+	return journalEntry{&s.address, func(sdb *stateDB) { sdb.getAccount(s.address).dirtyBalance = old }}
 }
 
 func (s *stateObject) getNonce(tx storage.Transaction, chainid int64) uint64 {
-	if s.nonce != nil {
-		return *s.nonce
+	if s.dirtyNonce != nil {
+		return *s.dirtyNonce
+	}
+	if s.cleanNonce != nil {
+		return *s.cleanNonce
 	}
 	if !s.loadAccount(tx, chainid) {
 		return 0
@@ -243,9 +297,9 @@ func (s *stateObject) getNonce(tx storage.Transaction, chainid int64) uint64 {
 	return s.account.Nonce
 }
 func (s *stateObject) setNonce(nonce uint64) journalEntry {
-	oldNonce := s.nonce
-	s.nonce = &nonce
-	return journalEntry{&s.address, func(sdb *stateDB) { sdb.getAccount(s.address).nonce = oldNonce }}
+	oldNonce := s.dirtyNonce
+	s.dirtyNonce = &nonce
+	return journalEntry{&s.address, func(sdb *stateDB) { sdb.getAccount(s.address).dirtyNonce = oldNonce }}
 }
 
 func (s *stateObject) getCodeHash(tx storage.Transaction, chainid int64) types.Hash {
@@ -270,6 +324,7 @@ func (s *stateObject) setCode(code []byte) journalEntry {
 	s.code = &codeEntry{
 		code: code,
 		hash: crypto.Keccak256Hash(code),
+		dirty: true,
 	}
 	return journalEntry{&s.address, func(sdb *stateDB) { sdb.getAccount(s.address).code = old }}
 }

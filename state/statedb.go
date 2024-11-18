@@ -109,6 +109,23 @@ func (sdb *stateDB) ALCalcCopy() StateDB {
 	return copy
 }
 
+type Delta struct {
+	Balance *big.Int
+	Nonce   *uint64
+	Storage Storage
+	Code    []byte
+}
+
+func (sdb *stateDB) Delta() map[common.Address]*Delta {
+	result := make(map[common.Address]*Delta)
+	for addr, sobj := range sdb.state {
+		if delta := sobj.delta(); delta != nil {
+			result[addr] = delta
+		}
+	}
+	return result
+}
+
 func (sdb *stateDB) Finalise() {
 	for _, sobj := range sdb.state {
 		sobj.finalise()

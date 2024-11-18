@@ -66,6 +66,7 @@ type StateDB interface {
 	Copy() StateDB
 	ALCalcCopy() StateDB
 	Finalise()
+	Delta() map[common.Address]*Delta
 
 	// ForEachStorage(common.Address, func(ctypes.Hash, ctypes.Hash) bool) error
 }

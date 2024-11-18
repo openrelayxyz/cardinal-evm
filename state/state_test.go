@@ -134,6 +134,86 @@ func TestSnapshot(t *testing.T) {
 	}
 }
 
+func TestDelta(t *testing.T) {
+	stateobjaddr := common.BytesToAddress([]byte("aa"))
+	var storageaddr types.Hash
+	data1 := types.BytesToHash([]byte{42})
+	data2 := types.BytesToHash([]byte{43})
+	if err := testWithStateDB(func(tx storage.Transaction, sdb StateDB) error {
+
+		// set initial state object value
+		sdb.SetState(stateobjaddr, storageaddr, data1)
+		sdb.AddBalance(stateobjaddr, new(big.Int).SetInt64(5))
+		sdb.SetNonce(stateobjaddr, sdb.GetNonce(stateobjaddr) + 1)
+
+		delta := sdb.Delta()
+		// fmt.Println(delta[stateobjaddr])
+
+		if c := len(delta); c != 1 {
+			t.Fatalf("Unexpected delta length %v", c)
+		}
+		if d, ok := delta[stateobjaddr]; ok {
+			if d.Code != nil {
+				t.Errorf("Expected nil code")
+			}
+			if v := d.Storage[crypto.Keccak256Hash(storageaddr.Bytes())]; v != data1 {
+				t.Errorf("Unexpected storage value %x", v)
+			}
+			if len(d.Storage) != 1 {
+				t.Errorf("Unexpeced storage size")
+			}
+			if d.Nonce == nil || *d.Nonce != 1 {
+				t.Errorf("Unexpected nonce")
+			}
+			if d.Balance.Cmp(new(big.Int).SetInt64(5)) != 0 {
+				t.Errorf("Unexpected balance, %v", d.Balance)
+			}
+		} else {
+			t.Fatalf("Delta not present")
+		}
+		sdb.Finalise()
+		sdb.SetState(stateobjaddr, storageaddr, data2)
+
+		delta = sdb.Delta()
+
+		if c := len(delta); c != 1 {
+			t.Fatalf("Unexpected delta length %v", c)
+		}
+		if d, ok := delta[stateobjaddr]; ok {
+			if d.Code != nil {
+				t.Errorf("Expected nil code")
+			}
+			if d.Storage[crypto.Keccak256Hash(storageaddr.Bytes())] != data2 {
+				t.Errorf("Unexpected storage value")
+			}
+			if len(d.Storage) != 1 {
+				t.Errorf("Unexpeced storage size")
+			}
+			if d.Nonce != nil {
+				t.Errorf("Unexpected nonce")
+			}
+			if d.Balance != nil {
+				t.Errorf("Unexpected balance, %v", d.Balance)
+			}
+		} else {
+			t.Fatalf("Delta not present")
+		}
+
+		sdb.Finalise()
+
+		sdb.GetState(stateobjaddr, storageaddr)
+
+		if len(sdb.Delta()) != 0 {
+			t.Errorf("Expected empty delta")
+		}
+
+
+		return nil
+	}); err != nil {
+		t.Errorf(err.Error())
+	}
+}
+
 func TestCopySnapshot(t *testing.T) {
 	stateobjaddr := common.BytesToAddress([]byte("aa"))
 	var storageaddr types.Hash
