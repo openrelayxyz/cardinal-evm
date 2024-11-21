@@ -49,11 +49,12 @@ type PublicBlockChainAPI struct {
 	evmmgr  *vm.EVMManager
 	chainid int64
 	gasLimit RPCGasLimit
+	timeout  time.Duration
 }
 
 // NewPublicBlockChainAPI creates a new Ethereum blockchain API.
-func NewETHAPI(s storage.Storage, evmmgr *vm.EVMManager, chainid int64, gasLimit RPCGasLimit) *PublicBlockChainAPI {
-	return &PublicBlockChainAPI{storage: s, evmmgr: evmmgr, chainid: chainid, gasLimit: gasLimit}
+func NewETHAPI(s storage.Storage, evmmgr *vm.EVMManager, chainid int64, gasLimit RPCGasLimit, timeout time.Duration) *PublicBlockChainAPI {
+	return &PublicBlockChainAPI{storage: s, evmmgr: evmmgr, chainid: chainid, gasLimit: gasLimit, timeout: timeout}
 }
 
 // ChainId is the EIP-155 replay-protection chain id for the current ethereum chain config.
@@ -308,8 +309,8 @@ func (s *PublicBlockChainAPI) Call(ctx *rpc.CallContext, args TransactionArgs, b
 	if args.Gas != nil {
 		timeout = time.Duration(*args.Gas/10000000) * time.Second
 	}
-	if timeout < 5*time.Second {
-		timeout = 5 * time.Second
+	if timeout < s.timeout {
+		timeout = s.timeout
 	}
 	var res hexutil.Bytes
 	err := s.evmmgr.View(blockNrOrHash, args.From, &vm.Config{NoBaseFee: true}, ctx, func(statedb state.StateDB, header *types.Header, evmFn func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM) error {
@@ -660,5 +661,32 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx *rpc.CallContext, inpu
 			return ErrIntrinsicGas
 		}
 		return s.emitter.Emit(tx)
+	})
+}
+
+
+
+// TODO: wire this up to the simulator
+func (s *PublicBlockChainAPI) SimulateV1(ctx context.Context, opts simOpts, blockNrOrHash *vm.BlockNumberOrHash) ([]map[string]interface{}, error) {{
+	err := s.evmmgr.View(blockNrOrHash, &vm.Config{NoBaseFee: true}, ctx, func(statedb state.StateDB, baseHeader *types.Header, evmFn func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM) error {
+		var (
+			gas       hexutil.Uint64
+			err       error
+			stateData = &PreviousState{statedb, header}
+			gasCap    = s.gasLimit(header)
+		)
+		sim := &simulator{
+			timeout:     s.timeout,
+			state:       statedb,
+			base:        baseHeader,
+			chainConfig: api.b.ChainConfig(),
+			// Each tx and all the series of txes shouldn't consume more gas than cap
+			gp:             new(core.GasPool).AddGas(gasCap),
+			traceTransfers: opts.TraceTransfers,
+			validate:       opts.Validation,
+			fullTx:         opts.ReturnFullTransactions,
+			evmFn:       evmFn,
+		}
+		return nil
 	})
 }

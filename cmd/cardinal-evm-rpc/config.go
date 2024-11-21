@@ -13,6 +13,7 @@ import (
 	etypes "github.com/openrelayxyz/cardinal-evm/types"
 	log "github.com/inconshreveable/log15"
 	"io/ioutil"
+	"time"
 	"os"
 )
 
@@ -82,8 +83,10 @@ type Config struct {
 	CloudWatch *cloudwatchOpts `yaml:"cloudwatch"`
 	BlockWaitTime int64 `yaml:"block.wait.ms"`
 	GasLimitOpts *gasLimitOpts `yaml:"gas.limit"`
+	EvmTimeout int `yaml:"evm.timeout.ms"`
 	brokers []transports.BrokerParams
 	whitelist map[uint64]types.Hash
+	evmTimeout time.Duration
 }
 
 func LoadConfig(fname string) (*Config, error) {
@@ -114,6 +117,10 @@ func LoadConfig(fname string) (*Config, error) {
 	}
 	if cfg.DataDir == "" {
 		cfg.DataDir = path.Join(home, ".cardinal", "evm", strconv.Itoa(int(cfg.Chainid)))
+	}
+	cfg.evmTimeout = time.Duration(evm.Timeout) * time.Millisecond
+	if cfg.evmTimeout == 0 {
+		cfg.evmTimeout = time.Duration(5) * time.Second
 	}
 	cfg.whitelist = make(map[uint64]types.Hash)
 	for k, v := range cfg.Whitelist {

@@ -123,7 +123,7 @@ func main() {
 		os.Exit(1)
 	}
 	s.RegisterWaiter(sm.Waiter(), time.Duration(cfg.BlockWaitTime) * time.Millisecond)
-	mgr := vm.NewEVMManager(s, cfg.Chainid, vm.Config{}, chaincfg)
+	mgr := vm.NewEVMManager(s, cfg.Chainid, vm.Config{}, chaincfg, cfg.evmTimeout)
 	tm.Register("eth", api.NewETHAPI(s, mgr, cfg.Chainid, cfg.GasLimitOpts.RPCGasLimit()))
 	tm.Register("ethercattle", api.NewEtherCattleBlockChainAPI(mgr, cfg.GasLimitOpts.RPCGasLimit()))
 	tm.Register("web3", &api.Web3API{})
