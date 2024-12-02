@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 	"encoding/json"
-	"github.com/openrelayxyz/cardinal-streams/transports"
+	"github.com/openrelayxyz/cardinal-streams/v2/transports"
 	// "github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/rlp"

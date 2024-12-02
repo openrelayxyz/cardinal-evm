@@ -8,7 +8,7 @@ import (
 	"gopkg.in/yaml.v2"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-rpc"
-	"github.com/openrelayxyz/cardinal-streams/transports"
+	"github.com/openrelayxyz/cardinal-streams/v2/transports"
 	"github.com/openrelayxyz/cardinal-evm/api"
 	etypes "github.com/openrelayxyz/cardinal-evm/types"
 	log "github.com/inconshreveable/log15"
