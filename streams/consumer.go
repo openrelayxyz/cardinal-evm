@@ -108,13 +108,21 @@ func (m *StreamManager) Start() error {
 	m.reorgSub = m.consumer.SubscribeReorg(reorgCh)
 	safeNumKey := fmt.Sprintf("c/%x/n/safe", m.chainid)
 	finalizedNumKey := fmt.Sprintf("c/%x/n/finalized", m.chainid)
+	waiting := false
+	waitCh := make(chan struct{})
 	go func() {
 		<-m.consumer.Ready()
+		waiting = true
+		<-waitCh
 		m.ready <- struct{}{}
 	}()
 	go func() {
 		for {
 			log.Debug("Waiting for message")
+			var delay <-chan time.Time
+			if waiting {
+				delay = time.After(500 * time.Millisecond)
+			}
 			select {
 			case update := <-ch:
 				start := time.Now()
@@ -180,6 +188,14 @@ func (m *StreamManager) Start() error {
 				for k := range reorg {
 					m.storage.Rollback(uint64(k))
 				}
+			case <-delay:
+				// If m.consumer.Ready() has produced a result, waiting will be true, and that goroutine will be
+				// waiting on waitCh. delay will be nil unless waiting is true, so this case will only ever resolve
+				// if waiting is true and neither update nor reorg has anything ready to produce. When it does resolve,
+				// we set waiting back to false so delay will be nil going forward (this case will never resolve again)
+				// and close waitCh so that we can finally resolve the ready channel.
+				waiting = false
+				close(waitCh)
 			}
 		}
 	}()
