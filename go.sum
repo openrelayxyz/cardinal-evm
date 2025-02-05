@@ -176,8 +176,8 @@ github.com/mschoch/smat v0.2.0/go.mod h1:kc9mz7DoBKqDyiRL7VZN8KvXQMWeTaVnttLRXOl
 github.com/openrelayxyz/cardinal-rpc v1.1.0/go.mod h1:UZ5KxcsG51ZMBHvLpaDoIReyHpGfGTkazuSKh8Lx4q8=
 github.com/openrelayxyz/cardinal-rpc v1.2.1 h1:3RHYuP1prOHASXCvSMwJ7G2htNBRMSqPrDkdQDzR1dw=
 github.com/openrelayxyz/cardinal-rpc v1.2.1/go.mod h1:dvM++vpmtimrfMovrxoFG4n0x54IXFRfPe2w8HmtoJU=
-github.com/openrelayxyz/cardinal-storage v1.4.0-overlay3 h1:mSyKHE9ZoTEFBJUi1b7uaOrDovfAQvCuPkp5Wj1p/Kw=
-github.com/openrelayxyz/cardinal-storage v1.4.0-overlay3/go.mod h1:DYk9/5Pw1AG8rYQsexVsR8vnrMiA8K/pEtmOw3bs8n8=
+github.com/openrelayxyz/cardinal-storage v1.4.0-overlay4 h1:PBwyGychHiSa/pGR81/fB0lmE1w6cxzTN3U5tzDK5+E=
+github.com/openrelayxyz/cardinal-storage v1.4.0-overlay4/go.mod h1:DYk9/5Pw1AG8rYQsexVsR8vnrMiA8K/pEtmOw3bs8n8=
 github.com/openrelayxyz/cardinal-streams v1.5.1 h1:mcs9CflhFfNh291tBm52HEe117lKWhEwdqr+K2LvKQg=
 github.com/openrelayxyz/cardinal-streams v1.5.1/go.mod h1:c1I8beZ/p0dfSiDbIGSFN+EMgniRLWq6yKJZgo9yqaQ=
 github.com/openrelayxyz/cardinal-streams/v2 v2.0.0 h1:dl25CWj/FLDoKpNNgRxAyi3tFklZt5IO6CMjUUBqg84=
