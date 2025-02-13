@@ -539,8 +539,11 @@ func (c *ChainConfig) IsPip30(block *big.Int) bool {
 }
 
 // IsPrague returns whether num is either equal to the Prague fork time or greater.
-func (c *ChainConfig) IsPrague(time *big.Int) bool {
-	return isTimestampForked(c.PragueTime, time)
+func (c *ChainConfig) IsPrague(time, block *big.Int) bool {
+	if c.PragueTime != nil {
+		return isTimestampForked(c.PragueTime, time)
+	}
+	return isBlockForked(nil, block) // TODO: When some chain adds block-based prague support, replace nil with c.PragueBlock
 }
 
 // CheckCompatible checks whether scheduled fork transitions have been imported
@@ -836,7 +839,7 @@ type Rules struct {
 	IsByzantium, IsConstantinople, IsPetersburg, IsIstanbul bool
 	IsBerlin, IsLondon                                      bool
 	IsMerge, IsShanghai, IsCancun, IsNapoli, IsPip30        bool
-	isPrague                                                bool
+	IsPrague                                                bool
 }
 
 // Rules ensures c's ChainID is not nil.
@@ -862,6 +865,6 @@ func (c *ChainConfig) Rules(num *big.Int, isMerge bool, timestamp *big.Int) Rule
 		IsCancun:         c.IsCancun(timestamp, num),
 		IsNapoli:         c.IsNapoli(num),
 		IsPip30:          c.IsPip30(num),
-		isPrague:         c.IsPrague(timestamp),
+		IsPrague:         c.IsPrague(timestamp, num),
 	}
 }
