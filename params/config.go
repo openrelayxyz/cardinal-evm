@@ -136,6 +136,7 @@ var (
 		LondonBlock:         big.NewInt(0),
 		ShanghaiTime:        big.NewInt(1677557088),
 		CancunTime:          big.NewInt(1706655072),
+		PragueTime:          big.NewInt(1741159776),
 		Ethash:              new(EthashConfig),
 		Engine:              ETHashEngine,
 	}
@@ -305,6 +306,7 @@ var (
 		TerminalTotalDifficulty:       big.NewInt(0),
 		ShanghaiTime:                  big.NewInt(1696000704),
 		CancunTime:                    big.NewInt(1707305664),
+		PragueTime:                    big.NewInt(1740434112),
 		Ethash:                        new(EthashConfig),
 		Engine:                        ETHashEngine,
 	}
