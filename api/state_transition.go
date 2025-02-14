@@ -17,6 +17,7 @@
 package api
 
 import (
+	"bytes"
 	"fmt"
 	"math"
 	"math/big"
@@ -162,6 +163,21 @@ func IntrinsicGas(data []byte, accessList types.AccessList, isContractCreation b
 	return gas, nil
 }
 
+// FloorDataGas computes the minimum gas required for a transaction based on its data tokens (EIP-7623).
+func FloorDataGas(data []byte) (uint64, error) {
+	var (
+		z      = uint64(bytes.Count(data, []byte{0}))
+		nz     = uint64(len(data)) - z
+		tokens = nz*params.TxTokenPerNonZeroByte + z
+	)
+	// Check for overflow
+	if (math.MaxUint64-params.TxGas)/params.TxCostFloorPerToken < tokens {
+		return 0, ErrGasUintOverflow
+	}
+	// Minimum gas required for a transaction based on its data tokens (EIP-7623).
+	return params.TxGas + tokens*params.TxCostFloorPerToken, nil
+}
+
 // toWordSize returns the ceiled word size required for init code payment calculation.
 func toWordSize(size uint64) uint64 {
 	if size > math.MaxUint64-31 {
@@ -298,6 +314,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	homestead := st.evm.ChainConfig().IsHomestead(st.evm.Context.BlockNumber)
 	istanbul := st.evm.ChainConfig().IsIstanbul(st.evm.Context.BlockNumber)
 	shanghai := st.evm.ChainConfig().IsShanghai(st.evm.Context.Time, st.evm.Context.BlockNumber)
+	floorDataGas := uint64(0)
 	contractCreation := msg.To() == nil
 
 	// Check clauses 4-5, subtract intrinsic gas if everything is correct
@@ -307,6 +324,16 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	}
 	if st.gas < gas {
 		return nil, fmt.Errorf("%w: have %d, want %d", ErrIntrinsicGas, st.gas, gas)
+	}
+	// Gas limit suffices for the floor data cost (EIP-7623)
+	if rules := st.evm.ChainConfig().Rules(st.evm.Context.BlockNumber, st.evm.Context.Random != nil, st.evm.Context.Time); rules.IsPrague {
+		floorDataGas, err = FloorDataGas(msg.Data())
+		if err != nil {
+			return nil, err
+		}
+		if msg.Gas() < floorDataGas {
+			return nil, fmt.Errorf("%w: have %d, want %d", ErrFloorDataGas, msg.Gas(), floorDataGas)
+		}
 	}
 	st.gas -= gas
 
@@ -335,13 +362,24 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
 		ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
 	}
-	if !st.evm.ChainConfig().IsLondon(st.evm.Context.BlockNumber) {
-		// Before EIP-3529: refunds were capped to gasUsed / 2
-		st.refundGas(params.RefundQuotient)
-	} else {
-		// After EIP-3529: refunds are capped to gasUsed / 5
-		st.refundGas(params.RefundQuotientEIP3529)
+	gasRefund := st.calcRefund()
+	st.gas += gasRefund
+
+	// After EIP-7623: Data-heavy transactions pay the floor gas. (Floor gas will be 0 if we're not in EIP-7623)
+	if st.gasUsed() < floorDataGas {
+		st.gas = st.initialGas - floorDataGas
 	}
+
+	// Return ETH for remaining gas, exchanged at the original rate.
+	weiRefund := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), st.gasPrice)
+
+	st.state.AddBalance(st.msg.From(), weiRefund)
+
+	// Also return remaining gas to the block gas counter so it is
+	// available for the next transaction.
+	st.gp.AddGas(st.gas)
+
+	
 	effectiveTip := st.gasPrice
 	if st.evm.ChainConfig().IsLondon(st.evm.Context.BlockNumber) && st.evm.Context.BaseFee != nil {
 		effectiveTip = cmath.BigMin(st.gasTipCap, new(big.Int).Sub(st.gasFeeCap, st.evm.Context.BaseFee))
@@ -355,21 +393,19 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	}, nil
 }
 
-func (st *StateTransition) refundGas(refundQuotient uint64) {
+func (st *StateTransition) calcRefund() uint64 {
+	// We'll usually be simulating post-london, so default to that refundQuotient
+	refundQuotient := params.RefundQuotientEIP3529
+	if !st.evm.ChainConfig().IsLondon(st.evm.Context.BlockNumber) {
+		// Before EIP-3529: refunds were capped to gasUsed / 2
+		refundQuotient = params.RefundQuotient
+	}
 	// Apply refund counter, capped to a refund quotient
 	refund := st.gasUsed() / refundQuotient
 	if refund > st.state.GetRefund() {
 		refund = st.state.GetRefund()
 	}
-	st.gas += refund
-
-	// Return ETH for remaining gas, exchanged at the original rate.
-	remaining := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), st.gasPrice)
-	st.state.AddBalance(st.msg.From(), remaining)
-
-	// Also return remaining gas to the block gas counter so it is
-	// available for the next transaction.
-	st.gp.AddGas(st.gas)
+	return refund
 }
 
 // gasUsed returns the amount of gas used up by the state transition.
