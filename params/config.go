@@ -72,12 +72,12 @@ var (
 		Engine:              ETHashEngine,
 		BlobSchedule:        []*BlobConfig{
 			&BlobConfig{
-				ActivationNumber: 1710338135,
+				ActivationTime: 1710338135,
 				Target: 3,
 				Max : 6,
 				UpdateFraction: 3338477,
 			},
-		}
+		},
 	}
 
 	// ETCChainConfig is the chain parameters to run a node on the main network.
@@ -150,19 +150,19 @@ var (
 		BlobSchedule:        []*BlobConfig{
 			// Cancun
 			&BlobConfig{
-				ActivationNumber: 1706655072,
+				ActivationTime: 1706655072,
 				Target: 3,
 				Max : 6,
 				UpdateFraction: 3338477,
 			},
 			// Prague
 			&BlobConfig{
-				ActivationNumber: 1741159776,
+				ActivationTime: 1741159776,
 				Target: 6,
 				Max : 9,
 				UpdateFraction: 5007716,
 			},
-		}
+		},
 	}
 	// RinkebyChainConfig contains the chain parameters to run a node on the Rinkeby test network.
 	RinkebyChainConfig = &ChainConfig{
@@ -336,19 +336,19 @@ var (
 		BlobSchedule:        []*BlobConfig{
 			// Cancun
 			&BlobConfig{
-				ActivationNumber: 1707305664,
+				ActivationTime: 1707305664,
 				Target: 3,
 				Max : 6,
 				UpdateFraction: 3338477,
 			},
 			// Prague
 			&BlobConfig{
-				ActivationNumber: 1740434112,
+				ActivationTime: 1740434112,
 				Target: 6,
 				Max : 9,
 				UpdateFraction: 5007716,
 			},
-		}
+		},
 	}
 
 	// AllEthashProtocolChanges contains every protocol change (EIPs) introduced
@@ -432,7 +432,7 @@ type ChainConfig struct {
 
 	Engine              Engine
 
-	BlobSchedule        []BlobConfig
+	BlobSchedule        []*BlobConfig
 }
 
 type BlobConfig struct {
@@ -597,8 +597,8 @@ func (c *ChainConfig) IsPrague(time, block *big.Int) bool {
 
 func (c *ChainConfig) BlobConfig(time *big.Int) *BlobConfig {
 	for _, config := range c.BlobSchedule {
-		if c.ActivationTime < time.Uint64() {
-			return c
+		if config.ActivationTime < time.Uint64() {
+			return config
 		}
 	}
 	return nil
