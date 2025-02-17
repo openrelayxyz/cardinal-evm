@@ -70,6 +70,14 @@ var (
 		CancunTime:          big.NewInt(1710338135),
 		Ethash:              new(EthashConfig),
 		Engine:              ETHashEngine,
+		BlobSchedule:        []*BlobConfig{
+			&BlobConfig{
+				ActivationNumber: 1710338135,
+				Target: 3,
+				Max : 6,
+				UpdateFraction: 3338477,
+			},
+		}
 	}
 
 	// ETCChainConfig is the chain parameters to run a node on the main network.
@@ -139,6 +147,22 @@ var (
 		PragueTime:          big.NewInt(1741159776),
 		Ethash:              new(EthashConfig),
 		Engine:              ETHashEngine,
+		BlobSchedule:        []*BlobConfig{
+			// Cancun
+			&BlobConfig{
+				ActivationNumber: 1706655072,
+				Target: 3,
+				Max : 6,
+				UpdateFraction: 3338477,
+			},
+			// Prague
+			&BlobConfig{
+				ActivationNumber: 1741159776,
+				Target: 6,
+				Max : 9,
+				UpdateFraction: 5007716,
+			},
+		}
 	}
 	// RinkebyChainConfig contains the chain parameters to run a node on the Rinkeby test network.
 	RinkebyChainConfig = &ChainConfig{
@@ -309,6 +333,22 @@ var (
 		PragueTime:                    big.NewInt(1740434112),
 		Ethash:                        new(EthashConfig),
 		Engine:                        ETHashEngine,
+		BlobSchedule:        []*BlobConfig{
+			// Cancun
+			&BlobConfig{
+				ActivationNumber: 1707305664,
+				Target: 3,
+				Max : 6,
+				UpdateFraction: 3338477,
+			},
+			// Prague
+			&BlobConfig{
+				ActivationNumber: 1740434112,
+				Target: 6,
+				Max : 9,
+				UpdateFraction: 5007716,
+			},
+		}
 	}
 
 	// AllEthashProtocolChanges contains every protocol change (EIPs) introduced
@@ -316,16 +356,16 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, ETHashEngine}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, ETHashEngine, nil}
 
 	// AllCliqueProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Clique consensus.
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, big.NewInt(0), nil, nil, nil, nil, nil, nil, nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}, nil, CliqueEngine}
+	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, big.NewInt(0), nil, nil, nil, nil, nil, nil, nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}, nil, CliqueEngine, nil}
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, big.NewInt(0), nil, nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, ETHashEngine}
+	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, big.NewInt(0), nil, nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, ETHashEngine, nil}
 	TestRules       = TestChainConfig.Rules(new(big.Int), false, new(big.Int))
 )
 
@@ -391,6 +431,15 @@ type ChainConfig struct {
 	DisableOpcodes      []int
 
 	Engine              Engine
+
+	BlobSchedule        []BlobConfig
+}
+
+type BlobConfig struct {
+	ActivationTime uint64  `json:"activation`
+	Target         int    `json:"target"`
+	Max            int    `json:"max"`
+	UpdateFraction uint64 `json:"baseFeeUpdateFraction"`
 }
 
 // EthashConfig is the consensus engine configs for proof-of-work based sealing.
@@ -544,6 +593,15 @@ func (c *ChainConfig) IsPrague(time, block *big.Int) bool {
 		return isTimestampForked(c.PragueTime, time)
 	}
 	return isBlockForked(nil, block) // TODO: When some chain adds block-based prague support, replace nil with c.PragueBlock
+}
+
+func (c *ChainConfig) BlobConfig(time *big.Int) *BlobConfig {
+	for _, config := range c.BlobSchedule {
+		if c.ActivationTime < time.Uint64() {
+			return c
+		}
+	}
+	return nil
 }
 
 // CheckCompatible checks whether scheduled fork transitions have been imported
