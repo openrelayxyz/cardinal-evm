@@ -51,6 +51,8 @@ type TransactionArgs struct {
 	// Introduced by AccessListTxType transaction.
 	AccessList *types.AccessList `json:"accessList,omitempty"`
 	ChainID    *hexutil.Big      `json:"chainId,omitempty"`
+
+	AuthList   []types.Authorization `json:""`
 }
 
 // from retrieves the transaction sender address.

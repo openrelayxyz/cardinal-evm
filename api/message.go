@@ -18,11 +18,12 @@ type Msg struct {
 	gasTipCap  *big.Int
 	data       []byte
 	accessList types.AccessList
+	authList   []types.Authorization
 	blobHashes []ctypes.Hash
 	checkNonce bool
 }
 
-func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice, gasFeeCap, gasTipCap *big.Int, data []byte, accessList types.AccessList, checkNonce bool) Msg {
+func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice, gasFeeCap, gasTipCap *big.Int, data []byte, accessList types.AccessList, authList []types.Authorization, checkNonce bool) Msg {
 	return Msg{
 		from:       from,
 		to:         to,
@@ -50,3 +51,4 @@ func (m Msg) Data() []byte                 { return m.data }
 func (m Msg) AccessList() types.AccessList { return m.accessList }
 func (m Msg) CheckNonce() bool             { return m.checkNonce }
 func (m Msg) BlobHashes() []ctypes.Hash     { return m.blobHashes }	
+func (m Msg) AuthList() []types.Authorization { return m.authList }
