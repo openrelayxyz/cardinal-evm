@@ -244,7 +244,7 @@ func BenchmarkPrecompiledBn256Add(b *testing.B) { benchJson("bn256Add", "06", b)
 
 // Tests OOG
 func TestPrecompiledModExpOOG(t *testing.T) {
-	modexpTests,  := loadJson("modexp")
+	modexpTests, err := loadJson("modexp")
 	if err != nil {
 		t.Fatal(err)
 	}
