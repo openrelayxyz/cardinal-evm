@@ -321,7 +321,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	contractCreation := msg.To() == nil
 
 	// Check clauses 4-5, subtract intrinsic gas if everything is correct
-	gas, err := IntrinsicGas(st.data, st.msg.AccessList(), contractCreation, homestead, istanbul, shanghai)
+	gas, err := IntrinsicGas(st.data, st.msg.AccessList(), nil, contractCreation, homestead, istanbul, shanghai)
 	if err != nil {
 		return nil, err
 	}

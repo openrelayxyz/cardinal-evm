@@ -563,7 +563,7 @@ func AccessList(ctx *rpc.CallContext, db state.StateDB, header *types.Header, ch
 	if value == nil { value = new(big.Int) }
 	gasPrice := args.GasPrice.ToInt()
 	if gasPrice == nil { gasPrice = new(big.Int) }
-	msg := NewMessage(args.from(), args.To, uint64(*args.Nonce), value, uint64(*args.Gas), gasPrice, big.NewInt(0), big.NewInt(0), args.data(), tracer.AccessList(), false)
+	msg := NewMessage(args.from(), args.To, uint64(*args.Nonce), value, uint64(*args.Gas), gasPrice, big.NewInt(0), big.NewInt(0), args.data(), tracer.AccessList(), nil, false)
 
 	_, err = ApplyMessage(getEVM(db.ALCalcCopy(), &vm.Config{Tracer: tracer, Debug: true, NoBaseFee: true}, args.from(), msg.GasPrice()), msg, new(GasPool).AddGas(msg.Gas()))
 	if err != nil {
@@ -580,7 +580,7 @@ func AccessList(ctx *rpc.CallContext, db state.StateDB, header *types.Header, ch
 		// complete.
 		gas += 2400
 	}
-	msg = NewMessage(args.from(), args.To, uint64(*args.Nonce), value, uint64(*args.Gas)+2400, gasPrice, big.NewInt(0), big.NewInt(0), args.data(), tracer.AccessList(), false)
+	msg = NewMessage(args.from(), args.To, uint64(*args.Nonce), value, uint64(*args.Gas)+2400, gasPrice, big.NewInt(0), big.NewInt(0), args.data(), tracer.AccessList(), nil, false)
 	res, err := ApplyMessage(getEVM(db.Copy(), &vm.Config{Tracer: tracer, Debug: true, NoBaseFee: true}, args.from(), msg.GasPrice()), msg, new(GasPool).AddGas(msg.Gas()))
 	if err != nil {
 		return nil, 0, nil, fmt.Errorf("failed to apply transaction: err: %v", err)
@@ -652,7 +652,7 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx *rpc.CallContext, inpu
 		}
 
 		// Should supply enough intrinsic gas
-		gas, err := IntrinsicGas(tx.Data(), tx.AccessList(), tx.To() == nil, true, chaincfg.IsIstanbul(header.Number), chaincfg.IsShanghai(new(big.Int).SetInt64(int64(header.Time)), header.Number))
+		gas, err := IntrinsicGas(tx.Data(), tx.AccessList(), nil, tx.To() == nil, true, chaincfg.IsIstanbul(header.Number), chaincfg.IsShanghai(new(big.Int).SetInt64(int64(header.Time)), header.Number))
 		if err != nil {
 			return err
 		}
