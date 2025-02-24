@@ -18,15 +18,15 @@ package vm
 
 import (
 	"fmt"
-	"math"
+	// "math"
 	"sort"
 
 	"github.com/holiman/uint256"
 	"github.com/openrelayxyz/cardinal-evm/params"
 	ctypes "github.com/openrelayxyz/cardinal-types"
-	"github.com/openrelayxyz/cardinal-evm/types"
-	"github.com/openrelayxyz/cardinal-evm/common"
-	"github.com/openrelayxyz/cardinal-evm/crypto"
+	// "github.com/openrelayxyz/cardinal-evm/types"
+	// "github.com/openrelayxyz/cardinal-evm/common"
+	// "github.com/openrelayxyz/cardinal-evm/crypto"
 )
 
 var activators = map[int]func(*JumpTable){
