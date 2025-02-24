@@ -78,6 +78,7 @@ type TxData interface {
 
 	chainID() *big.Int
 	accessList() AccessList
+	authList() []Authorization
 	data() []byte
 	gas() uint64
 	gasPrice() *big.Int
@@ -272,6 +273,9 @@ func (tx *Transaction) Data() []byte { return tx.inner.data() }
 
 // AccessList returns the access list of the transaction.
 func (tx *Transaction) AccessList() AccessList { return tx.inner.accessList() }
+
+// AuthList returns the authorization list of the transaction.
+func (tx *Transaction) AuthList() []Authorization { return tx.inner.authList() }
 
 // Gas returns the gas limit of the transaction.
 func (tx *Transaction) Gas() uint64 { return tx.inner.gas() }

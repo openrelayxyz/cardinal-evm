@@ -187,6 +187,7 @@ func (tx *SetCodeTx) copy() TxData {
 func (tx *SetCodeTx) txType() byte           { return SetCodeTxType }
 func (tx *SetCodeTx) chainID() *big.Int      { return big.NewInt(int64(tx.ChainID)) }
 func (tx *SetCodeTx) accessList() AccessList { return tx.AccessList }
+func (tx *SetCodeTx) authList() []Authorization { return tx.AuthList }
 func (tx *SetCodeTx) data() []byte           { return tx.Data }
 func (tx *SetCodeTx) gas() uint64            { return tx.Gas }
 func (tx *SetCodeTx) gasFeeCap() *big.Int    { return tx.GasFeeCap.ToBig() }
