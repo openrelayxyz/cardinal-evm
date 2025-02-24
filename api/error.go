@@ -70,6 +70,10 @@ var (
 	// than required to start the invocation.
 	ErrIntrinsicGas = errors.New("intrinsic gas too low")
 
+	// ErrFloorDataGas is returned if the transaction is specified to use less gas
+	// than required for the data floor cost.
+	ErrFloorDataGas = errors.New("insufficient gas for floor data gas cost")
+
 	// ErrTipAboveFeeCap is a sanity error to ensure no one is able to specify a
 	// transaction with a tip higher than the total fee cap.
 	ErrTipAboveFeeCap = errors.New("max priority fee per gas higher than max fee per gas")
