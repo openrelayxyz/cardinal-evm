@@ -180,8 +180,8 @@ github.com/openrelayxyz/cardinal-storage v1.3.0 h1:1OZzxht6he41HYG3To95G10Uuq8aY
 github.com/openrelayxyz/cardinal-storage v1.3.0/go.mod h1:DYk9/5Pw1AG8rYQsexVsR8vnrMiA8K/pEtmOw3bs8n8=
 github.com/openrelayxyz/cardinal-streams v1.5.1 h1:mcs9CflhFfNh291tBm52HEe117lKWhEwdqr+K2LvKQg=
 github.com/openrelayxyz/cardinal-streams v1.5.1/go.mod h1:c1I8beZ/p0dfSiDbIGSFN+EMgniRLWq6yKJZgo9yqaQ=
-github.com/openrelayxyz/cardinal-streams/v2 v2.0.1-emptyvalue0 h1:dFignSKsBTkuvUqFXeYAE311Gmc5iQpsQjMzHIbbOXM=
-github.com/openrelayxyz/cardinal-streams/v2 v2.0.1-emptyvalue0/go.mod h1:03n/9NmBpu/ZieGf9o/TA3JVfqzR7G2framErKzKMqE=
+github.com/openrelayxyz/cardinal-streams/v2 v2.0.1-emptyvalue1 h1:SgW7CSTtDfJAfPgGPOurNnuZLn96mhtngQz2mv4XAe0=
+github.com/openrelayxyz/cardinal-streams/v2 v2.0.1-emptyvalue1/go.mod h1:03n/9NmBpu/ZieGf9o/TA3JVfqzR7G2framErKzKMqE=
 github.com/openrelayxyz/cardinal-types v1.0.0/go.mod h1:4CzsdfRjAWXeOszcXbUuNNjEP7ZR8Np8RO3FO5TFA6E=
 github.com/openrelayxyz/cardinal-types v1.1.1 h1:Lw6Lr/eiHYCnLi851rciCzw/1S3UytUX7kj5zh3QS/Y=
 github.com/openrelayxyz/cardinal-types v1.1.1/go.mod h1:8aaMg6i94V0hhWe3V6Fzc0RSggMx+/Kabsf5o7wMf/E=

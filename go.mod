@@ -16,7 +16,7 @@ require (
 	github.com/jedisct1/go-minisign v0.0.0-20230811132847-661be99b8267
 	github.com/openrelayxyz/cardinal-rpc v1.2.1
 	github.com/openrelayxyz/cardinal-storage v1.3.0
-	github.com/openrelayxyz/cardinal-streams/v2 v2.0.1-emptyvalue0
+	github.com/openrelayxyz/cardinal-streams/v2 v2.0.1-emptyvalue1
 	github.com/openrelayxyz/cardinal-types v1.1.1
 	github.com/openrelayxyz/plugeth-utils v1.5.0
 	github.com/pubnub/go-metrics-statsd v0.0.0-20170124014003-7da61f429d6b
