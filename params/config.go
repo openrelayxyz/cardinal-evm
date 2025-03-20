@@ -164,6 +164,7 @@ var (
 			},
 		},
 	}
+
 	// RinkebyChainConfig contains the chain parameters to run a node on the Rinkeby test network.
 	RinkebyChainConfig = &ChainConfig{
 		ChainID:             big.NewInt(4),
@@ -351,6 +352,44 @@ var (
 		},
 	}
 
+	HoodiChainConfig = &ChainConfig{
+		ChainID:                 big.NewInt(560048),
+		HomesteadBlock:          big.NewInt(0),
+		DAOForkBlock:            nil,
+		DAOForkSupport:          true,
+		EIP150Block:             big.NewInt(0),
+		EIP155Block:             big.NewInt(0),
+		EIP158Block:             big.NewInt(0),
+		ByzantiumBlock:          big.NewInt(0),
+		ConstantinopleBlock:     big.NewInt(0),
+		PetersburgBlock:         big.NewInt(0),
+		IstanbulBlock:           big.NewInt(0),
+		MuirGlacierBlock:        big.NewInt(0),
+		BerlinBlock:             big.NewInt(0),
+		LondonBlock:             big.NewInt(0),
+		ShanghaiTime:            newUint64(0),
+		CancunTime:              newUint64(0),
+		PragueTime:              newUint64(1742999832),
+		Ethash:                  new(EthashConfig),
+		Engine:              ETHashEngine,
+		BlobSchedule:        []*BlobConfig{
+			// Cancun
+			&BlobConfig{
+				ActivationTime: 0,
+				Target: 3,
+				Max : 6,
+				UpdateFraction: 3338477,
+			},
+			// Prague
+			&BlobConfig{
+				ActivationTime: 1742999832,
+				Target: 6,
+				Max : 9,
+				UpdateFraction: 5007716,
+			},
+		},
+	}
+
 	// AllEthashProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Ethash consensus.
 	//
@@ -381,6 +420,7 @@ var ChainLookup = map[int64]*ChainConfig{
 	80002: BorAmoyChainConfig,
 	1337802: KilnChainConfig,
 	11155111: SepoliaChainConfig,
+	560048: HoodiChainConfig,
 }
 
 // ChainConfig is the core config which determines the blockchain settings.
