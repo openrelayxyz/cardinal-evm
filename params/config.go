@@ -367,9 +367,9 @@ var (
 		MuirGlacierBlock:        big.NewInt(0),
 		BerlinBlock:             big.NewInt(0),
 		LondonBlock:             big.NewInt(0),
-		ShanghaiTime:            newUint64(0),
-		CancunTime:              newUint64(0),
-		PragueTime:              newUint64(1742999832),
+		ShanghaiTime:            big.NewInt(0),
+		CancunTime:              big.NewInt(0),
+		PragueTime:              big.NewInt(1742999832),
 		Ethash:                  new(EthashConfig),
 		Engine:              ETHashEngine,
 		BlobSchedule:        []*BlobConfig{
