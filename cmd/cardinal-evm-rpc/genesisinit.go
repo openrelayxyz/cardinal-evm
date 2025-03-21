@@ -28,14 +28,14 @@ type genesisBlock struct {
 	Alloc      GenesisAlloc        `json:"alloc"`
 }
 
-type GenesisAlloc map[common.Address]GenesisAccount
+type GenesisAlloc map[string]GenesisAccount
 
 // GenesisAccount is an account in the state of the genesis block.
 type GenesisAccount struct {
 	Code       hexutil.Bytes               `json:"code,omitempty"`
 	Storage    map[types.Hash]types.Hash   `json:"storage,omitempty"`
 	Balance    *hexutil.Big                `json:"balance"`
-	Nonce      uint64                      `json:"nonce,omitempty"`
+	Nonce      hexutil.Uint64              `json:"nonce,omitempty"`
 }
 
 
@@ -54,7 +54,8 @@ func genesisInit(dbpath, genesispath string, archival bool) error {
 	}
 	var emptyAccount *state.Account
 	init.SetBlockData(gb.Hash, gb.ParentHash, uint64(gb.Number), new(big.Int).SetInt64(int64(gb.Weight)))
-	for addr, alloc := range gb.Alloc {
+	for addrString, alloc := range gb.Alloc {
+		addr := common.HexToAddress(addrString)
 		if len(alloc.Code) != 0 {
 			codeKey := fmt.Sprintf("c/%x/c/%x", gb.Config.ChainID, crypto.Keccak256(alloc.Code))
 			init.AddData([]byte(codeKey), alloc.Code)
@@ -65,7 +66,7 @@ func genesisInit(dbpath, genesispath string, archival bool) error {
 			init.AddData([]byte(key), value.Bytes())
 		}
 		acct := emptyAccount.Copy()
-		acct.Nonce = alloc.Nonce
+		acct.Nonce = uint64(alloc.Nonce)
 		acct.Balance.Set((*big.Int)(alloc.Balance))
 		data, err := rlp.EncodeToBytes(acct)
 		if err != nil { return err }
