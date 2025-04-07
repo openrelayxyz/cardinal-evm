@@ -104,7 +104,7 @@ func (mgr *EVMManager) View(inputs ...interface{}) error {
 		if hash != nil {
 			return *hash
 		}
-		if blockNo != nil && *blockNo > 0 {
+		if blockNo != nil && *blockNo >= 0 {
 			h, _ := mgr.sdbm.Storage.NumberToHash(uint64(*blockNo))
 			hash = &h
 		} else {
