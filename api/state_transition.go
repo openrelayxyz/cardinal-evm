@@ -77,6 +77,7 @@ type Message interface {
 	CheckNonce() bool
 	Data() []byte
 	AccessList() types.AccessList
+	AuthList() []types.Authorization
 	BlobHashes() []ctypes.Hash
 }
 
@@ -321,7 +322,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	contractCreation := msg.To() == nil
 
 	// Check clauses 4-5, subtract intrinsic gas if everything is correct
-	gas, err := IntrinsicGas(st.data, st.msg.AccessList(), nil, contractCreation, homestead, istanbul, shanghai)
+	gas, err := IntrinsicGas(st.data, st.msg.AccessList(), st.msg.AuthList(), contractCreation, homestead, istanbul, shanghai)
 	if err != nil {
 		return nil, err
 	}
@@ -363,6 +364,22 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	} else {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
+
+		// Apply EIP-7702 authorizations.
+		for _, auth := range msg.AuthList() {
+			// Note errors are ignored, we simply skip invalid authorizations here.
+			st.applyAuthorization(&auth)
+		}
+
+		// Perform convenience warming of sender's delegation target. Although the
+		// sender is already warmed in Prepare(..), it's possible a delegation to
+		// the account was deployed during this transaction. To handle correctly,
+		// simply wait until the final state of delegations is determined before
+		// performing the resolution and warming.
+		if addr, ok := types.ParseDelegation(st.state.GetCode(*msg.To())); ok {
+			st.state.AddAddressToAccessList(addr)
+		}
+
 		ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
 	}
 	gasRefund := st.calcRefund()
@@ -414,4 +431,37 @@ func (st *StateTransition) calcRefund() uint64 {
 // gasUsed returns the amount of gas used up by the state transition.
 func (st *StateTransition) gasUsed() uint64 {
 	return st.initialGas - st.gas
+}
+
+
+
+func (st *StateTransition) applyAuthorization(auth *types.Authorization) error {
+	if auth.ChainID != 0 && auth.ChainID != st.evm.ChainConfig().ChainID.Uint64() {
+		// TODO: Match error to Geth
+		return fmt.Errorf("invalid chainid in authorization")
+	}
+	authority, err := auth.Authority()
+	if err != nil {
+		return err
+	}
+	st.state.AddAddressToAccessList(authority)
+	code := st.state.GetCode(authority)
+	if len(code) != 0 && !bytes.Equal(code[:3], types.DelegationPrefix) {
+		// TODO: Match error to Geth
+		return fmt.Errorf("delegation target must be EOA")
+	}
+	if nonce := st.state.GetNonce(authority); nonce != auth.Nonce {
+		// TODO: Match error to Geth
+		return fmt.Errorf("nonce mismatch. expected %v got %v", nonce, auth.Nonce)
+	}
+	if st.state.Exist(authority) {
+		st.state.AddRefund(25000 - 12500) // PER_EMPTY_ACCOUNT_COST - PER_AUTH_BASE_COST
+	}
+	if auth.Address == (common.Address{}) {
+		st.state.SetCode(authority, []byte{})
+	} else {
+		st.state.SetCode(authority, append(types.DelegationPrefix, auth.Address.Bytes()...))
+	}
+	st.state.SetNonce(authority, auth.Nonce + 1)
+	return nil
 }

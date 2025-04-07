@@ -35,6 +35,7 @@ func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *b
 		gasTipCap:  gasTipCap,
 		data:       data,
 		accessList: accessList,
+		authList:   authList,
 		checkNonce: checkNonce,
 	}
 }
