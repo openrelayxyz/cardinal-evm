@@ -615,6 +615,15 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx *rpc.CallContext, inpu
 		return ctypes.Hash{}, fmt.Errorf("already known")
 	}
 
+	if tx.Type() == types.SetCodeTxType {
+		if len(tx.AuthList()) == 0 {
+			return hash, ErrEmptyAuthList
+		}
+		if tx.To() == nil {
+			return hash, ErrSetCodeTxCreate
+		}
+	}
+
 	return hash, s.evmmgr.View(func(currentState state.StateDB, header *types.Header, chaincfg *params.ChainConfig) error {
 		if ctx != nil {
 			if err := ctx.Context().Err(); err != nil {
@@ -652,13 +661,14 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx *rpc.CallContext, inpu
 		}
 
 		// Should supply enough intrinsic gas
-		gas, err := IntrinsicGas(tx.Data(), tx.AccessList(), nil, tx.To() == nil, true, chaincfg.IsIstanbul(header.Number), chaincfg.IsShanghai(new(big.Int).SetInt64(int64(header.Time)), header.Number))
+		gas, err := IntrinsicGas(tx.Data(), tx.AccessList(), tx.AuthList(), tx.To() == nil, true, chaincfg.IsIstanbul(header.Number), chaincfg.IsShanghai(new(big.Int).SetInt64(int64(header.Time)), header.Number))
 		if err != nil {
 			return err
 		}
 		if tx.Gas() < gas {
 			return ErrIntrinsicGas
 		}
+
 		return s.emitter.Emit(tx)
 	})
 }

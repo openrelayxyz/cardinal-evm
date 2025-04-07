@@ -437,8 +437,7 @@ func (st *StateTransition) gasUsed() uint64 {
 
 func (st *StateTransition) applyAuthorization(auth *types.Authorization) error {
 	if auth.ChainID != 0 && auth.ChainID != st.evm.ChainConfig().ChainID.Uint64() {
-		// TODO: Match error to Geth
-		return fmt.Errorf("invalid chainid in authorization")
+		return ErrAuthorizationWrongChainID
 	}
 	authority, err := auth.Authority()
 	if err != nil {
@@ -447,12 +446,10 @@ func (st *StateTransition) applyAuthorization(auth *types.Authorization) error {
 	st.state.AddAddressToAccessList(authority)
 	code := st.state.GetCode(authority)
 	if len(code) != 0 && !bytes.Equal(code[:3], types.DelegationPrefix) {
-		// TODO: Match error to Geth
-		return fmt.Errorf("delegation target must be EOA")
+		return ErrAuthorizationDestinationHasCode
 	}
 	if nonce := st.state.GetNonce(authority); nonce != auth.Nonce {
-		// TODO: Match error to Geth
-		return fmt.Errorf("nonce mismatch. expected %v got %v", nonce, auth.Nonce)
+		return ErrAuthorizationNonceMismatch
 	}
 	if st.state.Exist(authority) {
 		st.state.AddRefund(25000 - 12500) // PER_EMPTY_ACCOUNT_COST - PER_AUTH_BASE_COST
