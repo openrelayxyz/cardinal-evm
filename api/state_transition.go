@@ -28,6 +28,7 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/state"
 	"github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/vm"
+	log "github.com/inconshreveable/log15"
 	ctypes "github.com/openrelayxyz/cardinal-types"
 )
 
@@ -368,7 +369,9 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		// Apply EIP-7702 authorizations.
 		for _, auth := range msg.AuthList() {
 			// Note errors are ignored, we simply skip invalid authorizations here.
-			st.applyAuthorization(&auth)
+			if err := st.applyAuthorization(&auth); err != nil {
+				log.Debug("Error applying authorization", "err", err)
+			}
 		}
 
 		// Perform convenience warming of sender's delegation target. Although the
