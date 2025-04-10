@@ -68,14 +68,23 @@ var (
 		LondonBlock:         big.NewInt(12_965_000),
 		ShanghaiTime:        big.NewInt(1681338455),
 		CancunTime:          big.NewInt(1710338135),
+		PragueTime:          big.NewInt(1746612311),
 		Ethash:              new(EthashConfig),
 		Engine:              ETHashEngine,
 		BlobSchedule:        []*BlobConfig{
+			// Cancun
 			&BlobConfig{
 				ActivationTime: 1710338135,
 				Target: 3,
 				Max : 6,
 				UpdateFraction: 3338477,
+			},
+			// Prague
+			&BlobConfig{
+				ActivationTime: 1746612311,
+				Target: 6,
+				Max : 9,
+				UpdateFraction: 5007716,
 			},
 		},
 	}
