@@ -632,6 +632,7 @@ func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *b
 		data:       data,
 		accessList: accessList,
 		blobHashes: blobHashes,
+		authList:   authList,
 		isFake:     isFake,
 	}
 }

@@ -18,15 +18,11 @@ package vm
 
 import (
 	"fmt"
-	// "math"
 	"sort"
 
 	"github.com/holiman/uint256"
 	"github.com/openrelayxyz/cardinal-evm/params"
-	ctypes "github.com/openrelayxyz/cardinal-types"
-	// "github.com/openrelayxyz/cardinal-evm/types"
-	// "github.com/openrelayxyz/cardinal-evm/common"
-	// "github.com/openrelayxyz/cardinal-evm/crypto"
+	"github.com/openrelayxyz/cardinal-types"
 )
 
 var activators = map[int]func(*JumpTable){
@@ -268,7 +264,7 @@ func enable1153(jt *JumpTable) {
 // opTload implements TLOAD opcode
 func opTload(pc *uint64, interpreter *EVMInterpreter, scope *ScopeContext) ([]byte, error) {
 	loc := scope.Stack.peek()
-	hash := ctypes.Hash(loc.Bytes32())
+	hash := types.Hash(loc.Bytes32())
 	val := interpreter.evm.StateDB.GetTransientState(scope.Contract.Address(), hash)
 	loc.SetBytes(val.Bytes())
 	return nil, nil
