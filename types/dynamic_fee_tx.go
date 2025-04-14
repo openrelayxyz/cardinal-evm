@@ -89,6 +89,7 @@ func (tx *DynamicFeeTx) txType() byte           { return DynamicFeeTxType }
 func (tx *DynamicFeeTx) chainID() *big.Int      { return tx.ChainID }
 func (tx *DynamicFeeTx) protected() bool        { return true }
 func (tx *DynamicFeeTx) accessList() AccessList { return tx.AccessList }
+func (tx *DynamicFeeTx) authList() []Authorization { return nil }
 func (tx *DynamicFeeTx) data() []byte           { return tx.Data }
 func (tx *DynamicFeeTx) gas() uint64            { return tx.Gas }
 func (tx *DynamicFeeTx) gasFeeCap() *big.Int    { return tx.GasFeeCap }

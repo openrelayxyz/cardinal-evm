@@ -26,7 +26,8 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/params"
 	"github.com/openrelayxyz/cardinal-evm/state"
-	"github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-evm/types"
+	ctypes "github.com/openrelayxyz/cardinal-types"
 )
 
 // emptyCodeHash is used by create to ensure deployment is disallowed to already
@@ -40,7 +41,7 @@ type (
 	TransferFunc func(state.StateDB, common.Address, common.Address, *big.Int)
 	// GetHashFunc returns the n'th block hash in the blockchain
 	// and is used by the BLOCKHASH EVM op code.
-	GetHashFunc func(uint64) types.Hash
+	GetHashFunc func(uint64) ctypes.Hash
 )
 
 func (evm *EVM) precompile(addr common.Address) (PrecompiledContract, bool) {
@@ -84,7 +85,7 @@ type BlockContext struct {
 	Difficulty  *big.Int       // Provides information for DIFFICULTY
 	BaseFee     *big.Int       // Provides information for BASEFEE
 	BlobBaseFee *big.Int       // Provides information for BLOBFEE
-	Random      *types.Hash
+	Random      *ctypes.Hash
 }
 
 func defaultCanTransfer(db state.StateDB, addr common.Address, amount *big.Int) bool {
@@ -102,7 +103,7 @@ type TxContext struct {
 	// Message information
 	Origin   common.Address // Provides information for ORIGIN
 	GasPrice *big.Int       // Provides information for GASPRICE
-	BlobHashes []types.Hash // Provides information for BLOBHASH
+	BlobHashes []ctypes.Hash // Provides information for BLOBHASH
 }
 
 // EVM is the Ethereum Virtual Machine base object and provides
@@ -241,7 +242,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	} else {
 		// Initialise a new contract and set the code that is to be used by the EVM.
 		// The contract is a scoped environment for this execution context only.
-		code := evm.StateDB.GetCode(addr)
+		code := evm.resolveCode(addr)
 		if len(code) == 0 {
 			ret, err = nil, nil // gas is unchanged
 		} else {
@@ -249,7 +250,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 			// If the account has no code, we can abort here
 			// The depth-check is already done, and precompiles handled above
 			contract := NewContract(caller, AccountRef(addrCopy), value, gas)
-			contract.SetCallCode(&addrCopy, evm.StateDB.GetCodeHash(addrCopy), code)
+			contract.SetCallCode(&addrCopy, evm.resolveCodeHash(addrCopy), code)
 			ret, err = evm.interpreter.Run(contract, input, false)
 			gas = contract.Gas
 		}
@@ -305,7 +306,7 @@ func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, 
 		// Initialise a new contract and set the code that is to be used by the EVM.
 		// The contract is a scoped environment for this execution context only.
 		contract := NewContract(caller, AccountRef(caller.Address()), value, gas)
-		contract.SetCallCode(&addrCopy, evm.StateDB.GetCodeHash(addrCopy), evm.StateDB.GetCode(addrCopy))
+		contract.SetCallCode(&addrCopy, evm.resolveCodeHash(addrCopy), evm.resolveCode(addrCopy))
 		ret, err = evm.interpreter.Run(contract, input, false)
 		gas = contract.Gas
 	}
@@ -344,7 +345,7 @@ func (evm *EVM) DelegateCall(caller ContractRef, addr common.Address, input []by
 		addrCopy := addr
 		// Initialise a new contract and make initialise the delegate values
 		contract := NewContract(caller, AccountRef(caller.Address()), nil, gas).AsDelegate()
-		contract.SetCallCode(&addrCopy, evm.StateDB.GetCodeHash(addrCopy), evm.StateDB.GetCode(addrCopy))
+		contract.SetCallCode(&addrCopy, evm.resolveCodeHash(addrCopy), evm.resolveCode(addrCopy))
 		ret, err = evm.interpreter.Run(contract, input, false)
 		gas = contract.Gas
 	}
@@ -415,11 +416,11 @@ func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte
 
 type codeAndHash struct {
 	code []byte
-	hash types.Hash
+	hash ctypes.Hash
 }
 
-func (c *codeAndHash) Hash() types.Hash {
-	if c.hash == (types.Hash{}) {
+func (c *codeAndHash) Hash() ctypes.Hash {
+	if c.hash == (ctypes.Hash{}) {
 		c.hash = crypto.Keccak256Hash(c.code)
 	}
 	return c.hash
@@ -444,7 +445,7 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 	}
 	// Ensure there's no existing contract already at the designated address
 	contractHash := evm.StateDB.GetCodeHash(address)
-	if evm.StateDB.GetNonce(address) != 0 || (contractHash != (types.Hash{}) && contractHash != emptyCodeHash) {
+	if evm.StateDB.GetNonce(address) != 0 || (contractHash != (ctypes.Hash{}) && contractHash != emptyCodeHash) {
 		return nil, common.Address{}, 0, ErrContractAddressCollision
 	}
 	// Create a new account on the state
@@ -528,6 +529,35 @@ func (evm *EVM) Create2(caller ContractRef, code []byte, gas uint64, endowment *
 	codeAndHash := &codeAndHash{code: code}
 	contractAddr = crypto.CreateAddress2(caller.Address(), salt.Bytes32(), codeAndHash.Hash().Bytes())
 	return evm.create(caller, codeAndHash, gas, endowment, contractAddr, CREATE2)
+}
+
+// resolveCode returns the code associated with the provided account. After
+// Prague, it can also resolve code pointed to by a delegation designator.
+func (evm *EVM) resolveCode(addr common.Address) []byte {
+	code := evm.StateDB.GetCode(addr)
+	if !evm.chainRules.IsPrague {
+		return code
+	}
+	if target, ok := types.ParseDelegation(code); ok {
+		// Note we only follow one level of delegation.
+		return evm.StateDB.GetCode(target)
+	}
+	return code
+}
+
+// resolveCodeHash returns the code hash associated with the provided address.
+// After Prague, it can also resolve code hash of the account pointed to by a
+// delegation designator. Although this is not accessible in the EVM it is used
+// internally to associate jumpdest analysis to code.
+func (evm *EVM) resolveCodeHash(addr common.Address) ctypes.Hash {
+	if evm.chainRules.IsPrague {
+		code := evm.StateDB.GetCode(addr)
+		if target, ok := types.ParseDelegation(code); ok {
+			// Note we only follow one level of delegation.
+			return evm.StateDB.GetCodeHash(target)
+		}
+	}
+	return evm.StateDB.GetCodeHash(addr)
 }
 
 // ChainConfig returns the environment's chain configuration
