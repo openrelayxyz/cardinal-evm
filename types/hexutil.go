@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	u256T   = reflect.TypeFor[*uint256.Int]()
+	u256T = reflect.TypeOf[*uint256.Int]()
 )
 
 // U256 marshals/unmarshals as a JSON string with 0x prefix.
