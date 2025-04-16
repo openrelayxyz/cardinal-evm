@@ -153,6 +153,7 @@ func (tx *BlobTx) copy() TxData {
 func (tx *BlobTx) txType() byte           { return BlobTxType }
 func (tx *BlobTx) chainID() *big.Int      { return tx.ChainID.ToBig() }
 func (tx *BlobTx) accessList() AccessList { return tx.AccessList }
+func (tx *BlobTx) authList() []Authorization { return nil }
 func (tx *BlobTx) data() []byte           { return tx.Data }
 func (tx *BlobTx) gas() uint64            { return tx.Gas }
 func (tx *BlobTx) gasFeeCap() *big.Int    { return tx.GasFeeCap.ToBig() }

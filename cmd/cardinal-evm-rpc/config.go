@@ -82,6 +82,7 @@ type Config struct {
 	CloudWatch *cloudwatchOpts `yaml:"cloudwatch"`
 	BlockWaitTime int64 `yaml:"block.wait.ms"`
 	GasLimitOpts *gasLimitOpts `yaml:"gas.limit"`
+	Blacklist map[string]map[int32]map[int64]struct{} `yaml:"kafka.blacklist"`
 	brokers []transports.BrokerParams
 	whitelist map[uint64]types.Hash
 }

@@ -118,6 +118,7 @@ func main() {
 		*resumptionTime,
 		heightCh,
 		*exitWhenSynced,
+		cfg.Blacklist,
 	)
 	if err != nil {
 		log.Error("Error connecting streams", "err", err)

@@ -51,6 +51,8 @@ type TransactionArgs struct {
 	// Introduced by AccessListTxType transaction.
 	AccessList *types.AccessList `json:"accessList,omitempty"`
 	ChainID    *hexutil.Big      `json:"chainId,omitempty"`
+
+	AuthList   []types.Authorization `json:"authorizationList,omitempty"`
 }
 
 // from retrieves the transaction sender address.
@@ -139,7 +141,7 @@ func (args *TransactionArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (M
 	if args.AccessList != nil {
 		accessList = *args.AccessList
 	}
-	msg := NewMessage(addr, args.To, 0, value, gas, gasPrice, gasFeeCap, gasTipCap, data, accessList, false)
+	msg := NewMessage(addr, args.To, 0, value, gas, gasPrice, gasFeeCap, gasTipCap, data, accessList, args.AuthList, false)
 	return msg, nil
 }
 

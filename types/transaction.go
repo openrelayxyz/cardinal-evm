@@ -48,6 +48,7 @@ const (
 	AccessListTxType
 	DynamicFeeTxType
 	BlobTxType
+	SetCodeTxType
 )
 
 // Transaction is an Ethereum transaction.
@@ -77,6 +78,7 @@ type TxData interface {
 
 	chainID() *big.Int
 	accessList() AccessList
+	authList() []Authorization
 	data() []byte
 	gas() uint64
 	gasPrice() *big.Int
@@ -193,6 +195,8 @@ func (tx *Transaction) decodeTyped(b []byte) (TxData, error) {
 		inner = new(DynamicFeeTx)
 	case BlobTxType:
 		inner = new(BlobTx)
+	case SetCodeTxType:
+		inner = new(SetCodeTx)
 	default:
 		return nil, ErrTxTypeNotSupported
 	}
@@ -271,6 +275,9 @@ func (tx *Transaction) Data() []byte { return tx.inner.data() }
 
 // AccessList returns the access list of the transaction.
 func (tx *Transaction) AccessList() AccessList { return tx.inner.accessList() }
+
+// AuthList returns the authorization list of the transaction.
+func (tx *Transaction) AuthList() []Authorization { return tx.inner.authList() }
 
 // Gas returns the gas limit of the transaction.
 func (tx *Transaction) Gas() uint64 { return tx.inner.gas() }
@@ -608,10 +615,11 @@ type Message struct {
 	data       []byte
 	accessList AccessList
 	blobHashes []ctypes.Hash
+	authList   []Authorization
 	isFake     bool
 }
 
-func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice, gasFeeCap, gasTipCap *big.Int, data []byte, accessList AccessList, blobHashes []ctypes.Hash, isFake bool) Message {
+func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice, gasFeeCap, gasTipCap *big.Int, data []byte, accessList AccessList, blobHashes []ctypes.Hash, authList []Authorization, isFake bool) Message {
 	return Message{
 		from:       from,
 		to:         to,
@@ -624,6 +632,7 @@ func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *b
 		data:       data,
 		accessList: accessList,
 		blobHashes: blobHashes,
+		authList:   authList,
 		isFake:     isFake,
 	}
 }
@@ -640,6 +649,7 @@ func (tx *Transaction) AsMessage(s Signer, baseFee *big.Int) (Message, error) {
 		amount:     tx.Value(),
 		data:       tx.Data(),
 		accessList: tx.AccessList(),
+		authList:   tx.AuthList(),
 		blobHashes: tx.BlobHashes(),
 		isFake:     false,
 	}

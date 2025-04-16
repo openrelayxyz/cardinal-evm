@@ -47,7 +47,7 @@ type StreamManager struct{
 	heightCh chan<- *rpc.HeightRecord
 }
 
-func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, chainid int64, s storage.Storage, whitelist map[uint64]types.Hash, resumptionTime int64, heightCh chan<- *rpc.HeightRecord, failedReconstructPanic bool) (*StreamManager, error) {
+func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, chainid int64, s storage.Storage, whitelist map[uint64]types.Hash, resumptionTime int64, heightCh chan<- *rpc.HeightRecord, failedReconstructPanic bool, blacklist map[string]map[int32]map[int64]struct{}) (*StreamManager, error) {
 	lastHash, lastNumber, lastWeight, resumption := s.LatestBlock()
 	trackedPrefixes := []*regexp.Regexp{
 		regexp.MustCompile("c/[0-9a-z]+/a/"),
@@ -87,6 +87,7 @@ func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, ch
 		TrackedPrefixes: trackedPrefixes, 
 		Whitelist: whitelist,
 		FailedReconstructPanic: failedReconstructPanic,
+		Blacklist: blacklist,
 	})
 	if err != nil { return nil, err }
 	return &StreamManager{

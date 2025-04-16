@@ -32,4 +32,7 @@ type Header struct {
 
 	// BeaconRoot was added by EIP-4788 and is ignored in legacy headers.
 	BeaconRoot       *types.Hash `rlp:"optional"`
+
+	// RequestsHash was added by EIP-7685 and is ignored in legacy headers.
+	RequestsHash     *types.Hash `json:"requestsHash" rlp:"optional"`
 }

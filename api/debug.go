@@ -60,7 +60,7 @@ func TraceStructLog(ctx *rpc.CallContext, db state.StateDB, header *types.Header
 	if value == nil { value = new(big.Int) }
 	gasPrice := args.GasPrice.ToInt()
 	if gasPrice == nil { gasPrice = new(big.Int) }
-	msg := NewMessage(args.from(), args.To, uint64(*args.Nonce), value, uint64(*args.Gas), gasPrice, big.NewInt(0), big.NewInt(0), args.data(), nil, false)
+	msg := NewMessage(args.from(), args.To, uint64(*args.Nonce), value, uint64(*args.Gas), gasPrice, big.NewInt(0), big.NewInt(0), args.data(), *args.AccessList, args.AuthList, false)
 
 	_, err = ApplyMessage(getEVM(db.Copy(), &vm.Config{Tracer: tracer, Debug: true, NoBaseFee: true}, args.from(), msg.GasPrice()), msg, new(GasPool).AddGas(msg.Gas()))
 	if err != nil {
