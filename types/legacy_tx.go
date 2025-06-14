@@ -94,7 +94,9 @@ func (tx *LegacyTx) copy() TxData {
 }
 
 // accessors for innerTx.
-func (tx *LegacyTx) txType() byte           { return LegacyTxType }
+func (tx *LegacyTx) txType() byte           {
+	log.Error("calling from inside of legacy type")
+	return LegacyTxType }
 func (tx *LegacyTx) chainID() *big.Int      { return deriveChainId(tx.V) }
 func (tx *LegacyTx) accessList() AccessList { return nil }
 func (tx *LegacyTx) authList() []Authorization { return nil }
