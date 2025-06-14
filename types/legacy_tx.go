@@ -23,6 +23,8 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-types"
+
+	log "github.com/inconshreveable/log15"
 )
 
 // LegacyTx is the transaction data of regular Ethereum transactions.
