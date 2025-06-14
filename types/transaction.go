@@ -30,6 +30,8 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	ctypes "github.com/openrelayxyz/cardinal-types"
+
+	log "github.com/inconshreveable/log15"
 )
 
 var (
@@ -100,6 +102,7 @@ type TxData interface {
 // EncodeRLP implements rlp.Encoder
 func (tx *Transaction) EncodeRLP(w io.Writer) error {
 	if tx.Type() == LegacyTxType {
+		log.Error("returning from endode rlp transaction.go, legacy type")
 		return rlp.Encode(w, tx.inner)
 	}
 	// It's an EIP-2718 typed TX envelope.
@@ -260,6 +263,7 @@ func (tx *Transaction) Protected() bool {
 
 // Type returns the transaction type.
 func (tx *Transaction) Type() uint8 {
+	log.Error("returning from call to type transaction.go")
 	return tx.inner.txType()
 }
 
