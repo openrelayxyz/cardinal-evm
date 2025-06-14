@@ -23,8 +23,6 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-types"
-
-	log "github.com/inconshreveable/log15"
 )
 
 // LegacyTx is the transaction data of regular Ethereum transactions.
@@ -96,9 +94,7 @@ func (tx *LegacyTx) copy() TxData {
 }
 
 // accessors for innerTx.
-func (tx *LegacyTx) txType() byte           {
-	log.Error("calling from inside of legacy type")
-	return LegacyTxType }
+func (tx *LegacyTx) txType() byte           {return LegacyTxType }
 func (tx *LegacyTx) chainID() *big.Int      { return deriveChainId(tx.V) }
 func (tx *LegacyTx) accessList() AccessList { return nil }
 func (tx *LegacyTx) authList() []Authorization { return nil }
