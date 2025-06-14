@@ -421,7 +421,10 @@ func makeEncoderWriter(typ reflect.Type) writer {
 			// package json simply doesn't call MarshalJSON for this case, but encodes the
 			// value as if it didn't implement the interface. We don't want to handle it that
 			// way.
-			log.Error("this is the last out error from rlp", "err", err)
+			if thing := val.Type(); thing != nil {
+				log.Error("the thing is not nil")
+			}
+			log.Error("this is the last out error from rlp")
 			return fmt.Errorf("rlp: unaddressable value of type %v, EncodeRLP is pointer method", val.Type())
 		}
 		return val.Addr().Interface().(Encoder).EncodeRLP(w)
