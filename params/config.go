@@ -267,7 +267,7 @@ var (
 		CancunBlock:         big.NewInt(54876000),
 		NapoliBlock:         big.NewInt(54876000),
 		Pip30Block:          big.NewInt(62278656),
-		PragueBlock:         nil,
+		PragueBlock:         big.NewInt(73440256),
 		Engine:              BorEngine,
 		DisableOpcodes:      []int{
 			0x49, // BLOBHASH
@@ -295,7 +295,7 @@ var (
 		CancunBlock:         big.NewInt(5423600),
 		NapoliBlock:         big.NewInt(5423600),
 		Pip30Block:          big.NewInt(11865856),
-		PragueBlock:         nil,
+		PragueBlock:         big.NewInt(22765056),
 		Engine:              BorEngine,
 		DisableOpcodes:      []int{
 			0x49, // BLOBHASH
