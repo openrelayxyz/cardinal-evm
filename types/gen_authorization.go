@@ -16,7 +16,7 @@ var _ = (*authorizationMarshaling)(nil)
 // MarshalJSON marshals as JSON.
 func (a Authorization) MarshalJSON() ([]byte, error) {
 	type Authorization struct {
-		ChainID hexutil.Uint64 `json:"chainId" gencodec:"required"`
+		ChainID U256 `json:"chainId" gencodec:"required"`
 		Address common.Address `json:"address" gencodec:"required"`
 		Nonce   hexutil.Uint64 `json:"nonce" gencodec:"required"`
 		V       hexutil.Uint64 `json:"yParity" gencodec:"required"`
@@ -24,7 +24,7 @@ func (a Authorization) MarshalJSON() ([]byte, error) {
 		S       U256           `json:"s" gencodec:"required"`
 	}
 	var enc Authorization
-	enc.ChainID = hexutil.Uint64(a.ChainID)
+	enc.ChainID = U256(a.ChainID)
 	enc.Address = a.Address
 	enc.Nonce = hexutil.Uint64(a.Nonce)
 	enc.V = hexutil.Uint64(a.V)
@@ -36,7 +36,7 @@ func (a Authorization) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON unmarshals from JSON.
 func (a *Authorization) UnmarshalJSON(input []byte) error {
 	type Authorization struct {
-		ChainID *hexutil.Uint64 `json:"chainId" gencodec:"required"`
+		ChainID *U256 `json:"chainId" gencodec:"required"`
 		Address *common.Address `json:"address" gencodec:"required"`
 		Nonce   *hexutil.Uint64 `json:"nonce" gencodec:"required"`
 		V       *hexutil.Uint64 `json:"yParity" gencodec:"required"`
@@ -50,7 +50,7 @@ func (a *Authorization) UnmarshalJSON(input []byte) error {
 	if dec.ChainID == nil {
 		return errors.New("missing required field 'chainId' for Authorization")
 	}
-	a.ChainID = uint64(*dec.ChainID)
+	a.ChainID = uint256.Int(*dec.ChainID)
 	if dec.Address == nil {
 		return errors.New("missing required field 'address' for Authorization")
 	}
