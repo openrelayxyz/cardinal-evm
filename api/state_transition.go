@@ -439,7 +439,7 @@ func (st *StateTransition) gasUsed() uint64 {
 
 
 func (st *StateTransition) applyAuthorization(auth *types.Authorization) error {
-	if auth.ChainID != 0 && auth.ChainID != st.evm.ChainConfig().ChainID.Uint64() {
+	if !auth.ChainID.IsZero() && auth.ChainID.CmpBig(st.evm.ChainConfig().ChainID) != 0 {
 		return ErrAuthorizationWrongChainID
 	}
 	authority, err := auth.Authority()
