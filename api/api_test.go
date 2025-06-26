@@ -6,7 +6,9 @@ import (
 	"crypto/ecdsa"
 	"math/big"
 	"slices"
+	"strings"
 	"testing"
+	"regexp"
 
 	// log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
@@ -64,6 +66,7 @@ func TestEVMApi (t *testing.T){
 
 	mgr := vm.NewEVMManager(sdb.Storage, chainID, vm.Config{}, params.AllEthashProtocolChanges)
 	e := NewETHAPI(sdb.Storage, mgr, chainID, func(*types.Header) uint64 {return gasLimit})
+	web3 :=&Web3API{}
 
 	t.Run("BlockNumber", func(t *testing.T){
 		block1Hash := ctypes.HexToHash("0x01")
@@ -252,16 +255,69 @@ func TestEVMApi (t *testing.T){
 	})
 
 	t.Run("GetStorageAt", func(t *testing.T){
-		// creator := newAccounts(1)[0].addr
-		// contract := crypto.CreateAddress(creator, 0)
+		creator := newAccounts(1)[0].addr
+		contract := crypto.CreateAddress(creator, 0)
 
-		// storageSlot := ctypes.Hash{} 
-		// storageValue := ctypes.BigToHash(big.NewInt(123)) 
-		
+		storageSlot := ctypes.HexToHash("0x01") 
+		hashedSlot := crypto.Keccak256Hash(storageSlot.Bytes())
+		storageValue := ctypes.HexToHash("0xdeadbeef") 
+		rlpEncodedValue, _ := rlp.EncodeToBytes(storageValue.Bytes())
+
+		header := &types.Header{
+			Number: big.NewInt(2),
+			ParentHash: genesisHash,
+			Difficulty: big.NewInt(2),
+		}
+		rawHeader, _ := rlp.EncodeToBytes(header)
+		blockHash := crypto.Keccak256Hash(rawHeader)
+
+		updates := []storage.KeyValue{
+			{Key: schema.BlockHeader(chainID, blockHash.Bytes()), Value: rawHeader},
+			{Key: schema.AccountStorage(chainID, contract.Bytes(), hashedSlot.Bytes()), Value: rlpEncodedValue},
+		}
+
+		sdb.Storage.AddBlock(blockHash,
+			header.ParentHash,
+			header.Number.Uint64(),
+			header.Difficulty,
+			updates, nil,
+			[]byte("2"),
+		)
+
+		actual := storageValue.Bytes()
+		test, err := e.GetStorageAt(rpc.NewContext(context.Background()), contract, storageSlot.Hex(), vm.BlockNumberOrHash{BlockHash: &blockHash})
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+		testBytes, ok := test.(hexutil.Bytes)
+		if !ok {
+			t.Fatalf("unexpected result type: %T", test)
+		}
+		if !bytes.Equal(testBytes, actual) {
+			t.Fatalf("error in eth_call, expected %s, got %s", string(actual),testBytes.String())
+		}
 
 	})
 
 	t.Run("EstimateGas", func(t *testing.T){
 
+	})
+	
+	t.Run("Debug_TraceStructLog", func(t *testing.T){
+		
+	})
+
+	t.Run("web3_clientVersion", func(t *testing.T) {
+		version := web3.ClientVersion()
+		if version == "" {
+			t.Fatal("ClientVersion returned empty string")
+		}
+		if !strings.HasPrefix(version, "CardinalEVM/") {
+			t.Fatalf("unexpected prefix: %s", version)
+		}
+		matched, _ := regexp.MatchString(`^CardinalEVM/.+/.+/go\d+\.\d+(\.\d+)?$`, version)
+		if !matched {
+			t.Fatalf("invalid version format: %s", version)
+		}
 	})
 }
