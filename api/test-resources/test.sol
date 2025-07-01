@@ -13,11 +13,19 @@ pragma solidity ^0.8.20;
 //     }
 // }
 
-contract TracerTest {
-    uint256 public value;
+// contract TracerTest {
+//     uint256 public value;
 
-    function execute(uint256 a, uint256 b) public {
-        uint256 result = a + b;
-        value = result; 
+//     function execute(uint256 a, uint256 b) public {
+//         uint256 result = a + b;
+//         value = result; 
+//     }
+// }
+
+contract SimpleStorage {
+    uint256 private value;
+
+    function retrieve() public view returns (uint256) {
+        return value;
     }
 }

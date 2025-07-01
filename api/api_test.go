@@ -22,6 +22,7 @@ import (
 	"github.com/openrelayxyz/cardinal-rpc"
 	ctypes "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
+	"github.com/stretchr/testify/require"
 
 	"github.com/openrelayxyz/cardinal-storage"
 )
@@ -40,7 +41,6 @@ func newAccounts(n int) (accounts []account) {
 	slices.SortFunc(accounts, func(a, b account) int { return a.addr.Cmp(b.addr) })
 	return accounts
 }
-
 
 func TestEVMApi (t *testing.T){
 	chainID := int64(1)
@@ -79,11 +79,11 @@ func TestEVMApi (t *testing.T){
 			[]byte("1"),
 		)
 
-		test, err := e.BlockNumber(rpc.NewContext(context.Background()))
+		res, err := e.BlockNumber(rpc.NewContext(context.Background()))
 		if err != nil {
 			t.Fatal(err.Error())
 		}
-		if test != 1 {
+		if res != 1 {
 			t.Fatalf("Blocknumber result not accurate")
 		}
 	})
@@ -117,21 +117,20 @@ func TestEVMApi (t *testing.T){
 			 nil, []byte("1"),
 		)
 
-		 test, err := e.GetBalance(rpc.NewContext(context.Background()), addr, vm.BlockNumberOrHash{BlockHash: &blockHash})
+		result, err := e.GetBalance(rpc.NewContext(context.Background()), addr, vm.BlockNumberOrHash{BlockHash: &blockHash})
 		if err!=nil{
 			t.Fatal(err.Error())
 		}
-		if bal.Cmp((*big.Int)(test)) != 0 {
-			t.Fatalf("error in getBalance, expected å%s, got %s", bal.String(), test.String())
+		if bal.Cmp((*big.Int)(result)) != 0 {
+			t.Fatalf("error in getBalance, expected %s, got %s", bal.String(), result.String())
 		}
 	})
 
 	t.Run("Call", func(t *testing.T){
 		accounts := newAccounts(3)
-		from, to := accounts[0].addr,  accounts[1].addr
+		from, to := accounts[0].addr, accounts[1].addr
 
-
-		contract := hexutil.MustDecode("0x6080604052348015600e575f5ffd5b50600436106026575f3560e01c80633fa4f24514602a575b5f5ffd5b5f5460405190815260200160405180910390f3fea26469706673582212201ac5f57785e601674d20159494ae12fb2cc62ec0a9152929e20dfa835723007b64736f6c634300081e0033")
+		contract := hexutil.Bytes(ctypes.Hex2Bytes("6080604052348015600e575f5ffd5b50600436106026575f3560e01c80633fa4f24514602a575b5f5ffd5b5f5460405190815260200160405180910390f3fea26469706673582212201ac5f57785e601674d20159494ae12fb2cc62ec0a9152929e20dfa835723007b64736f6c634300081e0033"))
 		contractHash := crypto.Keccak256Hash(contract)
 
 		fromAccount := state.Account{Balance: big.NewInt(params.Ether)}
@@ -168,7 +167,7 @@ func TestEVMApi (t *testing.T){
 			[]byte("1"),
 		)
 
-		data := hexutil.Bytes(hexutil.MustDecode("0x3fa4f245")) // function value()
+		data := hexutil.Bytes(ctypes.Hex2Bytes("3fa4f245")) // function value()
 		gas := hexutil.Uint64(100000)
 		args := TransactionArgs{
 			From: &from,
@@ -197,7 +196,7 @@ func TestEVMApi (t *testing.T){
 		accounts := newAccounts(2)
 		address, contractAddr := accounts[0].addr,accounts[1].addr
 
-		contract := hexutil.MustDecode("0x6080604052348015600e575f5ffd5b50600436106026575f3560e01c80633fa4f24514602a575b5f5ffd5b5f5460405190815260200160405180910390f3fea26469706673582212201ac5f57785e601674d20159494ae12fb2cc62ec0a9152929e20dfa835723007b64736f6c634300081e0033")
+		contract := hexutil.Bytes(ctypes.Hex2Bytes("6080604052348015600e575f5ffd5b50600436106026575f3560e01c80633fa4f24514602a575b5f5ffd5b5f5460405190815260200160405180910390f3fea26469706673582212201ac5f57785e601674d20159494ae12fb2cc62ec0a9152929e20dfa835723007b64736f6c634300081e0033"))
 		contractHash := crypto.Keccak256Hash(contract)
 
 		addressAcct := state.Account{Balance: big.NewInt(params.Ether)}
@@ -231,18 +230,96 @@ func TestEVMApi (t *testing.T){
 			[]byte("1"),
 		)
 
-		test, err := e.GetCode(rpc.NewContext(context.Background()), contractAddr, vm.BlockNumberOrHash{BlockHash: &blockHash})
+		result, err := e.GetCode(rpc.NewContext(context.Background()), contractAddr, vm.BlockNumberOrHash{BlockHash: &blockHash})
 		if err != nil {
 			t.Fatal(err.Error())
 		}
-		testBytes, ok := test.(hexutil.Bytes)
+		resBytes, ok := result.(hexutil.Bytes)
 		if !ok {
-			t.Fatalf("unexpected result type %T", test )
+			t.Fatalf("unexpected result type %T", result )
 		}
 
-		if !bytes.Equal(testBytes, contract){
-			t.Fatalf("error in getCode, expected %s, got %s", string(contract), testBytes.String())
+		if !bytes.Equal(resBytes, contract){
+			t.Fatalf("error in getCode, expected %s, got %s", string(contract), resBytes.String())
 		}
+	})
+
+	t.Run("CreateAccessList", func(t *testing.T){
+		accounts := newAccounts(2)
+		from, to := accounts[0].addr, accounts[1].addr
+
+		// SPDX-License-Identifier: MIT
+		// pragma solidity ^0.8.0;
+		//
+		// contract SimpleStorage {
+		//     uint256 private value;
+		//
+		//     function retrieve() public view returns (uint256) {
+		//         return value;
+		//     }
+		// }
+
+		contract := hexutil.Bytes(ctypes.Hex2Bytes("6080604052348015600e575f5ffd5b50600436106026575f3560e01c80632e64cec114602a575b5f5ffd5b5f5460405190815260200160405180910390f3fea26469706673582212202ba4aea8a5151d55cb5bd6817fe8aa9ea5f8c07496296377b5cd34635676678264736f6c634300081e0033"))
+		codeHash := crypto.Keccak256Hash(contract)
+		fromAccount := state.Account{Balance: big.NewInt(params.Ether)}
+		toAccount := state.Account{CodeHash: codeHash.Bytes()}
+
+		encodedFrom,_ := rlp.EncodeToBytes(fromAccount)
+		encodedTo,_ := rlp.EncodeToBytes(toAccount)
+
+		header := &types.Header{
+			Number: big.NewInt(1),
+			ParentHash: genesisHash,
+			Difficulty: big.NewInt(1),
+		}
+
+		rawHeader,_ :=rlp.EncodeToBytes(header)
+		blockhash := crypto.Keccak256Hash(rawHeader)
+
+		updates := []storage.KeyValue{
+			{ Key: schema.BlockHeader(chainID, blockhash.Bytes()), Value: rawHeader},
+			{ Key: schema.AccountData(chainID, from.Bytes()), Value: encodedFrom},
+			{ Key: schema.AccountData(chainID, to.Bytes()), Value: encodedTo},
+			{ Key: schema.AccountCode(chainID, codeHash.Bytes()), Value: contract},
+		}
+
+		sdb.Storage.AddBlock(blockhash, 
+			header.ParentHash,
+			header.Number.Uint64(),
+			header.Difficulty,
+			updates, nil,
+			[]byte("1"),
+		)
+
+		data := hexutil.Bytes(ctypes.Hex2Bytes("2e64cec1"))
+		gas := hexutil.Uint64(100000)
+		args := TransactionArgs{
+			From:  &from,
+			To:    &to,
+			Data:  &data,
+			Gas:   &gas,
+			Value: new(hexutil.Big),
+		}
+
+		result, err := e.CreateAccessList(rpc.NewContext(context.Background()), args, &vm.BlockNumberOrHash{BlockHash: &blockhash})
+		if err != nil {
+			t.Fatalf(err.Error())
+		}
+		if result.Error != "" {
+			t.Fatalf("CreateAccessList returned a VM error: %v", result.Error)
+		}
+		if result.Accesslist == nil {
+			t.Fatal("expected an access list, but got nil")
+		}
+
+		expected := &types.AccessList{
+			{
+				Address: to,
+				StorageKeys: []ctypes.Hash{{}},
+			},
+		}
+
+		require.Equal(t, expected, result.Accesslist)
 	})
 
 	t.Run("GetStorageAt", func(t *testing.T){
@@ -298,7 +375,7 @@ func TestEVMApi (t *testing.T){
 		accounts := newAccounts(2)
 		from, to := accounts[0].addr, accounts[1].addr 
 
-		contract := hexutil.MustDecode("0x6080604052348015600e575f5ffd5b50600436106030575f3560e01c80633fa4f2451460345780635601eaea14604d575b5f5ffd5b603b5f5481565b60405190815260200160405180910390f35b605c6058366004606e565b605e565b005b5f60678284608d565b5f55505050565b5f5f60408385031215607e575f5ffd5b50508035926020909101359150565b8082018082111560ab57634e487b7160e01b5f52601160045260245ffd5b9291505056fea2646970667358221220cb70395670a2ececa377ddb2a0d7d0d24b58421678f45e6a00fa6416d23cee7664736f6c634300081e0033")
+		contract := hexutil.Bytes(ctypes.Hex2Bytes("6080604052348015600e575f5ffd5b50600436106030575f3560e01c80633fa4f2451460345780635601eaea14604d575b5f5ffd5b603b5f5481565b60405190815260200160405180910390f35b605c6058366004606e565b605e565b005b5f60678284608d565b5f55505050565b5f5f60408385031215607e575f5ffd5b50508035926020909101359150565b8082018082111560ab57634e487b7160e01b5f52601160045260245ffd5b9291505056fea2646970667358221220cb70395670a2ececa377ddb2a0d7d0d24b58421678f45e6a00fa6416d23cee7664736f6c634300081e0033"))
 		codeHash := crypto.Keccak256Hash(contract)
 		fromAccount := state.Account{Balance: big.NewInt(params.Ether)}
 		toAccount := state.Account{CodeHash: codeHash.Bytes()}
@@ -331,7 +408,7 @@ func TestEVMApi (t *testing.T){
 			[]byte("1"),
 		)
 
-		data := hexutil.Bytes(append(hexutil.MustDecode("0x5601eaea"), ctypes.LeftPadBytes(big.NewInt(10).Bytes(), 32)...))
+		data := hexutil.Bytes(append(ctypes.Hex2Bytes("5601eaea"), ctypes.LeftPadBytes(big.NewInt(10).Bytes(), 32)...))
 		data = append(data, ctypes.LeftPadBytes(big.NewInt(20).Bytes(), 32)...)
 		gas := hexutil.Uint64(150000)
  
