@@ -65,9 +65,11 @@ func TestEVMApi (t *testing.T){
 	cfg := *params.AllEthashProtocolChanges
 	cfg.ShanghaiBlock = big.NewInt(0)
 	mgr := vm.NewEVMManager(sdb.Storage, chainID, vm.Config{}, &cfg)
+
 	e := NewETHAPI(sdb.Storage, mgr, chainID, func(*types.Header) uint64 {return gasLimit})
 	web3Api :=&Web3API{}
 	debugApi := NewDebugAPI(sdb.Storage, mgr, chainID)
+	ethercattleApi := NewEtherCattleBlockChainAPI(mgr, func(*types.Header) uint64 {return gasLimit})
 
 	t.Run("BlockNumber", func(t *testing.T){
 		block1Hash := ctypes.HexToHash("0x01")
@@ -453,7 +455,52 @@ func TestEVMApi (t *testing.T){
 		}
 	})
 
-	t.Run("web3_clientVersion", func(t *testing.T) {
+	t.Run("Ethercattle_EstimateGasList", func(t *testing.T){
+		accounts := newAccounts(2)
+		from, to := accounts[0].addr, accounts[1].addr 
+
+		fromAccount := state.Account{Balance: big.NewInt(params.Ether)}
+		toAccount := state.Account{Balance: big.NewInt(0)}
+		encodedFrom, _ := rlp.EncodeToBytes(fromAccount)
+		encodedTo, _ := rlp.EncodeToBytes(toAccount)
+
+		header := &types.Header{
+			Number: big.NewInt(1),
+			ParentHash: genesisHash,
+			Difficulty: big.NewInt(2), 
+		}
+		rawHeader,_ := rlp.EncodeToBytes(header)
+		blockhash := crypto.Keccak256Hash(rawHeader)
+
+		updates := []storage.KeyValue{
+			{ Key: schema.BlockHeader(chainID, blockhash.Bytes()), Value: rawHeader},
+			{ Key: schema.AccountData(chainID, from.Bytes()), Value: encodedFrom},
+			{ Key: schema.AccountData(chainID, to.Bytes()), Value: encodedTo},
+		}
+
+		sdb.Storage.AddBlock(blockhash,
+			genesisHash, 
+			header.Number.Uint64(),
+			header.Difficulty, updates, nil, 
+			[]byte("1"),
+		)
+
+		gas := hexutil.Uint64(100000)
+		args := []TransactionArgs{
+			{
+				From: &from,
+				To: &to,
+				Gas: &gas,
+			},
+		}
+		precise := true
+		_, err := ethercattleApi.EstimateGasList(rpc.NewContext(context.Background()), args, &precise)
+		if err != nil {
+			t.Fatal(err.Error())
+		}
+	})
+
+	t.Run("Web3_ClientVersion", func(t *testing.T) {
 		version := web3Api.ClientVersion()
 		if version == "" {
 			t.Fatal("ClientVersion returned empty string")
