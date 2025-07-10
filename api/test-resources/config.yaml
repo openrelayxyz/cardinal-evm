@@ -1,0 +1,14 @@
+http.port: 8000
+chainid: 560048
+log.level: 2
+datadir: /var/lib/cardinal/data
+reorg.threshold: 128
+cloudwatch:
+  namespace: cardinal
+  dimensions:
+    network: hoodi
+topic.transactions: hoodi-tx
+block.wait.ms: 2000
+brokers:
+  - url: kafka://b-1.mskprodcardinal.3op30r.c2.kafka.us-east-2.amazonaws.com:9092,b-2.mskprodcardinal.3op30r.c2.kafka.us-east-2.amazonaws.com:9092,b-3.mskprodcardinal.3op30r.c2.kafka.us-east-2.amazonaws.com:9092
+    default.topic: stage-cardinal-hoodi-us-east-2
