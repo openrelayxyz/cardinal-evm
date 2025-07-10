@@ -10,7 +10,6 @@ import (
 	"strings"
 	"testing"
 
-	// log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/params"
@@ -29,7 +28,18 @@ import (
 type account struct {
 	key  *ecdsa.PrivateKey
 	addr common.Address
+} 
+
+// i'm using a mock emitter to mock the TransactionEmitter in SendRawTransaction's implementation
+// this stored the signed transaction in the seen field 
+type mockEmitter struct {
+	seen *types.Transaction
 }
+func (m *mockEmitter) Emit(tx *types.Transaction) error {
+	m.seen = tx;
+	return nil
+}
+
 var gasLimit  = uint64(30000000)
 
 func newAccounts(n int) (accounts []account) {
@@ -42,16 +52,22 @@ func newAccounts(n int) (accounts []account) {
 	return accounts
 }
 
+type TransactionEmitterFunc func(*types.Transaction) error
+
+func (f TransactionEmitterFunc) Emit(tx *types.Transaction) error {
+	return f(tx)
+}
+
 func TestEVMApi (t *testing.T){
 	chainID := int64(1)
 	sdb := state.NewMemStateDB(chainID, 128)
 
 	genesisHeader := &types.Header{
 		Number: big.NewInt(0),
-		 GasLimit: 30000000,
+		GasLimit: gasLimit,
 	}
 	rawGenesisHeader, _ := rlp.EncodeToBytes(genesisHeader)
-	genesisHash := ctypes.Hash(crypto.Keccak256Hash(rawGenesisHeader))
+	genesisHash := crypto.Keccak256Hash(rawGenesisHeader)
 
 	sdb.Storage.AddBlock(genesisHash, 
 		ctypes.Hash{}, 0, 
@@ -63,6 +79,7 @@ func TestEVMApi (t *testing.T){
 		[]byte("0"),
     )
 	cfg := *params.AllEthashProtocolChanges
+	cfg.ChainID = big.NewInt(chainID)
 	cfg.ShanghaiBlock = big.NewInt(0)
 	mgr := vm.NewEVMManager(sdb.Storage, chainID, vm.Config{}, &cfg)
 
@@ -71,6 +88,76 @@ func TestEVMApi (t *testing.T){
 	debugApi := NewDebugAPI(sdb.Storage, mgr, chainID)
 	ethercattleApi := NewEtherCattleBlockChainAPI(mgr, func(*types.Header) uint64 {return gasLimit})
 
+	t.Run("SendRawTransaction", func(t *testing.T){
+		accounts := newAccounts(2)
+		from, to := accounts[0], accounts[1]
+
+		fromAccount := state.Account{Balance: big.NewInt(params.Ether), Nonce: 0}
+		toAccount := state.Account{Balance: big.NewInt(0)}
+		encodedFrom,_ := rlp.EncodeToBytes(fromAccount)
+		encodedTo, _ := rlp.EncodeToBytes(toAccount)
+
+		header := &types.Header{
+			Number: big.NewInt(1),
+			ParentHash: genesisHash,
+			Difficulty: big.NewInt(1),
+			GasLimit:   gasLimit, 
+		}
+		rawHeader,_ := rlp.EncodeToBytes(header)
+		blockHash := crypto.Keccak256Hash(rawHeader)
+
+		updates := []storage.KeyValue{
+			{Key: schema.BlockHeader(chainID, blockHash.Bytes()), Value: rawHeader},
+			{Key: schema.AccountData(chainID, from.addr.Bytes()), Value: encodedFrom},
+			{Key: schema.AccountData(chainID, to.addr.Bytes()), Value: encodedTo},
+		}
+
+		sdb.Storage.AddBlock(blockHash, 
+			header.ParentHash, 
+			header.Number.Uint64(),
+			header.Difficulty, 
+			updates, nil,
+			[]byte("1"),
+		)
+
+		txData := &types.LegacyTx{
+			Nonce: 0,
+			To: &to.addr,
+			Value: big.NewInt(100),
+			Gas: params.TxGas,
+			GasPrice: big.NewInt(params.Wei),  
+			Data: nil,
+		}
+
+		tx := types.NewTx(txData)
+		signedTx, err := types.SignTx(tx, types.NewEIP155Signer(big.NewInt(chainID)), from.key)
+		if err!=nil {
+			t.Fatalf("signing error %v", err)
+		}
+		rawBytes,err := signedTx.MarshalBinary()
+		if err!= nil {
+			t.Fatalf("error marshalling binary %v", err)
+		}
+
+		emitter  := &mockEmitter{}
+		poolAPI := NewPublicTransactionPoolAPI(emitter, mgr)
+
+		hash, err := poolAPI.SendRawTransaction(rpc.NewContext(context.Background()), rawBytes)
+		if err!=nil {
+			t.Fatalf(err.Error())
+		}
+
+		if signedTx.Hash() != hash {
+			t.Fatalf("error in SendRawTransaction, hash mismatch. expected %v, got %v", signedTx.Hash(), hash)
+		}
+		if emitter.seen == nil {
+			t.Fatal("emitter did not receive any transaction")
+		}
+		if emitter.seen.Hash() != signedTx.Hash() {
+			t.Fatalf("emitted tx hash mismatch: got %s, want %s",
+				emitter.seen.Hash(), signedTx.Hash())
+		}
+	})
 	t.Run("BlockNumber", func(t *testing.T){
 		block1Hash := ctypes.HexToHash("0x01")
 		sdb.Storage.AddBlock(
@@ -368,10 +455,6 @@ func TestEVMApi (t *testing.T){
 		}
 
 	})
-
-	t.Run("EstimateGas", func(t *testing.T){
-
-	})
 	
 	t.Run("Debug_TraceStructLog", func(t *testing.T){
 		accounts := newAccounts(2)
@@ -494,10 +577,63 @@ func TestEVMApi (t *testing.T){
 			},
 		}
 		precise := true
-		_, err := ethercattleApi.EstimateGasList(rpc.NewContext(context.Background()), args, &precise)
+		res, err := ethercattleApi.EstimateGasList(rpc.NewContext(context.Background()), args, &precise)
 		if err != nil {
 			t.Fatal(err.Error())
 		}
+		if len(res) != 1 || res[0] != hexutil.Uint64(params.TxGas) {
+			t.Fatalf("error in estimateGas, expected [2100], got %s", res)
+		}
+	})
+
+	t.Run("EstimateGas", func(t *testing.T){
+		accounts := newAccounts(2)
+		from,to := accounts[0].addr, accounts[1].addr 
+
+		fromAccount := state.Account{Balance: big.NewInt(params.Ether)}
+		toAccount := state.Account{Balance: big.NewInt(0)}
+		encodedFrom, _ := rlp.EncodeToBytes(fromAccount)
+		encodedTo, _ := rlp.EncodeToBytes(toAccount)
+
+		header := &types.Header{
+			Number: big.NewInt(1),
+			ParentHash: genesisHash,
+			Difficulty: big.NewInt(2), 
+			GasLimit: gasLimit,
+		}
+
+		rawHeader, _ := rlp.EncodeToBytes(header)
+		blockHash := crypto.Keccak256Hash(rawHeader)
+
+		updates := []storage.KeyValue{
+			{Key: schema.BlockHeader(chainID, blockHash.Bytes()), Value: rawHeader},
+			{Key: schema.AccountData(chainID, from.Bytes()), Value: encodedFrom},
+			{Key: schema.AccountData(chainID, to.Bytes()),  Value: encodedTo},
+		}
+
+		sdb.Storage.AddBlock(blockHash,
+			header.ParentHash,
+			header.Number.Uint64(),
+			header.Difficulty,
+			updates, nil,
+			[]byte("1"),
+		)
+
+		gas := hexutil.Uint64(100000)      
+		args := TransactionArgs{
+			From: &from,
+			To:   &to,
+			Gas:  &gas,
+		}
+
+		res, err := e.EstimateGas(rpc.NewContext(context.Background()), args, &vm.BlockNumberOrHash{BlockHash: &blockHash})
+		if err != nil {
+			t.Fatalf(err.Error())
+		}
+		if res != hexutil.Uint64(params.TxGas) {
+			t.Fatalf("error in estimateGas mismatch: expected %d, actual %d", params.TxGas, res)
+		}
+
 	})
 
 	t.Run("Web3_ClientVersion", func(t *testing.T) {
