@@ -22,10 +22,22 @@ pragma solidity ^0.8.20;
 //     }
 // }
 
-contract SimpleStorage {
-    uint256 private value;
+// contract SimpleStorage {
+//     uint256 private value;
 
-    function retrieve() public view returns (uint256) {
-        return value;
+//     function retrieve() public view returns (uint256) {
+//         return value;
+//     }
+// }
+
+contract DoubleStore {
+    uint256 private stored;
+
+    constructor(uint256 _v) {
+        stored = _v * 2;
+    }
+
+    function get() external view returns (uint256) {
+        return stored;
     }
 }
