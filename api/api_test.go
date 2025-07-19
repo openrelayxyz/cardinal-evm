@@ -157,7 +157,7 @@ func TestEVMApi (t *testing.T){
 			t.Fatal(err.Error())
 		}
 		if res != 1 {
-			t.Fatalf("Blocknumber result not accurate")
+			t.Errorf("Blocknumber result not accurate")
 		}
 	})
 
@@ -248,16 +248,16 @@ func TestEVMApi (t *testing.T){
 				}
 				if !errors.Is(err, tc.expectErr) {
 					if err.Error() != tc.expectErr.Error() {
-						t.Fatalf("%v: expected error %v, got %v", tc.name, tc.expectErr, err)
+						t.Errorf("%v: expected error %v, got %v", tc.name, tc.expectErr, err)
 					}
 				}
 				continue
 			   }
 				if err!=nil{
-					t.Fatal(err.Error())
+					t.Error(err.Error())
 				}
 				if(*big.Int)(result).Cmp(tc.want) != 0 {
-					t.Fatalf("error in getBalance, %s: balance mismatch. expected %s, got %s", tc.name, tc.want.String(), (*big.Int)(result).String())
+					t.Errorf("error in getBalance, %s: balance mismatch. expected %s, got %s", tc.name, tc.want.String(), (*big.Int)(result).String())
 				}
 		}
 	})
@@ -367,21 +367,21 @@ func TestEVMApi (t *testing.T){
 				}
 				if !errors.Is(err, tc.expectErr){
 					if err.Error() != tc.expectErr.Error() {
-						t.Fatalf("%s: expected %v, got %v", tc.name, tc.expectErr, err)
+						t.Errorf("%s: expected %v, got %v", tc.name, tc.expectErr, err)
 					}
 				}
 				continue
 			}
 			if err != nil {
-				t.Fatal(err.Error())
+				t.Error(err.Error())
 			}
 			resBytes, ok := result.(hexutil.Bytes)
 			if !ok {
-				t.Fatalf("unexpected result type %T", result )
+				t.Errorf("unexpected result type %T", result )
 			}
 
 			if !bytes.Equal(resBytes, tc.want){
-				t.Fatalf("error in getCode, %v : expected %v, actual %v",  tc.name, tc.want, resBytes.String())
+				t.Errorf("error in getCode, %v : expected %v, actual %v",  tc.name, tc.want, resBytes.String())
 			}
 		}
 	})
@@ -590,17 +590,7 @@ func TestEVMApi (t *testing.T){
 		accounts := newAccounts(2)
 		from, to := accounts[0].addr, accounts[1].addr
 
-		// SPDX-License-Identifier: MIT
-		// pragma solidity ^0.8.0;
-		//
-		// contract SimpleStorage {
-		//     uint256 private value;
-		//
-		//     function retrieve() public view returns (uint256) {
-		//         return value;
-		//     }
-		// }
-
+		// simpleStorage
 		contract := hexutil.Bytes(ctypes.Hex2Bytes("6080604052348015600e575f5ffd5b50600436106026575f3560e01c80632e64cec114602a575b5f5ffd5b5f5460405190815260200160405180910390f3fea26469706673582212202ba4aea8a5151d55cb5bd6817fe8aa9ea5f8c07496296377b5cd34635676678264736f6c634300081e0033"))
 		codeHash := crypto.Keccak256Hash(contract)
 		fromAccount := state.Account{Balance: big.NewInt(params.Ether)}
@@ -646,13 +636,13 @@ func TestEVMApi (t *testing.T){
 		e := NewETHAPI(sdb.Storage, mgr, chainId, func(*types.Header)uint64{ return gasLimit})
 		result, err := e.CreateAccessList(rpc.NewContext(context.Background()), args, &vm.BlockNumberOrHash{BlockHash: &blockhash})
 		if err != nil {
-			t.Fatalf(err.Error())
+			t.Errorf(err.Error())
 		}
 		if result.Error != "" {
-			t.Fatalf("CreateAccessList returned a VM error: %v", result.Error)
+			t.Errorf("CreateAccessList returned a VM error: %v", result.Error)
 		}
 		if result.Accesslist == nil {
-			t.Fatal("expected an access list, but got nil")
+			t.Error("expected an access list, but got nil")
 		}
 
 		expected := &types.AccessList{
@@ -768,20 +758,20 @@ func TestEVMApi (t *testing.T){
 				}
 				if !errors.Is(err, tc.expectErr){
 					if err.Error() != tc.expectErr.Error() {
-						t.Fatalf("%s: expected %v, got %v", tc.name, tc.expectErr, err)
+						t.Errorf("%s: expected %v, got %v", tc.name, tc.expectErr, err)
 					}
 				}
 				continue
 			}
 			if err != nil {
-				t.Fatalf("%v: unexpected error: %v", tc.name, err)
+				t.Errorf("%v: unexpected error: %v", tc.name, err)
 			}
 			resBytes, ok := result.(hexutil.Bytes)
 			if !ok {
-				t.Fatalf("unexpected result type: %T", result)
+				t.Errorf("unexpected result type: %T", result)
 			}
 			if !bytes.Equal(resBytes, tc.want) {
-				t.Fatalf("error in eth_storageAt, %v: storage mismatch expected: %v actual : %v", tc.name, tc.want, resBytes)
+				t.Errorf("error in eth_storageAt, %v: storage mismatch expected: %v actual : %v", tc.name, tc.want, resBytes)
 			}
 		}
 	})
@@ -887,16 +877,16 @@ func TestEVMApi (t *testing.T){
 				}
 				if !errors.Is(err, tc.expectErr){
 					if err.Error() != tc.expectErr.Error() {
-						t.Fatalf("%s: expected %v, got %v", tc.name, tc.expectErr, err)
+						t.Errorf("%s: expected %v, got %v", tc.name, tc.expectErr, err)
 					}
 				}
 				continue
 			}
 			if err!=nil {
-				t.Fatalf(err.Error())
+				t.Errorf(err.Error())
 			}
 			if len(logs) == 0 {
-				t.Fatalf("%v: empty Trace", tc.name)
+				t.Errorf("%v: empty Trace", tc.name)
 			}
 			last := logs[len(logs)-1]
 
@@ -909,11 +899,11 @@ func TestEVMApi (t *testing.T){
 					}
 				}
 				if !sawRevert {
-					t.Fatalf("%s: REVERT opcode not found", tc.name)
+					t.Errorf("%s: REVERT opcode not found", tc.name)
 				}
 				continue 
 			} else if last.Err != nil {
-				t.Fatalf("%s: unexpected error at end: %v", tc.name, last.Err)
+				t.Errorf("%s: unexpected error at end: %v", tc.name, last.Err)
 			}
 			
 			// check addition success
@@ -933,13 +923,13 @@ func TestEVMApi (t *testing.T){
 				   }
 			}
 			if !addOk{
-				t.Fatalf("error in debug_tracestructlog, Add(10,20) not found or stack wrong")
+				t.Errorf("error in debug_tracestructlog, Add(10,20) not found or stack wrong")
 			}
 			if !storeOk {
-				t.Fatalf("error in debug_tracestructlog, SSTORE(slot 0, 30) not found or stack wrong")
+				t.Errorf("error in debug_tracestructlog, SSTORE(slot 0, 30) not found or stack wrong")
 			}
 			if logs[len(logs)-1].Err != nil {
-				t.Fatalf("error in debug_tracestructlog, trace ended with error: %v", logs[len(logs)-1].Err)
+				t.Errorf("error in debug_tracestructlog, trace ended with error: %v", logs[len(logs)-1].Err)
 			}
 			
 		}
@@ -948,29 +938,27 @@ func TestEVMApi (t *testing.T){
 	t.Run("Ethercattle_EstimateGasList", func(t *testing.T){
 		mgr, _, sdb, chainId := setupEVMTest(t)
 		genesisHash := addGenesis(sdb, chainId)
+		b := func(v bool) *bool { return &v }
 
-		accounts := newAccounts(2)
+		accounts := newAccounts(3)
 		from, to := accounts[0].addr, accounts[1].addr 
 
 		ethercattleApi := NewEtherCattleBlockChainAPI(mgr, func(*types.Header) uint64 {return gasLimit})
-
-		fromAccount := state.Account{Balance: big.NewInt(params.Ether)}
-		toAccount := state.Account{Balance: big.NewInt(0)}
-		encodedFrom, _ := rlp.EncodeToBytes(fromAccount)
-		encodedTo, _ := rlp.EncodeToBytes(toAccount)
 
 		header := &types.Header{
 			Number: big.NewInt(1),
 			ParentHash: genesisHash,
 			Difficulty: big.NewInt(2), 
+			GasLimit: gasLimit,
 		}
 		rawHeader,_ := rlp.EncodeToBytes(header)
 		blockhash := crypto.Keccak256Hash(rawHeader)
 
 		updates := []storage.KeyValue{
 			{ Key: schema.BlockHeader(chainId, blockhash.Bytes()), Value: rawHeader},
-			{ Key: schema.AccountData(chainId, from.Bytes()), Value: encodedFrom},
-			{ Key: schema.AccountData(chainId, to.Bytes()), Value: encodedTo},
+			{ Key: schema.AccountData(chainId, from.Bytes()), Value: fund(params.Ether)},
+			{ Key: schema.AccountData(chainId, to.Bytes()), Value: fund(0)},
+			{ Key: schema.AccountData(chainId, accounts[2].addr.Bytes()), Value: fund(0)}, 
 		}
 
 		sdb.Storage.AddBlock(blockhash,
@@ -979,22 +967,86 @@ func TestEVMApi (t *testing.T){
 			header.Difficulty, updates, nil, 
 			[]byte("1"),
 		)
+		gasCap := hexutil.Uint64(100_000)
 
-		gas := hexutil.Uint64(100000)
-		args := []TransactionArgs{
+		var testSuite = []struct {
+			name string
+			args [] TransactionArgs
+			precise *bool
+			wantValues []uint64
+			expectErr error
+		}{
 			{
-				From: &from,
-				To: &to,
-				Gas: &gas,
+				name: "single-transfer",
+				args: []TransactionArgs{
+					{
+						From: &from,
+						To: &to,
+						Gas: func() *hexutil.Uint64 { g := hexutil.Uint64(100000); return &g }(),
+					},
+				},
+				precise: func() *bool { p := true; return &p }(),
+				wantValues: []uint64{params.TxGas},
+			},
+			{
+				name: "multiple-transfers",
+				args: []TransactionArgs{
+					{
+						From: &from,
+						To: &to,
+						Value: (*hexutil.Big)(big.NewInt(100)),
+						Gas: &gasCap,
+					},
+					{
+						From: &from,
+						To: &accounts[2].addr,
+						Value: (*hexutil.Big)(big.NewInt(200)),
+						Gas: &gasCap,
+					},
+				},
+				precise: b(false), 
+				wantValues: []uint64{21113, 21113},   
+			},
+			{
+				name: "empty-list",
+				args: []TransactionArgs{},
+				precise: b(true), 
+				wantValues: []uint64{},
 			},
 		}
-		precise := true
-		res, err := ethercattleApi.EstimateGasList(rpc.NewContext(context.Background()), args, &precise)
-		if err != nil {
-			t.Fatal(err.Error())
-		}
-		if len(res) != 1 || res[0] != hexutil.Uint64(params.TxGas) {
-			t.Fatalf("error in estimateGas, expected [2100], got %s", res)
+
+		for _, tc := range testSuite{
+			res, err := ethercattleApi.EstimateGasList(rpc.NewContext(context.Background()), tc.args, tc.precise)
+			if tc.expectErr != nil {
+				if err == nil {
+					t.Errorf("test %s: want error %v, have nothing", tc.name, tc.expectErr)
+					continue
+				}
+				if !errors.Is(err, tc.expectErr) {
+					if err.Error() != tc.expectErr.Error() {
+						t.Errorf("test %s: error mismatch, want %v, have %v", tc.name, tc.expectErr, err)
+					}
+				}
+				continue
+			}
+			if err != nil {
+				t.Errorf("test %s: unexpected error: %v", tc.name, err)
+				continue
+			}
+			if len(res) != len(tc.wantValues) {
+				t.Errorf("test %s: length mismatch, expected %d, got %d", tc.name, len(tc.wantValues), len(res))
+				continue
+			}
+			
+			for i, expected := range tc.wantValues {
+				if i >= len(res) {
+					t.Errorf("test %s: missing result at index %d", tc.name, i)
+					break
+				}
+				if float64(res[i]) > float64(expected)*(1+estimateGasErrorRatio) {
+					t.Errorf("test %s: gas estimate mismatch at index %d, expected %d, got %d", tc.name, i, expected, uint64(res[i]))
+				}
+			}
 		}
 	})
 
@@ -1208,27 +1260,25 @@ func TestEVMApi (t *testing.T){
 		mgr, _, sdb, chainId := setupEVMTest(t)
 		genesisHash := addGenesis(sdb, chainId)
 
-		accounts := newAccounts(2)
+		accounts := newAccounts(4)
 		from, to := accounts[0], accounts[1]
-
-		fromAccount := state.Account{Balance: big.NewInt(params.Ether), Nonce: 0}
-		toAccount := state.Account{Balance: big.NewInt(0)}
-		encodedFrom,_ := rlp.EncodeToBytes(fromAccount)
-		encodedTo, _ := rlp.EncodeToBytes(toAccount)
 
 		header := &types.Header{
 			Number: big.NewInt(1),
 			ParentHash: genesisHash,
-			Difficulty: big.NewInt(1),
+			Difficulty: big.NewInt(2),
 			GasLimit:   gasLimit, 
+			BaseFee:    big.NewInt(1_000_000_000),
 		}
 		rawHeader,_ := rlp.EncodeToBytes(header)
 		blockHash := crypto.Keccak256Hash(rawHeader)
 
 		updates := []storage.KeyValue{
 			{Key: schema.BlockHeader(chainId, blockHash.Bytes()), Value: rawHeader},
-			{Key: schema.AccountData(chainId, from.addr.Bytes()), Value: encodedFrom},
-			{Key: schema.AccountData(chainId, to.addr.Bytes()), Value: encodedTo},
+			{Key: schema.AccountData(chainId, from.addr.Bytes()), Value: fund(params.Ether)},
+			{Key: schema.AccountData(chainId, to.addr.Bytes()), Value: fund(0)},
+			{Key: schema.AccountData(chainId, accounts[2].addr.Bytes()), Value: fund(1000)},
+			{Key: schema.AccountData(chainId, accounts[3].addr.Bytes()), Value: fundWithNonce(params.Ether, 5)},
 		}
 
 		sdb.Storage.AddBlock(blockHash, 
@@ -1239,42 +1289,152 @@ func TestEVMApi (t *testing.T){
 			[]byte("1"),
 		)
 
-		txData := &types.LegacyTx{
-			Nonce: 0,
-			To: &to.addr,
-			Value: big.NewInt(100),
-			Gas: params.TxGas,
-			GasPrice: big.NewInt(params.Wei),  
-			Data: nil,
-		}
-
-		tx := types.NewTx(txData)
-		signedTx, err := types.SignTx(tx, types.NewEIP155Signer(big.NewInt(chainId)), from.key)
-		if err!=nil {
-			t.Fatalf("signing error %v", err)
-		}
-		rawBytes,err := signedTx.MarshalBinary()
-		if err!= nil {
-			t.Fatalf("error marshalling binary %v", err)
-		}
-
 		emitter  := &mockEmitter{}
 		poolAPI := NewPublicTransactionPoolAPI(emitter, mgr)
 
-		hash, err := poolAPI.SendRawTransaction(rpc.NewContext(context.Background()), rawBytes)
-		if err!=nil {
-			t.Fatalf(err.Error())
+		var testSuite = []struct{
+			name string 
+			buildTx func() ([]byte, ctypes.Hash)
+			expectErr error
+		}{
+			{
+				name: "legacy-transfer-success",
+				buildTx: func() ([]byte, ctypes.Hash) {
+					txData := &types.LegacyTx{
+						Nonce:0,
+						To:&to.addr,
+						Value: big.NewInt(100),
+						Gas:params.TxGas,
+						GasPrice: big.NewInt(params.GWei),
+					}
+					tx := types.NewTx(txData)
+					signedTx, _ := types.SignTx(tx, types.NewEIP155Signer(big.NewInt(chainId)), from.key)
+					rawBytes, _ := signedTx.MarshalBinary()
+					return rawBytes, signedTx.Hash()
+				},
+				expectErr: nil,
+			},
+			{
+				name: "insufficient-funds",
+				buildTx: func() ([]byte, ctypes.Hash) {
+					txData := &types.LegacyTx{
+						Nonce:  0,
+						To: &to.addr,
+						Value: big.NewInt(params.Ether), 
+						Gas: params.TxGas,
+						GasPrice: big.NewInt(params.GWei),
+					}
+					tx := types.NewTx(txData)
+					signedTx, _ := types.SignTx(tx, types.NewEIP155Signer(big.NewInt(chainId)), accounts[2].key)
+					rawBytes, _ := signedTx.MarshalBinary()
+					return rawBytes, signedTx.Hash()
+				},
+				expectErr: ErrInsufficientFunds,
+			},
+			{
+				name: "invalid-signature",
+				buildTx: func() ([]byte, ctypes.Hash) {
+					txData := &types.LegacyTx{
+						Nonce:0,
+						To: &to.addr,
+						Value:big.NewInt(100),
+						Gas: params.TxGas,
+						GasPrice: big.NewInt(params.GWei),
+					}
+					tx := types.NewTx(txData)
+
+					signedTx, _ := types.SignTx(tx, types.NewEIP155Signer(big.NewInt(999)), from.key) // wrong chainID
+					rawBytes, _ := signedTx.MarshalBinary()
+					return rawBytes, signedTx.Hash()
+				},
+				expectErr: types.ErrInvalidChainId,
+			},
+			{
+				name: "nonce-too-low", 
+				buildTx: func() ([]byte, ctypes.Hash) {
+					txData := &types.LegacyTx{
+						Nonce: 2, 
+						To:  &to.addr,
+						Value: big.NewInt(100),
+						Gas: params.TxGas,
+						GasPrice: big.NewInt(params.GWei),
+					}
+					tx := types.NewTx(txData)
+					signedTx, _ := types.SignTx(tx, types.NewEIP155Signer(big.NewInt(chainId)), accounts[3].key)
+					rawBytes, _ := signedTx.MarshalBinary()
+					return rawBytes, signedTx.Hash()
+				},
+				expectErr: ErrNonceTooLow,
+			},
+			{
+				name: "eip1559-transfer",
+				buildTx: func() ([]byte, ctypes.Hash) {
+					txData := &types.DynamicFeeTx{
+						ChainID: big.NewInt(chainId),
+						Nonce: 0,
+						To: &to.addr,
+						Value: big.NewInt(100),
+						Gas: params.TxGas,
+						GasTipCap: big.NewInt(2_000_000_000), 
+						GasFeeCap: big.NewInt(3_000_000_000),
+					}
+					tx := types.NewTx(txData)
+					signedTx, _ := types.SignTx(tx, types.LatestSignerForChainID(big.NewInt(chainId)), from.key)
+					rawBytes, _ := signedTx.MarshalBinary()
+					return rawBytes, signedTx.Hash()
+				},
+				expectErr: nil,
+			},
+			{
+				name: "intrinsic-gas-too-low",
+				buildTx: func() ([]byte, ctypes.Hash) {
+					txData := &types.LegacyTx{
+						Nonce:    0,
+						To:       &to.addr,
+						Value:    big.NewInt(100),
+						Gas:      20000, 
+						GasPrice: big.NewInt(params.GWei),
+					}
+					tx := types.NewTx(txData)
+					signedTx, _ := types.SignTx(tx, types.NewEIP155Signer(big.NewInt(chainId)), from.key)
+					rawBytes, _ := signedTx.MarshalBinary()
+					return rawBytes, signedTx.Hash()
+				},
+				expectErr: ErrIntrinsicGas,
+			},
 		}
 
-		if signedTx.Hash() != hash {
-			t.Fatalf("error in SendRawTransaction, hash mismatch. expected %v, got %v", signedTx.Hash(), hash)
-		}
-		if emitter.seen == nil {
-			t.Fatal("emitter did not receive any transaction")
-		}
-		if emitter.seen.Hash() != signedTx.Hash() {
-			t.Fatalf("emitted tx hash mismatch: got %s, want %s",
-				emitter.seen.Hash(), signedTx.Hash())
+		for _, tc := range testSuite{
+			emitter.seen = nil
+			rawBytes, expectedHash := tc.buildTx()
+
+			hash, err := poolAPI.SendRawTransaction(rpc.NewContext(context.Background()), rawBytes)
+			if tc.expectErr != nil {
+				if err == nil {
+					t.Errorf("test %v: want error %v, have nothing", tc.name, tc.expectErr)
+					continue
+				}
+				if !errors.Is(err, tc.expectErr) {
+					if err.Error() != tc.expectErr.Error() {
+						t.Errorf("test %v: error mismatch, want %v, have %v", tc.name, tc.expectErr, err)
+					}
+				}
+				continue
+			}
+			if err != nil {
+				t.Errorf("test:%v, err: %v", tc.name, err)
+				continue
+			}
+			if hash != expectedHash {
+				t.Errorf("hash mismatch: expected %v, got %v", expectedHash, hash)
+			}
+			
+			if emitter.seen == nil {
+				t.Error("emitter did not receive transaction")
+			}
+			if emitter.seen.Hash() != expectedHash {
+				t.Errorf("emitted tx hash mismatch: got %v, want %v", emitter.seen.Hash(), expectedHash)
+			}
 		}
 	})
 
