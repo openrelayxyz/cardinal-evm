@@ -30,14 +30,26 @@ pragma solidity ^0.8.20;
 //     }
 // }
 
-contract DoubleStore {
-    uint256 private stored;
+// contract DoubleStore {
+//     uint256 private stored;
 
-    constructor(uint256 _v) {
-        stored = _v * 2;
-    }
+//     constructor(uint256 _v) {
+//         stored = _v * 2;
+//     }
 
-    function get() external view returns (uint256) {
-        return stored;
-    }
+//     function get() external view returns (uint256) {
+//         return stored;
+//     }
+// }
+// contract Reverter {
+// 	function fail() external pure { revert("fail"); }
+// }
+
+contract BasefeeChecker {
+	constructor() {
+	 require(tx.gasprice >= block.basefee);
+		if (tx.gasprice > 0) {
+		  require(block.basefee > 0);
+		}
+	}
 }
