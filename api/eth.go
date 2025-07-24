@@ -339,6 +339,53 @@ func (s *PublicBlockChainAPI) Call(ctx *rpc.CallContext, args TransactionArgs, b
 	return res, err
 }
 
+func (s *PublicBlockChainAPI) SimulateV1(ctx *rpc.CallContext, opts simOpts, blockNrOrHash *vm.BlockNumberOrHash) ([]*simBlockResult, error) {
+	if len(opts.BlockStateCalls) == 0 {
+		return nil, fmt.Errorf("empty input")
+	} else if len(opts.BlockStateCalls) > maxSimulateBlocks {
+		return nil, fmt.Errorf("too many blocks")
+	}
+
+	bNrOrHash := vm.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
+	if blockNrOrHash != nil {
+		bNrOrHash = *blockNrOrHash
+	}
+
+	var results []*simBlockResult
+
+	err := s.evmmgr.View(bNrOrHash, &vm.Config{NoBaseFee: !opts.Validation}, ctx, func(statedb state.StateDB, baseHeader *types.Header, evmFn func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, chaincfg *params.ChainConfig) error {
+		gasCap := s.gasLimit(baseHeader)
+		if gasCap == 0 {
+			gasCap = math.MaxUint64
+		}
+
+		sim := &simulator{
+			timeout:        30 * time.Second, 
+			state:          statedb.Copy(),
+			base:           baseHeader,
+			chainConfig:    chaincfg,
+			gp:             new(GasPool).AddGas(gasCap),
+			traceTransfers: opts.TraceTransfers,
+			validate:       opts.Validation,
+			fullTx:         opts.ReturnFullTransactions,
+			evmFn:          evmFn,
+		}
+		var err error
+		results, err = sim.execute(ctx, opts.BlockStateCalls)
+		return err
+	})
+
+	if err != nil {
+		switch err.(type) {
+		case codedError:
+		default:
+			err = evmError{err}
+		}
+		return nil, err
+	}
+	return results, nil
+}
+
 //
 type estimateGasError struct {
 	error  string // Concrete error type if it's failed to estimate gas usage

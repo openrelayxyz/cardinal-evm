@@ -114,3 +114,9 @@ var (
 	ErrAuthorizationDestinationHasCode = errors.New("EIP-7702 authorization destination is a contract")
 	ErrAuthorizationNonceMismatch      = errors.New("EIP-7702 authorization nonce does not match current account nonce")
 )
+
+type callError struct {
+	Message string `json:"message"`
+	Code    int    `json:"code"`
+	Data    string `json:"data,omitempty"`
+}
