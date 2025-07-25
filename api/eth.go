@@ -196,7 +196,7 @@ func (diff *StateOverride) Apply(state state.StateDB) error {
 }
 
 func DoCall(cctx *rpc.CallContext, getEVM func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, args TransactionArgs, prevState *PreviousState, blockNrOrHash vm.BlockNumberOrHash, overrides *StateOverride, timeout time.Duration, globalGasCap uint64) (*ExecutionResult, *PreviousState, error) {
-	// defer func(start time.Time) { log.Debug("Executing EVM call finished", "runtime", time.Since(start)) }(time.Now())
+	defer func(start time.Time) { log.Debug("Executing EVM call finished", "runtime", time.Since(start)) }(time.Now())
 	if prevState == nil || prevState.header == nil || prevState.state == nil {
 		return nil, nil, fmt.Errorf("both header and state must be set")
 	}

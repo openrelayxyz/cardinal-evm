@@ -12,7 +12,6 @@ import (
 	"slices"
 	"strings"
 
-	"os"
 	"testing"
 
 	"github.com/openrelayxyz/cardinal-evm/common"
@@ -26,8 +25,6 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-rpc"
 	ctypes "github.com/openrelayxyz/cardinal-types"
-
-	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/stretchr/testify/require"
 
@@ -68,10 +65,6 @@ type TransactionEmitterFunc func(*types.Transaction) error
 
 func (f TransactionEmitterFunc) Emit(tx *types.Transaction) error {
 	return f(tx)
-}
-
-func init() {
-    log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, log.StreamHandler(os.Stderr, log.TerminalFormat())),)
 }
 
 func newRPCBalance(balance *big.Int) **hexutil.Big {
@@ -839,7 +832,7 @@ func TestEVMApi (t *testing.T){
 					Number: big.NewInt(int64(i + 3)),
 					ParentHash: genesisHash,
 					Difficulty: big.NewInt(1),
-					GasLimit:   gasLimit,	
+					GasLimit:   gasLimit, 
 				}
 				rawHeader,_ := rlp.EncodeToBytes(header)
 				blockHash = crypto.Keccak256Hash(rawHeader)
