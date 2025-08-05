@@ -341,9 +341,9 @@ func (s *PublicBlockChainAPI) Call(ctx *rpc.CallContext, args TransactionArgs, b
 
 func (s *PublicBlockChainAPI) SimulateV1(ctx *rpc.CallContext, opts simOpts, blockNrOrHash *vm.BlockNumberOrHash) ([]*simBlockResult, error) {
 	if len(opts.BlockStateCalls) == 0 {
-		return nil, fmt.Errorf("empty input")
+		return nil, &invalidParamsError{message: "empty input"}
 	} else if len(opts.BlockStateCalls) > maxSimulateBlocks {
-		return nil, fmt.Errorf("too many blocks")
+		return nil,  &clientLimitExceededError{message: "too many blocks"}
 	}
 
 	bNrOrHash := vm.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
@@ -364,6 +364,7 @@ func (s *PublicBlockChainAPI) SimulateV1(ctx *rpc.CallContext, opts simOpts, blo
 			state:          statedb.Copy(),
 			base:           baseHeader,
 			chainConfig:    chaincfg,
+			// Each tx and all the series of txes shouldn't consume more gas than cap
 			gp:             new(GasPool).AddGas(gasCap),
 			traceTransfers: opts.TraceTransfers,
 			validate:       opts.Validation,

@@ -104,6 +104,23 @@ var (
 	
 )
 
+const (
+	errCodeNonceTooHigh            = -38011
+	errCodeNonceTooLow             = -38010
+	errCodeIntrinsicGas            = -38013
+	errCodeInsufficientFunds       = -38014
+	errCodeBlockGasLimitReached    = -38015
+	errCodeBlockNumberInvalid      = -38020
+	errCodeBlockTimestampInvalid   = -38021
+	errCodeSenderIsNotEOA          = -38024
+	errCodeMaxInitCodeSizeExceeded = -38025
+	errCodeClientLimitExceeded     = -38026
+	errCodeInternalError           = -32603
+	errCodeInvalidParams           = -32602
+	errCodeReverted                = -32000
+	errCodeVMError                 = -32015
+)
+
 
 // EIP-7702 state transition errors.
 // Note these are just informational, and do not cause tx execution abort.
@@ -120,3 +137,13 @@ type callError struct {
 	Code    int    `json:"code"`
 	Data    string `json:"data,omitempty"`
 }
+
+type invalidParamsError struct{ message string }
+
+func (e *invalidParamsError) Error() string  { return e.message }
+func (e *invalidParamsError) ErrorCode() int { return errCodeInvalidParams }
+
+type clientLimitExceededError struct{ message string }
+
+func (e *clientLimitExceededError) Error() string  { return e.message }
+func (e *clientLimitExceededError) ErrorCode() int { return errCodeClientLimitExceeded }

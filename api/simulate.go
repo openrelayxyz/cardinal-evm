@@ -1,13 +1,16 @@
 package api
 
 import (
-	"math/big"
-	"time"
 	"context"
 	"fmt"
+	"math/big"
 	"errors"
+	"time"
 
 	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-evm/crypto"
+	"github.com/openrelayxyz/cardinal-evm/eips/eip1559"
+	"github.com/openrelayxyz/cardinal-evm/eips/eip4844"
 	"github.com/openrelayxyz/cardinal-evm/params"
 	"github.com/openrelayxyz/cardinal-evm/state"
 	"github.com/openrelayxyz/cardinal-evm/types"
@@ -15,6 +18,7 @@ import (
 	rpc "github.com/openrelayxyz/cardinal-rpc"
 	ctypes "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
+	"github.com/openrelayxyz/plugeth-utils/core"
 	ptypes "github.com/openrelayxyz/plugeth-utils/restricted/types"
 )
 
@@ -49,7 +53,6 @@ type simOpts struct {
 
 // simBlock is a batch of calls to be simulated sequentially.
 type simBlock struct {
-	BlockOverrides *BlockOverrides
 	StateOverrides *StateOverride
 	Calls          []TransactionArgs
 }
@@ -71,7 +74,7 @@ type simulator struct {
 type simBlockResult struct {
 	fullTx      bool
 	chainConfig *params.ChainConfig
-	Block       *ptypes.Block
+	Block       *types.Block
 	Calls       []simCallResult
 	// senders is a map of transaction hashes to their senders.
 	senders map[ctypes.Hash]common.Address
@@ -86,7 +89,7 @@ type simCallResult struct {
 	Error       *callError     `json:"error,omitempty"`
 }
 
-func (s *simulator) execute(ctx *rpc.CallContext, blocks []simBlock) ([]*simBlockResult, error){
+func (s *simulator) execute(ctx *rpc.CallContext, blocks []simBlock) ([]*simBlockResult, error) {
 	if err := ctx.Context().Err(); err != nil {
 		return nil, err
 	}
@@ -99,83 +102,199 @@ func (s *simulator) execute(ctx *rpc.CallContext, blocks []simBlock) ([]*simBloc
 		execCtx, cancel = context.WithCancel(ctx.Context())
 	}
 	defer cancel()
-	
-	santizedblocks, err := s.sanitizeChain(blocks)
-	if err != nil {
-		return nil, err
-	}
 
-	// yet to implement
-	headers, err := s.makeHeaders(santizedblocks)
-	if err != nil {
-		return nil, err
-	}
-
-}
-
-// sanitizeChain checks the chain integrity. Specifically it checks that
-// block numbers and timestamp are strictly increasing, setting default values
-// when necessary. Gaps in block numbers are filled with empty blocks.
-func (s *simulator) sanitizeChain(blocks []simBlock) ([]simBlock, error) {
 	var (
-		res           = make([]simBlock, 0, len(blocks))
-		base          = s.base
-		prevNumber    = base.Number
-		prevTimestamp = base.Time
+		results = make([]*simBlockResult, len(blocks))
+		headers = make([]*types.Header, 0, len(blocks))
+		parent  = s.base
 	)
 
-	for _, block := range blocks {
-		if block.BlockOverrides == nil {
-			block.BlockOverrides = &BlockOverrides{}
-		}
+	for bi, block := range blocks {
+		header := types.CopyHeader(s.base)
+		header.Number = new(big.Int).Add(s.base.Number, big.NewInt(int64(bi+1)))
+		header.ParentHash = parent.Hash()
+		header.Time = s.base.Time + uint64(bi+1)*12
 
-		if block.BlockOverrides.Number == nil {
-			n := new(big.Int).Add(prevNumber, big.NewInt(1))
-			block.BlockOverrides.Number = (*hexutil.Big)(n)
+		if err := execCtx.Err(); err != nil {
+			return nil, err
 		}
+		result, callResults, senders, err := s.processBlock(ctx, &block, header, parent, headers, s.timeout)
+		if err != nil {
+			return nil, err
+		}
+		results[bi] = &simBlockResult{fullTx: s.fullTx, chainConfig: s.chainConfig, Block: result, Calls: callResults, senders: senders}
+		headers = append(headers, result.Header())
+		parent = result.Header()
 
-		diff := new(big.Int).Sub(block.BlockOverrides.Number.ToInt(), prevNumber)
-		if diff.Cmp(big.NewInt(0)) <= 0 {
-			return nil, fmt.Errorf("block numbers must be in order: %d <= %d", 
-				block.BlockOverrides.Number.ToInt().Uint64(), prevNumber.Uint64())
-		}
-
-		if total := new(big.Int).Sub(block.BlockOverrides.Number.ToInt(), base.Number); total.Cmp(big.NewInt(maxSimulateBlocks)) > 0 {
-			return nil, fmt.Errorf("too many blocks")
-		}
-
-		// Fill gaps with empty blocks
-		if diff.Cmp(big.NewInt(1)) > 0 {
-			gap := new(big.Int).Sub(diff, big.NewInt(1))
-			for i := uint64(0); i < gap.Uint64(); i++ {
-				n := new(big.Int).Add(prevNumber, big.NewInt(int64(i+1)))
-				t := prevTimestamp + timestampIncrement
-				emptyBlock := simBlock{
-					BlockOverrides: &BlockOverrides{
-						Number: (*hexutil.Big)(n),
-						Time:   (*hexutil.Uint64)(&t),
-					},
-				}
-				prevTimestamp = t
-				res = append(res, emptyBlock)
-			}
-		}
-
-		prevNumber = block.BlockOverrides.Number.ToInt()
-		var t uint64
-		if block.BlockOverrides.Time == nil {
-			t = prevTimestamp + timestampIncrement
-			block.BlockOverrides.Time = (*hexutil.Uint64)(&t)
-		} else {
-			t = uint64(*block.BlockOverrides.Time)
-			if t <= prevTimestamp {
-				return nil, fmt.Errorf("block timestamps must be in order: %d <= %d", t, prevTimestamp)
-			}
-		}
-		prevTimestamp = t
-		res = append(res, block)
+		s.state.Finalise()
 	}
 
-	return res, nil
+	return results, nil
 }
 
+func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, parent *types.Header, headers []*types.Header, timeout time.Duration) (*types.Block, []simCallResult, map[ctypes.Hash]common.Address, error) {
+	// Set header fields that depend only on parent block.
+	// Parent hash is needed for evm.GetHashFn to work.
+	header.ParentHash = parent.Hash()
+
+	if s.chainConfig.IsLondon(header.Number) {
+		if header.BaseFee == nil {
+			if s.validate {
+				header.BaseFee = eip1559.CalcBaseFee(s.chainConfig, parent)
+			} else {
+				header.BaseFee = big.NewInt(0)
+			}
+		}
+	}
+	if s.chainConfig.IsCancun(header.Number, new(big.Int).SetUint64(header.Time)) {
+		var excess uint64
+		if s.chainConfig.IsCancun(parent.Number, new(big.Int).SetUint64(parent.Time)) {
+			parentExcess := uint64(0)
+			if parent.ExcessBlobGas != nil {
+				parentExcess = *parent.ExcessBlobGas
+			}
+			parentBlobGasUsed := uint64(0)
+			if parent.BlobGasUsed != nil {
+				parentBlobGasUsed = *parent.BlobGasUsed
+			}
+			excess = eip4844.CalcExcessBlobGas(parentExcess, parentBlobGasUsed)
+		}
+		header.ExcessBlobGas = &excess
+	}
+
+	if block.StateOverrides != nil {
+		if err := block.StateOverrides.Apply(s.state); err != nil {
+			return nil, nil, nil, err
+		}
+	}
+
+	var (
+		blobGasUsed uint64
+		gasUsed     uint64
+		txes        = make([]*types.Transaction, len(block.Calls))
+		callResults = make([]simCallResult, len(block.Calls))
+		receipts    = make([]*ptypes.Receipt, len(block.Calls))
+		senders     = make(map[ctypes.Hash]common.Address)
+		allLogs     []*types.Log
+	)
+
+	getHashFn := func(n uint64) ctypes.Hash {
+		for _, h := range headers {
+			if h.Number.Uint64() == n {
+				return h.Hash()
+			}
+		}
+		if parent.Number.Uint64() == n {
+			return parent.Hash()
+		}
+		return ctypes.Hash{}
+	}
+
+	for i, call := range block.Calls {
+		if err := ctx.Context().Err(); err != nil {
+			return nil, nil, nil, err
+		}
+
+		if err := call.setDefaults(ctx, s.evmFn, s.state, header, vm.BlockNumberOrHashWithHash(header.Hash(), false)); err != nil {
+			return nil, nil, nil, err
+		}
+		if gasUsed+uint64(*call.Gas) > header.GasLimit {
+			return nil, nil, nil, fmt.Errorf("block gas limit exceeded")
+		}
+		tx := call.ToTransaction(types.DynamicFeeTxType)
+		txes[i] = tx
+		senders[tx.Hash()] = call.from()
+
+		evm := s.evmFn(s.state, &vm.Config{
+			NoBaseFee: !s.validate,
+		}, call.from(), call.GasPrice.ToInt())
+
+		if evm.Context.GetHash == nil {
+			evm.Context.GetHash = getHashFn
+		}
+
+		if s.chainConfig.IsPrague(header.Number, new(big.Int).SetUint64(header.Time)) {
+			// Process parent block hash for EIP-2935
+			if header.ParentHash != (ctypes.Hash{}) {
+				evm.StateDB.SetState(
+					params.HistoryStorageAddress,
+					ctypes.BigToHash(header.Number),
+					header.ParentHash,
+				)
+			}
+		}
+
+		msg, err := call.ToMessage(s.gp.Gas(), header.BaseFee)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		result, err := ApplyMessage(evm, msg, s.gp)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("transaction execution failed: %v", err)
+		}
+		gasUsed += result.UsedGas
+
+		var root []byte
+		if s.chainConfig.IsByzantium(header.Number) {
+			s.state.Finalise()
+		} else {
+			root = nil
+		}
+		header.Root = s.base.Root
+
+		receipt := &ptypes.Receipt{
+			Type:              tx.Type(),
+			PostState:         root,
+			Status:            ptypes.ReceiptStatusSuccessful,
+			CumulativeGasUsed: gasUsed,
+			Bloom:             ptypes.Bloom{},
+			TxHash:            core.Hash(tx.Hash()),
+			GasUsed:           result.UsedGas,
+			TransactionIndex:  uint(i),
+			// Logs: result.Logs,
+		}
+		if tx.To() == nil {
+			receipt.ContractAddress = core.Address(crypto.CreateAddress(*call.From, tx.Nonce()))
+		}
+		if result.Failed() {
+			receipt.Status = ptypes.ReceiptStatusFailed
+		}
+
+		// Handle blob gas for Cancun
+		// if s.chainConfig.IsCancun(header.Number, new(big.Int).SetUint64(header.Time)) {
+		// 	if tx.Type() == types.BlobTxType {
+		// 		receipt.BlobGasUsed = tx.BlobGas()
+		// 		blobGasUsed += receipt.BlobGasUsed
+		// 	}
+		// }
+
+		receipts[i] = receipt
+
+		callRes := simCallResult{
+			GasUsed:     hexutil.Uint64(result.UsedGas),
+			ReturnValue: result.ReturnData,
+			// Logs:        result.Logs,
+		}
+		if result.Failed() {
+			callRes.Status = hexutil.Uint64(ptypes.ReceiptStatusFailed)
+			if errors.Is(result.Err, vm.ErrExecutionReverted) {
+				// If the result contains a revert reason, try to unpack it.
+				revertErr := newRevertError(result)
+				callRes.Error = &callError{Message: revertErr.Error(), Code: errCodeReverted, Data: revertErr.ErrorData().(string)}
+			} else {
+				callRes.Error = &callError{Message: result.Err.Error(), Code: errCodeVMError}
+			}
+		} else {
+			callRes.Status = hexutil.Uint64(ptypes.ReceiptStatusSuccessful)
+			allLogs = append(allLogs, callRes.Logs...)
+		}
+		callResults[i] = callRes
+		s.state.Finalise()
+	}
+
+	header.GasUsed = gasUsed
+	if s.chainConfig.IsCancun(header.Number, new(big.Int).SetUint64(header.Time)) {
+		header.BlobGasUsed = &blobGasUsed
+	}
+
+}
