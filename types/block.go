@@ -6,7 +6,13 @@ import (
 	"time"
 
 	"github.com/openrelayxyz/cardinal-evm/common"
-	types "github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-types"
+)
+
+var (
+	// EmptyUncleHash is the known hash of the empty uncle set.
+	EmptyUncleHash = rlpHash([]*Header(nil)) // 1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347
+
 )
 
 type Header struct {
@@ -100,4 +106,11 @@ func CopyHeader(h *Header) *Header {
 // RLP encoding.
 func (h *Header) Hash() types.Hash {
 	return rlpHash(h)
+}
+
+// NewBlockWithHeader creates a block with the given header data. The
+// header data is copied, changes to header and to the field values
+// will not affect the block.
+func NewBlockWithHeader(header *Header) *Block {
+	return &Block{header: CopyHeader(header)}
 }

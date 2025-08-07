@@ -195,6 +195,27 @@ func (diff *StateOverride) Apply(state state.StateDB) error {
 	return nil
 }
 
+func applyMessageWithEVM(ctx *rpc.CallContext, evm *vm.EVM, msg *Msg, timeout time.Duration, gp *GasPool) (*ExecutionResult, error) {
+	// Wait for the context to be done and cancel the evm. Even if the
+	// EVM has finished, cancelling may be done (repeatedly)
+	go func() {
+		<-ctx.Context().Done()
+		evm.Cancel()
+	}()
+
+	// Execute the message.
+	result, err := ApplyMessage(evm, msg, gp)
+
+	// If the timer caused an abort, return an appropriate error message
+	if evm.Cancelled() {
+		return nil, fmt.Errorf("execution aborted (timeout = %v)", timeout)
+	}
+	if err != nil {
+		return result, fmt.Errorf("err: %w (supplied gas %d)", err, msg.gasLimit)
+	}
+	return result, nil
+}
+
 func DoCall(cctx *rpc.CallContext, getEVM func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, args TransactionArgs, prevState *PreviousState, blockNrOrHash vm.BlockNumberOrHash, overrides *StateOverride, timeout time.Duration, globalGasCap uint64) (*ExecutionResult, *PreviousState, error) {
 	defer func(start time.Time) { log.Debug("Executing EVM call finished", "runtime", time.Since(start)) }(time.Now())
 	if prevState == nil || prevState.header == nil || prevState.state == nil {
@@ -339,6 +360,13 @@ func (s *PublicBlockChainAPI) Call(ctx *rpc.CallContext, args TransactionArgs, b
 	return res, err
 }
 
+// SimulateV1 executes series of transactions on top of a base state.
+// The transactions are packed into blocks. For each block, block header
+// fields can be overridden. The state can also be overridden prior to
+// execution of each block.
+//
+// Note, this function doesn't make any changes in the state/blockchain and is
+// useful to execute and retrieve values.
 func (s *PublicBlockChainAPI) SimulateV1(ctx *rpc.CallContext, opts simOpts, blockNrOrHash *vm.BlockNumberOrHash) ([]*simBlockResult, error) {
 	if len(opts.BlockStateCalls) == 0 {
 		return nil, &invalidParamsError{message: "empty input"}
@@ -362,7 +390,7 @@ func (s *PublicBlockChainAPI) SimulateV1(ctx *rpc.CallContext, opts simOpts, blo
 		sim := &simulator{
 			timeout:        30 * time.Second, 
 			state:          statedb.Copy(),
-			base:           baseHeader,
+			base:           types.CopyHeader(baseHeader),
 			chainConfig:    chaincfg,
 			// Each tx and all the series of txes shouldn't consume more gas than cap
 			gp:             new(GasPool).AddGas(gasCap),

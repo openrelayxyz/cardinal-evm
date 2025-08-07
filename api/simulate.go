@@ -2,9 +2,9 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
-	"errors"
 	"time"
 
 	"github.com/openrelayxyz/cardinal-evm/common"
@@ -18,8 +18,6 @@ import (
 	rpc "github.com/openrelayxyz/cardinal-rpc"
 	ctypes "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
-	"github.com/openrelayxyz/plugeth-utils/core"
-	ptypes "github.com/openrelayxyz/plugeth-utils/restricted/types"
 )
 
 const (
@@ -89,6 +87,23 @@ type simCallResult struct {
 	Error       *callError     `json:"error,omitempty"`
 }
 
+type simpleTrieHasher struct {
+	data []byte
+}
+
+func (h *simpleTrieHasher) Reset() {
+	h.data = h.data[:0] 
+}
+
+func (h *simpleTrieHasher) Update(key, value []byte) {
+	h.data = append(h.data, key...)
+	h.data = append(h.data, value...)
+}
+
+func (h *simpleTrieHasher) Hash() ctypes.Hash {
+	return crypto.Keccak256Hash(h.data)
+}
+
 func (s *simulator) execute(ctx *rpc.CallContext, blocks []simBlock) ([]*simBlockResult, error) {
 	if err := ctx.Context().Err(); err != nil {
 		return nil, err
@@ -113,7 +128,9 @@ func (s *simulator) execute(ctx *rpc.CallContext, blocks []simBlock) ([]*simBloc
 		header := types.CopyHeader(s.base)
 		header.Number = new(big.Int).Add(s.base.Number, big.NewInt(int64(bi+1)))
 		header.ParentHash = parent.Hash()
-		header.Time = s.base.Time + uint64(bi+1)*12
+		header.Time = parent.Time + uint64(bi+1)*12
+
+		s.gp = new(GasPool).AddGas(header.GasLimit)
 
 		if err := execCtx.Err(); err != nil {
 			return nil, err
@@ -136,7 +153,6 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 	// Set header fields that depend only on parent block.
 	// Parent hash is needed for evm.GetHashFn to work.
 	header.ParentHash = parent.Hash()
-
 	if s.chainConfig.IsLondon(header.Number) {
 		if header.BaseFee == nil {
 			if s.validate {
@@ -162,6 +178,7 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		header.ExcessBlobGas = &excess
 	}
 
+	// State overrides are applied prior to execution of a block
 	if block.StateOverrides != nil {
 		if err := block.StateOverrides.Apply(s.state); err != nil {
 			return nil, nil, nil, err
@@ -173,7 +190,7 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		gasUsed     uint64
 		txes        = make([]*types.Transaction, len(block.Calls))
 		callResults = make([]simCallResult, len(block.Calls))
-		receipts    = make([]*ptypes.Receipt, len(block.Calls))
+		receipts    = make([]*types.Receipt, len(block.Calls))
 		senders     = make(map[ctypes.Hash]common.Address)
 		allLogs     []*types.Log
 	)
@@ -194,7 +211,6 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		if err := ctx.Context().Err(); err != nil {
 			return nil, nil, nil, err
 		}
-
 		if err := call.setDefaults(ctx, s.evmFn, s.state, header, vm.BlockNumberOrHashWithHash(header.Hash(), false)); err != nil {
 			return nil, nil, nil, err
 		}
@@ -204,6 +220,7 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		tx := call.ToTransaction(types.DynamicFeeTxType)
 		txes[i] = tx
 		senders[tx.Hash()] = call.from()
+		s.state.SetTxContext(tx.Hash(), i)
 
 		evm := s.evmFn(s.state, &vm.Config{
 			NoBaseFee: !s.validate,
@@ -213,14 +230,10 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 			evm.Context.GetHash = getHashFn
 		}
 
-		if s.chainConfig.IsPrague(header.Number, new(big.Int).SetUint64(header.Time)) {
+		if s.chainConfig.IsPrague(header.Number, new(big.Int).SetUint64(header.Time)) { 
 			// Process parent block hash for EIP-2935
 			if header.ParentHash != (ctypes.Hash{}) {
-				evm.StateDB.SetState(
-					params.HistoryStorageAddress,
-					ctypes.BigToHash(header.Number),
-					header.ParentHash,
-				)
+				evm.StateDB.SetState(params.HistoryStorageAddress,ctypes.BigToHash(header.Number), header.ParentHash,)
 			}
 		}
 
@@ -228,11 +241,10 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		result, err := ApplyMessage(evm, msg, s.gp)
+		result, err := applyMessageWithEVM(ctx, evm, &msg, timeout, s.gp)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("transaction execution failed: %v", err)
 		}
-		gasUsed += result.UsedGas
 
 		var root []byte
 		if s.chainConfig.IsByzantium(header.Number) {
@@ -240,43 +252,44 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		} else {
 			root = nil
 		}
+		gasUsed += result.UsedGas
 		header.Root = s.base.Root
 
-		receipt := &ptypes.Receipt{
+		receipt := &types.Receipt{
 			Type:              tx.Type(),
 			PostState:         root,
-			Status:            ptypes.ReceiptStatusSuccessful,
+			Status:            types.ReceiptStatusSuccessful,
 			CumulativeGasUsed: gasUsed,
-			Bloom:             ptypes.Bloom{},
-			TxHash:            core.Hash(tx.Hash()),
+			TxHash:            tx.Hash(),
 			GasUsed:           result.UsedGas,
 			TransactionIndex:  uint(i),
-			// Logs: result.Logs,
 		}
+		receipt.Logs = s.state.GetLogs(tx.Hash(), header.Number.Uint64(), header.Hash())
+		receipt.Bloom = types.CreateBloom([]*types.Receipt{receipt})
 		if tx.To() == nil {
-			receipt.ContractAddress = core.Address(crypto.CreateAddress(*call.From, tx.Nonce()))
+			receipt.ContractAddress = crypto.CreateAddress(*call.From, tx.Nonce())
 		}
 		if result.Failed() {
-			receipt.Status = ptypes.ReceiptStatusFailed
+			receipt.Status = types.ReceiptStatusFailed
 		}
 
 		// Handle blob gas for Cancun
-		// if s.chainConfig.IsCancun(header.Number, new(big.Int).SetUint64(header.Time)) {
-		// 	if tx.Type() == types.BlobTxType {
-		// 		receipt.BlobGasUsed = tx.BlobGas()
-		// 		blobGasUsed += receipt.BlobGasUsed
-		// 	}
-		// }
+		if s.chainConfig.IsCancun(header.Number, new(big.Int).SetUint64(header.Time)) {
+			if tx.Type() == types.BlobTxType {
+				receipt.BlobGasUsed = tx.BlobGas()
+				blobGasUsed += receipt.BlobGasUsed
+			}
+		}
 
 		receipts[i] = receipt
 
 		callRes := simCallResult{
-			GasUsed:     hexutil.Uint64(result.UsedGas),
+			GasUsed:  hexutil.Uint64(result.UsedGas),
 			ReturnValue: result.ReturnData,
-			// Logs:        result.Logs,
+			Logs:  receipt.Logs,
 		}
 		if result.Failed() {
-			callRes.Status = hexutil.Uint64(ptypes.ReceiptStatusFailed)
+			callRes.Status = hexutil.Uint64(types.ReceiptStatusFailed)
 			if errors.Is(result.Err, vm.ErrExecutionReverted) {
 				// If the result contains a revert reason, try to unpack it.
 				revertErr := newRevertError(result)
@@ -285,8 +298,8 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 				callRes.Error = &callError{Message: result.Err.Error(), Code: errCodeVMError}
 			}
 		} else {
-			callRes.Status = hexutil.Uint64(ptypes.ReceiptStatusSuccessful)
-			allLogs = append(allLogs, callRes.Logs...)
+			callRes.Status = hexutil.Uint64(types.ReceiptStatusSuccessful)
+			allLogs = append(allLogs, receipt.Logs...)
 		}
 		callResults[i] = callRes
 		s.state.Finalise()
@@ -297,4 +310,14 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		header.BlobGasUsed = &blobGasUsed
 	}
 
+	hasher := &simpleTrieHasher{}
+
+	header.TxHash = types.DeriveSha(types.Transactions(txes), hasher)
+	header.ReceiptHash = types.DeriveSha(types.Receipts(receipts), hasher)
+	header.Bloom = types.CreateBloom(receipts)
+	header.Root = s.base.Root
+
+	blck := types.NewBlockWithHeader(header)
+
+	return blck, callResults, senders, nil
 }
