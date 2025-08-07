@@ -36,3 +36,9 @@ type Header struct {
 	// RequestsHash was added by EIP-7685 and is ignored in legacy headers.
 	RequestsHash     *types.Hash `json:"requestsHash" rlp:"optional"`
 }
+
+// Hash returns the block hash of the header, which is simply the keccak256 hash of its
+// RLP encoding.
+func (h *Header) Hash() types.Hash {
+	return rlpHash(h)
+}
