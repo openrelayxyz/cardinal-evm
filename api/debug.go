@@ -1,19 +1,23 @@
 package api
 
 import (
-	"fmt"
 	"encoding/json"
+	"fmt"
 	"math/big"
 
+	"github.com/openrelayxyz/cardinal-evm/api/tracers"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/params"
+	"github.com/openrelayxyz/cardinal-evm/rlp"
+	"github.com/openrelayxyz/cardinal-evm/schema"
 	"github.com/openrelayxyz/cardinal-evm/state"
 	"github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-storage"
+
+	// ctypes "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
-	ctypes "github.com/openrelayxyz/cardinal-types"
 )
 
 type PrivateDebugAPI struct {
@@ -41,15 +45,6 @@ type TraceCallConfig struct {
 	TxIndex        *hexutil.Uint
 }
 
-// TraceContext provides context for tracing
-type TraceContext struct {
-	BlockHash   ctypes.Hash
-	BlockNumber *big.Int
-	TxIndex     int
-	TxHash      ctypes.Hash
-}
-
-const defaultTraceReexec = uint64(128)
 
 // NewPublicBlockChainAPI creates a new Ethereum blockchain API.
 func NewDebugAPI(s storage.Storage, evmmgr *vm.EVMManager, chainid int64) *PrivateDebugAPI {
@@ -115,63 +110,96 @@ func (s *PrivateDebugAPI) TraceCall(ctx *rpc.CallContext, args TransactionArgs, 
 		bNrOrHash = *blockNrOrHash
 	}
 
-	reexec := defaultTraceReexec
-	if config != nil && config.Reexec != nil {
-		reexec = *config.Reexec
+	var (
+		statedb state.StateDB
+		header *types.Header
+		chaincfg *params.ChainConfig
+	)
+
+	if config != nil  && config.TxIndex != nil {
+		var err error
+		statedb, header, chaincfg, err = s.stateAtTransaction(ctx, bNrOrHash, int(*config.TxIndex))
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		err := s.evmmgr.View(bNrOrHash, args.from, ctx, func(h *types.Header, sdb state.StateDB, evmFunc func (state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, cfg *params.ChainConfig) error{
+			statedb = sdb
+			header = h
+			chaincfg = cfg
+			return nil
+		})
+		if err != nil {
+			switch err.(type) {
+			case codedError:
+			default:
+				err = evmError{err}
+			}
+			return nil, err
+		}
 	}
 
-	var result interface{}
-	err := s.evmmgr.View(bNrOrHash, args.from, ctx, func(header *types.Header, statedb state.StateDB, evmFn func (state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, chaincfg *params.ChainConfig) error{
-		if config != nil {
-			if err := config.StateOverrides.Apply(statedb); err != nil {
-				return err
-			}
+	if config != nil {
+		if err := config.StateOverrides.Apply(statedb); err != nil {
+			return nil, err
 		}
+	}
 
-		gasCap := new(GasPool).AddGas(header.GasLimit)
-		if err := args.CallDefaults(gasCap.Gas(), header.BaseFee, chaincfg.ChainID); err != nil {
-			return err
-		}
-
-		msg, err := args.ToMessage(gasCap.Gas(), header.BaseFee) 
-		if err != nil {
-			return err
-		}
-
-		tx := args.ToTransaction(types.DynamicFeeTxType)
-		txctx := &TraceContext{
-			BlockHash:   header.Hash(),
-			BlockNumber: header.Number,
-			TxIndex:     0, 
-			TxHash:      tx.Hash(),
-		}
-
-
-		if msg.gasPrice.Sign() == 0 {
-			header.BaseFee = new(big.Int)
-		}
-
-		var traceConfig *TraceConfig
-		if config != nil {
-			traceConfig = &config.TraceConfig
-		}
-	
-
-		result, err = s.traceTx(ctx, tx, msg, txctx, header, statedb, traceConfig)
-		return err
-	})
-
-	if err != nil {
-		switch err.(type) {
-		case codedError:
-		default:
-			err = evmError{err}
-		}
+	gasCap := new(GasPool).AddGas(header.GasLimit)
+	if err := args.CallDefaults(gasCap.Gas(), header.BaseFee, chaincfg.ChainID); err != nil {
 		return nil, err
 	}
-	return result, nil
+
+	msg, err := args.ToMessage(gasCap.Gas(), header.BaseFee) 
+	if err != nil {
+		return nil, err
+	}
+
+	tx := args.ToTransaction(types.DynamicFeeTxType)
+
+	if msg.gasPrice.Sign() == 0 {
+		header.BaseFee = new(big.Int)
+	}
+
+	var traceConfig *TraceConfig
+	if config != nil {
+		traceConfig = &config.TraceConfig
+	}
+	return s.traceTx(ctx, tx, msg, new(tracers.Context), header, statedb, traceConfig)
 }
 
-func (s *PrivateDebugAPI) traceTx(ctx *rpc.CallContext, tx *types.Transaction, message Msg, txctx *TraceContext, header *types.Header, statedb state.StateDB, config *TraceConfig) (interface{}, error){
+func (s *PrivateDebugAPI) traceTx(ctx *rpc.CallContext, tx *types.Transaction, message Msg, txctx *tracers.Context, header *types.Header, statedb state.StateDB, config *TraceConfig) (interface{}, error){
 
+}
+
+func (s *PrivateDebugAPI) stateAtTransaction(ctx *rpc.CallContext, blockNrOrHash vm.BlockNumberOrHash, txIndex int) (state.StateDB, *types.Header, *params.ChainConfig, error){
+	err := s.evmmgr.View(blockNrOrHash, common.Address{}, ctx, func(header *types.Header, statedb state.StateDB, evmFn func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, chainCfg *params.ChainConfig) error {
+		blockHash := header.Hash()
+		if hash, ok := blockNrOrHash.Hash(); ok {
+			blockHash = hash
+		}
+
+		var transactions []*types.Transaction
+		err := s.storage.View(blockHash, func(tx storage.Transaction) error {
+			for i := 0; ; i++ {
+				txkey := schema.Transaction(s.chainid, blockHash.Bytes(), int64(i))
+				txdata, err := tx.Get(txkey)
+				if err != nil{ break }
+
+				var transaction types.Transaction
+				if err := rlp.DecodeBytes(txdata, &transaction); err != nil {
+					return fmt.Errorf("failed to decode transaction %v: %v", i, err)
+				}
+				transactions = append(transactions, &transaction)
+			}
+			return nil
+		})
+		if err!=nil{
+			return err
+		}
+
+		if txIndex >= len(transactions) {
+			return fmt.Errorf("transaction index %d exceeds block transaction count %d", txIndex, len(transactions))
+		}
+	})
 }
