@@ -4,16 +4,12 @@ import (
 	"math/big"
 	"sync/atomic"
 	"time"
+	"slices"
 
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-types"
 )
 
-var (
-	// EmptyUncleHash is the known hash of the empty uncle set.
-	EmptyUncleHash = rlpHash([]*Header(nil)) // 1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347
-
-)
 
 type Header struct {
 	ParentHash      types.Hash
@@ -108,9 +104,85 @@ func (h *Header) Hash() types.Hash {
 	return rlpHash(h)
 }
 
+// Body is a simple (mutable, non-safe) data container for storing and moving
+// a block's data contents (transactions and uncles) together.
+type Body struct {
+	Transactions []*Transaction
+	Uncles       []*Header
+	Withdrawals  []*Withdrawal `rlp:"optional"`
+}
+
 // NewBlockWithHeader creates a block with the given header data. The
 // header data is copied, changes to header and to the field values
 // will not affect the block.
 func NewBlockWithHeader(header *Header) *Block {
 	return &Block{header: CopyHeader(header)}
+}
+
+// NewBlock creates a new block. The input data is copied, changes to header and to the
+// field values will not affect the block.
+//
+// The body elements and the receipts are used to recompute and overwrite the
+// relevant portions of the header.
+//
+// The receipt's bloom must already calculated for the block's bloom to be
+// correctly calculated.
+func NewBlock(header *Header, body *Body, receipts []*Receipt, hasher TrieHasher) *Block {
+	if body == nil {
+		body = &Body{}
+	}
+	var (
+		b           = NewBlockWithHeader(header)
+		txs         = body.Transactions
+		uncles      = body.Uncles
+		withdrawals = body.Withdrawals
+	)
+
+	if len(txs) == 0 {
+		b.header.TxHash = EmptyTxsHash
+	} else {
+		b.header.TxHash = DeriveSha(Transactions(txs), hasher)
+		b.transactions = make(Transactions, len(txs))
+		copy(b.transactions, txs)
+	}
+
+	if len(receipts) == 0 {
+		b.header.ReceiptHash = EmptyReceiptsHash
+	} else {
+		b.header.ReceiptHash = DeriveSha(Receipts(receipts), hasher)
+		// Receipts must go through MakeReceipt to calculate the receipt's bloom
+		// already. Merge the receipt's bloom together instead of recalculating
+		// everything.
+		b.header.Bloom = MergeBloom(receipts)
+	}
+
+	if len(uncles) == 0 {
+		b.header.UncleHash = EmptyUncleHash
+	} else {
+		b.header.UncleHash = CalcUncleHash(uncles)
+		b.uncles = make([]*Header, len(uncles))
+		for i := range uncles {
+			b.uncles[i] = CopyHeader(uncles[i])
+		}
+	}
+
+	if withdrawals == nil {
+		b.header.WithdrawalsHash = nil
+	} else if len(withdrawals) == 0 {
+		b.header.WithdrawalsHash = &EmptyWithdrawalsHash
+		b.withdrawals = Withdrawals{}
+	} else {
+		hash := DeriveSha(Withdrawals(withdrawals), hasher)
+		b.header.WithdrawalsHash = &hash
+		b.withdrawals = slices.Clone(withdrawals)
+	}
+
+	return b
+}
+
+func CalcUncleHash(uncles []*Header) types.Hash {
+	if len(uncles) == 0 {
+		return EmptyUncleHash
+	}
+	return rlpHash(uncles)
 }

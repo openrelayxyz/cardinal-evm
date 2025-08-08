@@ -317,7 +317,8 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 	header.Bloom = types.CreateBloom(receipts)
 	header.Root = s.base.Root
 
-	blck := types.NewBlockWithHeader(header)
+	blockBody := &types.Body{Transactions: txes}
+	blck := types.NewBlock(header, blockBody, receipts, hasher)
 
 	return blck, callResults, senders, nil
 }
