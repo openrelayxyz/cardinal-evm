@@ -133,7 +133,7 @@ func (s *PublicBlockChainAPI) GetStorageAt(ctx *rpc.CallContext, address common.
 type OverrideAccount struct {
 	Nonce     *hexutil.Uint64              `json:"nonce"`
 	Code      *hexutil.Bytes               `json:"code"`
-	Balance   **hexutil.Big                `json:"balance"`
+	Balance   *hexutil.Big                `json:"balance"`
 	State     *map[ctypes.Hash]ctypes.Hash `json:"state"`
 	StateDiff *map[ctypes.Hash]ctypes.Hash `json:"stateDiff"`
 }
@@ -176,16 +176,7 @@ func (diff *StateOverride) Apply(state state.StateDB) error {
 		}
 		// Override account balance.
 		if account.Balance != nil {
-			if account.Balance != nil {
-				balanceValue := (*big.Int)(*account.Balance)
-				log.Error(fmt.Sprintf("Setting balance to: %v", balanceValue))
-				state.SetBalance(addr, balanceValue)
-				
-				newBalance := state.GetBalance(addr)
-				log.Error(fmt.Sprintf("Balance after SetBalance: %v", newBalance))
-			} else {
-				log.Error("account.Balance is nil!")
-			}
+			state.SetBalance(addr, (*big.Int)(account.Balance))
 		}
 		if account.State != nil && account.StateDiff != nil {
 			return fmt.Errorf("account %s has both 'state' and 'stateDiff'", addr.Hex())
