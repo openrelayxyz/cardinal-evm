@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"time"
 
+	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/eips/eip1559"
@@ -177,12 +178,17 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		}
 		header.ExcessBlobGas = &excess
 	}
+	
+	addr := common.HexToAddress("0x1000000000000000000000000000000000000001")
+	log.Error(fmt.Sprintf("balance before: %v\n", s.state.GetBalance(addr)))
 
 	// State overrides are applied prior to execution of a block
 	if block.StateOverrides != nil {
+		log.Error(fmt.Sprintf("applying state overrides for %d accounts\n", len(*block.StateOverrides)))
 		if err := block.StateOverrides.Apply(s.state); err != nil {
 			return nil, nil, nil, err
 		}
+		log.Error(fmt.Sprintf("balance after: %v\n", s.state.GetBalance(addr)))
 	}
 
 	var (
