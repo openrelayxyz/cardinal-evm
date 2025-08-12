@@ -231,13 +231,6 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 			evm.Context.GetHash = getHashFn
 		}
 
-		if s.chainConfig.IsPrague(header.Number, new(big.Int).SetUint64(header.Time)) { 
-			// Process parent block hash for EIP-2935
-			if header.ParentHash != (ctypes.Hash{}) {
-				evm.StateDB.SetState(params.HistoryStorageAddress,ctypes.BigToHash(header.Number), header.ParentHash,)
-			}
-		}
-
 		msg, err := call.ToMessage(s.gp.Gas(), header.BaseFee)
 		if err != nil {
 			return nil, nil, nil, err

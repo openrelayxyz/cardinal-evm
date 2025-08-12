@@ -46,6 +46,7 @@ type stateDB struct {
 	logs    map[ctypes.Hash][]*types.Log
 	thash   ctypes.Hash
 	txIndex int
+	logSize uint
 }
 
 func NewStateDB(tx storage.Transaction, chainid int64) StateDB {
@@ -348,10 +349,19 @@ func (sdb *stateDB) RevertToSnapshot(snap int) {
 	sdb.journal = sdb.journal[:snap]
 }
 func (sdb *stateDB) Snapshot() int { return len(sdb.journal) }
-func (sdb *stateDB) AddLog(*types.Log) {
-	// At this time, I don't think we have any features that require logs to
-	// actually be tracked, but we'll leave this as a placeholder so if we ever
-	// need it we don't have to rework it back into the EVM
+func (sdb *stateDB) AddLog(log *types.Log) {
+	sdb.journal = append(sdb.journal, journalEntry{nil, func(sdb *stateDB) {
+        logs := sdb.logs[sdb.thash]
+        if len(logs) > 0 {
+            sdb.logs[sdb.thash] = logs[:len(logs)-1]
+            sdb.logSize--
+        }
+    }})
+	log.TxHash = sdb.thash
+	log.TxIndex = uint(sdb.txIndex)
+	log.Index = sdb.logSize
+	sdb.logs[sdb.thash] = append(sdb.logs[sdb.thash], log)
+	sdb.logSize++
 }
 func (sdb *stateDB) AddPreimage(ctypes.Hash, []byte) {
 	// I doubt we'll ever support preimage tracking, but easier to leave a
