@@ -379,6 +379,13 @@ func DoEstimateGas(ctx *rpc.CallContext, getEVM func(state.StateDB, *vm.Config, 
 		// Retrieve the block to act as the gas ceiling
 		hi = prevState.header.GasLimit
 	}
+
+	// eip 7835 exceed error
+	// should it be wrapped with an isOsaka check? 
+	if uint64(*args.Gas) > params.MaxTxGas {
+		return 0, nil, ErrGasLimitTooHigh
+	}
+
 	var feeCap *big.Int
 	if args.GasPrice != nil && (args.MaxFeePerGas != nil || args.MaxPriorityFeePerGas != nil) {
 		return 0, nil, errors.New("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
@@ -645,6 +652,12 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx *rpc.CallContext, inpu
 		// block limit gas.
 		if header.GasLimit < tx.Gas() {
 			return ErrGasLimit
+		}
+
+		// eip 7835 exceed error
+		// should it be wrapped with an isOsaka check? 
+		if tx.Gas() > params.MaxTxGas {
+			return ErrGasLimitTooHigh
 		}
 
 		// Transactions can't be negative. This may never happen
