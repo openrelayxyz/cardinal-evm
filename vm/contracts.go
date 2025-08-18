@@ -163,6 +163,12 @@ var PrecompiledContractsPrague = map[common.Address]PrecompiledContract{
 // 	common.BytesToAddress([]byte{18}): &bls12381MapG2{},
 // }
 
+// PrecompiledContractsP256Verify contains the precompiled Ethereum
+// contract specified in EIP-7212. This is exported for testing purposes.
+var PrecompiledContractsP256Verify = map[common.Address]PrecompiledContract{
+	common.BytesToAddress([]byte{0x1, 0x00}): &p256Verify{},
+}
+
 var (
 	PrecompiledAddressesNapoli    []common.Address
 	PrecompiledAddressesCancun    []common.Address
