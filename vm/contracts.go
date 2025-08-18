@@ -357,6 +357,20 @@ var (
 	big199680 = big.NewInt(199680)
 )
 
+func max(xs ...uint64) uint64 {
+	if len(xs) == 0 {
+		return 0
+	}
+	m := xs[0]
+	for _, v := range xs[1:] {
+		if v > m {
+			m = v
+		}
+	}
+	return m
+}
+
+
 // modexpMultComplexity implements bigModexp multComplexity formula, as defined in EIP-198
 //
 // def mult_complexity(x):
@@ -471,7 +485,7 @@ func (c *bigModExp) Run(input []byte) ([]byte, error) {
 	if baseLen == 0 && modLen == 0 {
 		return []byte{}, nil
 	}
-		// enforce size cap for inputs
+	// enforce size cap for inputs
 	if c.eip7823 && max(baseLen, expLen, modLen) > 1024 {
 			return nil, errors.New("one or more of base/exponent/modulus length exceeded 1024 bytes")
 	}
