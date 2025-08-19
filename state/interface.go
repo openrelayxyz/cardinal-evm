@@ -66,6 +66,8 @@ type StateDB interface {
 	Copy() StateDB
 	ALCalcCopy() StateDB
 	Finalise()
+	GetLogs(hash ctypes.Hash, blockNumber uint64, blockHash ctypes.Hash) []*types.Log
+	SetTxContext(thash ctypes.Hash, ti int)
 
 	// ForEachStorage(common.Address, func(ctypes.Hash, ctypes.Hash) bool) error
 }
