@@ -29,8 +29,6 @@ type PrivateDebugAPI struct {
 	traceTimeout time.Duration 
 }
 
-type evmfunc func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM
-
 // TraceConfig holds extra parameters to trace functions.
 type TraceConfig struct {
 	*vm.LogConfig
