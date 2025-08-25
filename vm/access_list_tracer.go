@@ -17,6 +17,7 @@
 package vm
 
 import (
+	"encoding/json"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/types"
 	ctypes "github.com/openrelayxyz/cardinal-types"
@@ -164,10 +165,13 @@ func (a *AccessListTracer) CaptureState(pc uint64, op OpCode, gas, cost uint64, 
 	}
 }
 
-func (*AccessListTracer) CaptureFault(pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, depth int, err error) {
-}
+func (*AccessListTracer) CaptureFault(pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, depth int, err error) {}
 
 func (*AccessListTracer) CaptureEnd(output []byte, gasUsed uint64, t time.Duration, err error) {}
+
+func ( *AccessListTracer) GetResult() (json.RawMessage, error) {return nil, nil}
+func (t *AccessListTracer) CaptureLog(log *types.Log){}
+func (t *AccessListTracer) Stop(err error){}
 
 // AccessList returns the current accesslist maintained by the tracer.
 func (a *AccessListTracer) AccessList() types.AccessList {

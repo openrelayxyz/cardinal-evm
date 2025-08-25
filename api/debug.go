@@ -1,24 +1,20 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
 	"time"
-	"context"
-	"errors"
 
+	"github.com/openrelayxyz/cardinal-evm/api/tracers"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/params"
-	"github.com/openrelayxyz/cardinal-evm/rlp"
-	"github.com/openrelayxyz/cardinal-evm/schema"
 	"github.com/openrelayxyz/cardinal-evm/state"
 	"github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-storage"
-
-	ctypes "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 )
 
@@ -30,18 +26,10 @@ type PrivateDebugAPI struct {
 	storage storage.Storage
 	evmmgr  *vm.EVMManager
 	chainid int64
+	traceTimeout time.Duration 
 }
 
 type evmfunc func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM
-
-// Context contains some contextual infos for a transaction execution that is not
-// available from within the EVM object.
-type TracerContext struct {
-	BlockHash   ctypes.Hash // Hash of the block the tx is contained within (zero if dangling tx or call)
-	BlockNumber *big.Int    // Number of the block the tx is contained within (zero if dangling tx or call)
-	TxIndex     int         // Index of the transaction within a block (zero if dangling tx or call)
-	TxHash      ctypes.Hash // Hash of the transaction being traced (zero if dangling call)
-}
 
 // TraceConfig holds extra parameters to trace functions.
 type TraceConfig struct {
@@ -62,10 +50,12 @@ type TraceCallConfig struct {
 	TxIndex        *hexutil.Uint
 }
 
-
 // NewPublicBlockChainAPI creates a new Ethereum blockchain API.
-func NewDebugAPI(s storage.Storage, evmmgr *vm.EVMManager, chainid int64) *PrivateDebugAPI {
-	return &PrivateDebugAPI{storage: s, evmmgr: evmmgr, chainid: chainid}
+func NewDebugAPI(s storage.Storage, evmmgr *vm.EVMManager, chainid int64, traceTimeout time.Duration) *PrivateDebugAPI {
+	if traceTimeout == 0 {
+        traceTimeout = defaultTraceTimeout  
+    }
+	return &PrivateDebugAPI{storage: s, evmmgr: evmmgr, chainid: chainid, traceTimeout: traceTimeout}
 }
 
 // CreateAccessList creates a EIP-2930 type AccessList for the given transaction.
@@ -126,68 +116,55 @@ func (s *PrivateDebugAPI) TraceCall(ctx *rpc.CallContext, args TransactionArgs, 
 	if blockNrOrHash != nil {
 		bNrOrHash = *blockNrOrHash
 	}
-	var (
-		statedb state.StateDB
-		header *types.Header
-		chaincfg *params.ChainConfig
-		evmFn evmfunc
-	)
 
-	if config != nil  && config.TxIndex != nil {
-		var err error
-		statedb, header, evmFn, chaincfg, err = s.stateAtTransaction(ctx, bNrOrHash, int(*config.TxIndex))
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		err := s.evmmgr.View(bNrOrHash, args.from, ctx, func(h *types.Header, sdb state.StateDB, getEVM func (state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, cfg *params.ChainConfig) error{
-			statedb = sdb
-			header = h
-			chaincfg = cfg
-			evmFn = getEVM
-			return nil
-		})
-		if err != nil {
-			switch err.(type) {
-			case codedError:
-			default:
-				err = evmError{err}
+	if config != nil  && config.TxIndex != nil  && *config.TxIndex != 0{
+		return nil, fmt.Errorf("txIndex %d not supported: only supports txIndex 0", *config.TxIndex)
+	} 
+
+	var result interface {}
+	err := s.evmmgr.View(bNrOrHash, args.From, ctx, func(header *types.Header, statedb state.StateDB, evmFn func (state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, cfg *params.ChainConfig) error{
+		if config != nil && config.StateOverrides != nil {
+			if err := config.StateOverrides.Apply(statedb); err != nil {
+				return err
 			}
-			return nil, err
 		}
-	}
-
-	if config != nil && config.StateOverrides != nil {
-		if err := config.StateOverrides.Apply(statedb); err != nil {
-			return nil, err
+		gasCap := new(GasPool).AddGas(header.GasLimit)
+		if err := args.setDefaults(ctx, evmFn, statedb, header, bNrOrHash); err != nil {
+			return err
 		}
-	}
-
-	gasCap := new(GasPool).AddGas(header.GasLimit)
-	if err := args.CallDefaults(gasCap.Gas(), header.BaseFee, chaincfg.ChainID); err != nil {
-		return nil, err
-	}
-	msg, err := args.ToMessage(gasCap.Gas(), header.BaseFee) 
+		msg, err := args.ToMessage(gasCap.Gas(), header.BaseFee) 
+		if err != nil {
+			return err
+		}
+		tx := args.ToTransaction(types.LegacyTxType)
+		if msg.GasPrice().Sign() == 0 {
+			header.BaseFee = new(big.Int)
+		}
+		var traceConfig *TraceConfig
+		if config != nil {
+			traceConfig = &config.TraceConfig
+		}
+		result, err = s.traceTx(ctx, tx, msg, new(tracers.Context), header, statedb, evmFn, cfg, traceConfig)
+		return err
+	})
 	if err != nil {
+		switch err.(type) {
+		case codedError:
+		default:
+			err = evmError{err}
+		}
 		return nil, err
 	}
-	tx := args.ToTransaction(types.LegacyTxType)
-	if msg.GasPrice().Sign() == 0 {
-		header.BaseFee = new(big.Int)
-	}
-	var traceConfig *TraceConfig
-	if config != nil {
-		traceConfig = &config.TraceConfig
-	}
-	return s.traceTx(ctx, tx, msg, new(TracerContext), header, statedb, evmFn, traceConfig)
+
+	return result, nil
 }
 
 // traceTx configures a new tracer according to the provided configuration, and
 // executes the given message in the provided environment. The return value will
 // be tracer dependent.
-func (s *PrivateDebugAPI) traceTx(ctx *rpc.CallContext, tx *types.Transaction, message Msg, txctx *TracerContext, header *types.Header, statedb state.StateDB, getEVM func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, config *TraceConfig) (interface{}, error){
+func (s *PrivateDebugAPI) traceTx(ctx *rpc.CallContext, tx *types.Transaction, message Msg, txctx *tracers.Context, header *types.Header, statedb state.StateDB, getEVM func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, chainConfig *params.ChainConfig, config *TraceConfig) (interface{}, error){
 	var ( 
-		timeout = defaultTraceTimeout
+		timeout = s.traceTimeout
 		err error
 	)
 
@@ -199,7 +176,24 @@ func (s *PrivateDebugAPI) traceTx(ctx *rpc.CallContext, tx *types.Transaction, m
 			return nil, err
 		}
 	}
-	tracer := vm.NewStructLogger(&vm.LogConfig{})
+	var tracer vm.Tracer
+	if config == nil || config.Tracer == nil {
+		 tracer = vm.NewStructLogger(&vm.LogConfig{})
+	} else {
+		tracer, err = tracers.New(*config.Tracer, config.TracerConfig, chainConfig)
+		if err != nil {
+            return nil, err
+        }
+		if stateinjector, ok := tracer.(tracers.StateInjector); ok{
+			vmCtx := &tracers.VMContext{
+				Coinbase:    header.Coinbase,
+				BlockNumber: header.Number,
+				Time:        header.Time,
+				StateDB:     statedb,
+			}
+			stateinjector.SetVMContext(vmCtx)
+		}
+	}
 	deadlineCtx, cancel := context.WithTimeout(ctx.Context(), timeout)
 	defer cancel()
 	evm := getEVM(statedb, &vm.Config{Tracer: tracer, Debug: true, NoBaseFee: true}, message.From(), message.GasPrice())
@@ -212,7 +206,7 @@ func (s *PrivateDebugAPI) traceTx(ctx *rpc.CallContext, tx *types.Transaction, m
 	}()
 
 	statedb.SetTxContext(txctx.TxHash, txctx.TxIndex)
-	result, err := ApplyMessage(evm, message, new(GasPool).AddGas(header.GasLimit))
+	_, err = ApplyMessage(evm, message, new(GasPool).AddGas(header.GasLimit))
 	if err != nil {
 		return nil, fmt.Errorf("tracing failed: %w", err)
 	}
@@ -220,82 +214,6 @@ func (s *PrivateDebugAPI) traceTx(ctx *rpc.CallContext, tx *types.Transaction, m
 	if evm.Cancelled() {
 		return nil, fmt.Errorf("execution timeout")
 	}
-	failed := result.Failed()
-	returnData := result.ReturnData
-	if failed && !errors.Is(result.Err, vm.ErrExecutionReverted) {
-		returnData = []byte{}
-	}
-	
-	return struct {
-		Gas         uint64           `json:"gas"`
-		Failed      bool            `json:"failed"`
-		ReturnValue hexutil.Bytes   `json:"returnValue"`
-		StructLogs  []vm.StructLog  `json:"structLogs"`
-	}{
-		Gas:         result.UsedGas, 
-		Failed:      failed,
-		ReturnValue: returnData,
-		StructLogs:  tracer.StructLogs(),
-	}, nil
 
-}
-
-func (s *PrivateDebugAPI) stateAtTransaction(ctx *rpc.CallContext, blockNrOrHash vm.BlockNumberOrHash, txIndex int) (state.StateDB, *types.Header, func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, *params.ChainConfig, error){
-	var resultState state.StateDB
-	var resultHeader *types.Header
-	var resultChainCfg *params.ChainConfig
-	var resultEvmFn evmfunc
-	err := s.evmmgr.View(blockNrOrHash, common.Address{}, ctx, func(header *types.Header, statedb state.StateDB, getEVM func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, chainCfg *params.ChainConfig) error {
-		blockHash := header.Hash()
-		if hash, ok := blockNrOrHash.Hash(); ok {
-			blockHash = hash
-		}
-		var transactions []*types.Transaction
-		err := s.storage.View(blockHash, func(tx storage.Transaction) error {
-			for i := 0; ; i++ {
-				txkey := schema.Transaction(s.chainid, blockHash.Bytes(), int64(i))
-				txdata, err := tx.Get(txkey)
-				if err != nil{ break }
-
-				var transaction types.Transaction
-				if err := rlp.DecodeBytes(txdata, &transaction); err != nil {
-					return fmt.Errorf("failed to decode transaction %v: %v", i, err)
-				}
-				transactions = append(transactions, &transaction)
-			}
-			return nil
-		})
-		if err!=nil{
-			return err
-		}
-		if txIndex >= len(transactions) {
-			return fmt.Errorf("transaction index %v exceeds block transaction count %v", txIndex, len(transactions))
-		}
-
-		//copy of the state to modify
-		wState := statedb.Copy()
-		for i:=0; i < txIndex; i++ {
-			tx := transactions[i]
-			wState.SetTxContext(tx.Hash(), i)
-			signer := types.MakeSigner(chainCfg, header.Number, header.Time)
-			from, err := signer.Sender(tx)
-			if err != nil {
-				return fmt.Errorf("failed to recover sender: %v", err)
-			}
-			
-			msg := NewMessage(from, tx.To(), tx.Nonce(), tx.Value(), tx.Gas(), tx.GasPrice(), tx.GasFeeCap(), tx.GasTipCap(), tx.Data(), tx.AccessList(), tx.AuthList(), false)
-			_, err = ApplyMessage(getEVM(wState, &vm.Config{NoBaseFee: false}, msg.From(), msg.GasPrice()), msg, new(GasPool).AddGas(tx.Gas()))
-			if err!= nil {
-				return fmt.Errorf("failed to apply transaction: err: %v", err)
-			}
-
-		}
-		resultState = wState
-		resultHeader = header
-		resultChainCfg = chainCfg
-		resultEvmFn = getEVM
-
-		return nil
-	})
-	return resultState,resultHeader, resultEvmFn ,resultChainCfg, err
+	return tracer.GetResult()
 }
