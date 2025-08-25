@@ -16,7 +16,9 @@
 
 package params
 
-import "math/big"
+import (
+	"math/big"
+)
 
 const (
 	GasLimitBoundDivisor uint64 = 1024    // The bound divisor of the gas limit, used in update calculations.
