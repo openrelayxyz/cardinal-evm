@@ -51,6 +51,7 @@ type simOpts struct {
 
 // simBlock is a batch of calls to be simulated sequentially.
 type simBlock struct {
+	BlockOverrides *BlockOverrides
 	StateOverrides *StateOverride
 	Calls          []TransactionArgs
 }
