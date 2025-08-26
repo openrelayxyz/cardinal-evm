@@ -283,6 +283,12 @@ func (st *StateTransition) preCheck() error {
 			}
 		}
 	}
+	isOsaka := st.evm.ChainConfig().IsOsaka(st.evm.Context.BlockNumber, st.evm.Context.Time)
+	// Verify tx gas limit does not exceed EIP-7825 cap.
+	if isOsaka && st.msg.Gas() > params.MaxTxGas {
+			return fmt.Errorf("%w (cap: %d, tx: %d)", ErrGasLimitTooHigh, params.MaxTxGas, st.msg.Gas())
+	}
+
 	return st.buyGas()
 }
 
