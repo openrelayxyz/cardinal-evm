@@ -188,6 +188,7 @@ var PrecompiledContractsOsaka = map[common.Address]PrecompiledContract{
 }
 
 var (
+	PrecompiledAddressesOsaka     []common.Address
 	PrecompiledAddressesNapoli    []common.Address
 	PrecompiledAddressesCancun    []common.Address
 	PrecompiledAddressesBerlin    []common.Address
@@ -215,11 +216,16 @@ func init() {
 	for k := range PrecompiledContractsNapoli {
 		PrecompiledAddressesCancun = append(PrecompiledAddressesNapoli, k)
 	}
+	for k := range PrecompiledContractsOsaka {
+		PrecompiledAddressesOsaka = append(PrecompiledAddressesOsaka, k)
+	}
 }
 
 // ActivePrecompiles returns the precompiles enabled with the current configuration.
 func ActivePrecompiles(rules params.Rules) []common.Address {
 	switch {
+	case rules.IsOsaka:
+		return PrecompiledAddressesOsaka
 	case rules.IsNapoli:
 		return PrecompiledAddressesNapoli
 	case rules.IsCancun:
