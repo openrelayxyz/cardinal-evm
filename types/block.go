@@ -14,7 +14,7 @@ import (
 type Header struct {
 	ParentHash      types.Hash
 	UncleHash       types.Hash
-	Coinbase        common.Address
+	Coinbase        common.Address // fee reciptient
 	Root            types.Hash
 	TxHash          types.Hash
 	ReceiptHash     types.Hash
@@ -25,7 +25,7 @@ type Header struct {
 	GasUsed         uint64
 	Time            uint64
 	Extra           []byte
-	MixDigest       types.Hash
+	MixDigest       types.Hash // prevrandao
 	Nonce           [8]byte
 	BaseFee         *big.Int    `rlp:"optional"`
 	WithdrawalsHash *types.Hash `rlp:"optional"`

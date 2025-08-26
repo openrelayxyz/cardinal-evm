@@ -51,6 +51,7 @@ type simOpts struct {
 
 // simBlock is a batch of calls to be simulated sequentially.
 type simBlock struct {
+	BlockOverrides *BlockOverrides
 	StateOverrides *StateOverride
 	Calls          []TransactionArgs
 }
@@ -124,11 +125,37 @@ func (s *simulator) execute(ctx *rpc.CallContext, blocks []simBlock) ([]*simBloc
 		parent  = s.base
 	)
 
+// 	type BlockOverrides struct {
+// 	Number        *hexutil.Big
+// 	Difficulty    *hexutil.Big // No-op if we're simulating post-merge calls.
+// 	Time          *hexutil.Uint64
+// 	GasLimit      *hexutil.Uint64
+// 	FeeRecipient  *common.Address
+// 	PrevRandao    *ctypes.Hash
+// 	BaseFeePerGas *hexutil.Big
+// 	BlobBaseFee   *hexutil.Big
+// }
+
 	for bi, block := range blocks {
 		header := types.CopyHeader(s.base)
 		header.Number = new(big.Int).Add(s.base.Number, big.NewInt(int64(bi+1)))
 		header.ParentHash = parent.Hash()
 		header.Time = parent.Time + uint64(bi+1)*12
+
+		override := *block.BlockOverrides
+
+		if override.Number != nil {header.Number = override.Number.ToInt()}
+		if override.Difficulty != nil {header.Difficulty = override.Difficulty.ToInt()}
+		if override.Time != nil {header.Time = uint64(*override.Time)}
+		if override.GasLimit != nil {header.GasLimit = uint64(*override.GasLimit)}
+		if override.FeeRecipient != nil {header.Coinbase = *override.FeeRecipient}
+		if override.PrevRandao != nil {header.MixDigest = *override.PrevRandao}
+		if override.BaseFeePerGas != nil {header.BaseFee = override.BaseFeePerGas.ToInt()}
+		if override.BlobBaseFee != nil {
+			val := *override.BlobBaseFee.ToInt()
+			ptr := val.Uint64()
+			header.ExcessBlobGas = &ptr
+		}
 
 		s.gp = new(GasPool).AddGas(header.GasLimit)
 
