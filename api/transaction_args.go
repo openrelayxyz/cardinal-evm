@@ -103,9 +103,7 @@ func (arg *TransactionArgs) data() []byte {
 // core evm. This method is used in calls and traces that do not require a real
 // live transaction.
 func (args *TransactionArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (Msg, error) {
-	log.Error("before toMessage", "args", args)
 	args.normalize()
-	log.Error("before toMessage", "args", args)
 	// Reject invalid combinations of pre- and post-1559 fee styles
 	if args.GasPrice != nil && (args.MaxFeePerGas != nil || args.MaxPriorityFeePerGas != nil) {
 		return Msg{}, errors.New("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
@@ -197,9 +195,6 @@ func (args *TransactionArgs) setDefaults(ctx *rpc.CallContext, getEVM func(state
 		args.Nonce = (*hexutil.Uint64)(&nonce)
 	}
 	if args.Gas == nil {
-		log.Error("before txArgs function", "args", args)
-		args.normalize()
-		log.Error("after txArgs function", "args", args)
 		gas, _, err := DoEstimateGas(ctx, getEVM, *args, &PreviousState{db.ALCalcCopy(), header}, blockNrOrHash, header.GasLimit, true)
 		if err != nil {
 			return err

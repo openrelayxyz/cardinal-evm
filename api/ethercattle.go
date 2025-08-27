@@ -33,9 +33,6 @@ func (s *EtherCattleBlockChainAPI) EstimateGasList(ctx *rpc.CallContext, argsLis
 			gasCap    = s.gasLimit(header)
 		)
 		for idx, args := range argsList {
-			log.Error("before EtherCattle function", "args", args)
-			args.normalize()
-			log.Error("after EtherCattle function", "args", args)
 			gas, stateData, err = DoEstimateGas(ctx, evmFn, args, stateData, blockNrOrHash, gasCap, fast)
 			// DoEstimateGas(ctx, s.b, args, stateData, blockNrOrHash, gasCap, fast)
 			if err != nil {

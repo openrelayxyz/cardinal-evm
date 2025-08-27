@@ -125,17 +125,6 @@ func (s *simulator) execute(ctx *rpc.CallContext, blocks []simBlock) ([]*simBloc
 		parent  = s.base
 	)
 
-// 	type BlockOverrides struct {
-// 	Number        *hexutil.Big
-// 	Difficulty    *hexutil.Big // No-op if we're simulating post-merge calls.
-// 	Time          *hexutil.Uint64
-// 	GasLimit      *hexutil.Uint64
-// 	FeeRecipient  *common.Address
-// 	PrevRandao    *ctypes.Hash
-// 	BaseFeePerGas *hexutil.Big
-// 	BlobBaseFee   *hexutil.Big
-// }
-
 	for bi, block := range blocks {
 		header := types.CopyHeader(s.base)
 		header.Number = new(big.Int).Add(s.base.Number, big.NewInt(int64(bi+1)))
@@ -253,6 +242,8 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		evm := s.evmFn(s.state, &vm.Config{
 			NoBaseFee: !s.validate,
 		}, call.from(), call.GasPrice.ToInt())
+
+		evm.Context.BaseFee = header.BaseFee
 
 		if evm.Context.GetHash == nil {
 			evm.Context.GetHash = getHashFn
