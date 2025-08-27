@@ -194,7 +194,9 @@ func (args *TransactionArgs) setDefaults(ctx *rpc.CallContext, getEVM func(state
 		args.Nonce = (*hexutil.Uint64)(&nonce)
 	}
 	if args.Gas == nil {
+		log.Error("before txArgs function", "args", args)
 		args.normalize()
+		log.Error("after txArgs function", "args", args)
 		gas, _, err := DoEstimateGas(ctx, getEVM, *args, &PreviousState{db.ALCalcCopy(), header}, blockNrOrHash, header.GasLimit, true)
 		if err != nil {
 			return err

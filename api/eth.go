@@ -566,7 +566,9 @@ func (s *PublicBlockChainAPI) EstimateGas(ctx *rpc.CallContext, args Transaction
 	var gas hexutil.Uint64
 	err := s.evmmgr.View(bNrOrHash, args.From, &vm.Config{NoBaseFee: true}, ctx, func(statedb state.StateDB, header *types.Header, evmFn func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM) error {
 		var err error
+		log.Error("before EstimateGas function", "args", args)
 		args.normalize()
+		log.Error("after EstimateGas function", "args", args)
 		gas, _, err = DoEstimateGas(ctx, evmFn, args, &PreviousState{statedb, header}, bNrOrHash, s.gasLimit(header), false)
 		return err
 	})
