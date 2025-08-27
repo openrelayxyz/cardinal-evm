@@ -67,6 +67,19 @@ type TransactionArgs struct {
 	AuthList   []types.Authorization `json:"authorizationList,omitempty"`
 }
 
+// this utility is being added to confrom to eip1559 protocol which set ups a mutually exclusive condition for args.GasPrice and args.MaxFeePerGas or args.MaxPriorityFeePerGas
+func (args *TransactionArgs) normalize() {
+    if args.MaxFeePerGas != nil || args.MaxPriorityFeePerGas != nil {
+        // 1559 style: drop legacy field
+        args.GasPrice = nil
+    } else if args.GasPrice != nil {
+        // Legacy style: drop 1559 fields
+        args.MaxFeePerGas = nil
+        args.MaxPriorityFeePerGas = nil
+    }
+}
+
+
 // from retrieves the transaction sender address.
 func (arg *TransactionArgs) from() common.Address {
 	if arg.From == nil {
@@ -181,6 +194,7 @@ func (args *TransactionArgs) setDefaults(ctx *rpc.CallContext, getEVM func(state
 		args.Nonce = (*hexutil.Uint64)(&nonce)
 	}
 	if args.Gas == nil {
+		args.normalize()
 		gas, _, err := DoEstimateGas(ctx, getEVM, *args, &PreviousState{db.ALCalcCopy(), header}, blockNrOrHash, header.GasLimit, true)
 		if err != nil {
 			return err

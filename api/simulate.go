@@ -144,18 +144,18 @@ func (s *simulator) execute(ctx *rpc.CallContext, blocks []simBlock) ([]*simBloc
 
 		override := *block.BlockOverrides
 
-		// if override.Number != nil {header.Number = override.Number.ToInt()}
-		// if override.Difficulty != nil {header.Difficulty = override.Difficulty.ToInt()}
-		// if override.Time != nil {header.Time = uint64(*override.Time)}
-		// if override.GasLimit != nil {header.GasLimit = uint64(*override.GasLimit)}
-		// if override.FeeRecipient != nil {header.Coinbase = *override.FeeRecipient}
-		// if override.PrevRandao != nil {header.MixDigest = *override.PrevRandao}
+		if override.Number != nil {header.Number = override.Number.ToInt()}
+		if override.Difficulty != nil {header.Difficulty = override.Difficulty.ToInt()}
+		if override.Time != nil {header.Time = uint64(*override.Time)}
+		if override.GasLimit != nil {header.GasLimit = uint64(*override.GasLimit)}
+		if override.FeeRecipient != nil {header.Coinbase = *override.FeeRecipient}
+		if override.PrevRandao != nil {header.MixDigest = *override.PrevRandao}
 		if override.BaseFeePerGas != nil {header.BaseFee = override.BaseFeePerGas.ToInt()}
-		// if override.BlobBaseFee != nil {
-		// 	val := *override.BlobBaseFee.ToInt()
-		// 	ptr := val.Uint64()
-		// 	header.ExcessBlobGas = &ptr
-		// }
+		if override.BlobBaseFee != nil {
+			val := *override.BlobBaseFee.ToInt()
+			ptr := val.Uint64()
+			header.ExcessBlobGas = &ptr
+		}
 
 		s.gp = new(GasPool).AddGas(header.GasLimit)
 
