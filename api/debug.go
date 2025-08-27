@@ -50,7 +50,7 @@ func (s *PrivateDebugAPI) TraceStructLog(ctx *rpc.CallContext, args TransactionA
 // If the accesslist creation fails an error is returned.
 // If the transaction itself fails, an vmErr is returned.
 func TraceStructLog(ctx *rpc.CallContext, db state.StateDB, header *types.Header, chaincfg *params.ChainConfig, getEVM func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, blockNrOrHash vm.BlockNumberOrHash, args TransactionArgs) (slog []vm.StructLog, err error) {
-	if err := args.setDefaults(ctx, getEVM, db, header, blockNrOrHash); err != nil {
+	if err := args.setDefaults(ctx, chaincfg, getEVM, db, header, blockNrOrHash); err != nil {
 		return nil, err
 	}
 	// Create an initial tracer
