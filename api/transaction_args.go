@@ -103,6 +103,9 @@ func (arg *TransactionArgs) data() []byte {
 // core evm. This method is used in calls and traces that do not require a real
 // live transaction.
 func (args *TransactionArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (Msg, error) {
+	log.Error("before toMessage", "args", args)
+	args.normalize()
+	log.Error("before toMessage", "args", args)
 	// Reject invalid combinations of pre- and post-1559 fee styles
 	if args.GasPrice != nil && (args.MaxFeePerGas != nil || args.MaxPriorityFeePerGas != nil) {
 		return Msg{}, errors.New("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
