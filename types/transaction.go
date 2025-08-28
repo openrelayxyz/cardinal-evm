@@ -29,6 +29,7 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/common/math"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 	ctypes "github.com/openrelayxyz/cardinal-types"
 )
 
@@ -304,6 +305,24 @@ func (tx *Transaction) BlobGasFeeCap() *big.Int { return new(big.Int).Set(tx.inn
 func (tx *Transaction) BlobGas() uint64 { return tx.inner.blobGas() }
 
 func (tx *Transaction) BlobHashes() []ctypes.Hash { return tx.inner.blobHashes() }
+
+// SetCodeAuthorizations returns the authorizations list of the transaction.
+func (tx *Transaction) SetCodeAuthorizations() []SetCodeAuthorization {
+	// setcodetx, ok := tx.inner.(*SetCodeTx)
+	// if !ok {
+	// 	return nil
+	// }
+	// return setcodetx.AuthList
+	setcodetx, ok := tx.inner.(*SetCodeTx)
+    if !ok {
+        return nil
+    }
+    auths := make([]SetCodeAuthorization, len(setcodetx.AuthList))
+    for i, a := range setcodetx.AuthList {
+        auths[i] = SetCodeAuthorization(a) // requires they are type-compatible
+    }
+    return auths
+}
 
 // To returns the recipient address of the transaction.
 // For contract-creation transactions, To returns nil.
@@ -682,4 +701,31 @@ func copyAddressPtr(a *common.Address) *common.Address {
 	}
 	cpy := *a
 	return &cpy
+}
+
+// RPCTransaction represents a transaction that will serialize to the RPC representation of a transaction
+type RPCTransaction struct {
+	BlockHash           *ctypes.Hash                  `json:"blockHash"`
+	BlockNumber         *hexutil.Big                 `json:"blockNumber"`
+	From                common.Address               `json:"from"`
+	Gas                 hexutil.Uint64               `json:"gas"`
+	GasPrice            *hexutil.Big                 `json:"gasPrice"`
+	GasFeeCap           *hexutil.Big                 `json:"maxFeePerGas,omitempty"`
+	GasTipCap           *hexutil.Big                 `json:"maxPriorityFeePerGas,omitempty"`
+	MaxFeePerBlobGas    *hexutil.Big                 `json:"maxFeePerBlobGas,omitempty"`
+	Hash                ctypes.Hash                   `json:"hash"`
+	Input               hexutil.Bytes                `json:"input"`
+	Nonce               hexutil.Uint64               `json:"nonce"`
+	To                  *common.Address              `json:"to"`
+	TransactionIndex    *hexutil.Uint64              `json:"transactionIndex"`
+	Value               *hexutil.Big                 `json:"value"`
+	Type                hexutil.Uint64               `json:"type"`
+	Accesses            *AccessList            `json:"accessList,omitempty"`
+	ChainID             *hexutil.Big                 `json:"chainId,omitempty"`
+	BlobVersionedHashes []ctypes.Hash                 `json:"blobVersionedHashes,omitempty"`
+	AuthorizationList   []SetCodeAuthorization       `json:"authorizationList,omitempty"`
+	V                   *hexutil.Big                 `json:"v"`
+	R                   *hexutil.Big                 `json:"r"`
+	S                   *hexutil.Big                 `json:"s"`
+	YParity             *hexutil.Uint64              `json:"yParity,omitempty"`
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"time"
+	"encoding/json"
 
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
@@ -70,6 +71,24 @@ type simulator struct {
 	evmFn          func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM
 }
 
+// simCallResult is the result of a simulated call.
+type simCallResult struct {
+	ReturnValue hexutil.Bytes  `json:"returnData"`
+	Logs        []*types.Log   `json:"logs"`
+	GasUsed     hexutil.Uint64 `json:"gasUsed"`
+	Status      hexutil.Uint64 `json:"status"`
+	Error       *callError     `json:"error,omitempty"`
+}
+
+func (r *simCallResult) MarshalJSON() ([]byte, error) {
+	type callResultAlias simCallResult
+	// Marshal logs to be an empty array instead of nil when empty
+	if r.Logs == nil {
+		r.Logs = []*types.Log{}
+	}
+	return json.Marshal((*callResultAlias)(r))
+}
+
 type simBlockResult struct {
 	fullTx      bool
 	chainConfig *params.ChainConfig
@@ -79,13 +98,22 @@ type simBlockResult struct {
 	senders map[ctypes.Hash]common.Address
 }
 
-// simCallResult is the result of a simulated call.
-type simCallResult struct {
-	ReturnValue hexutil.Bytes  `json:"returnData"`
-	Logs        []*types.Log   `json:"logs"`
-	GasUsed     hexutil.Uint64 `json:"gasUsed"`
-	Status      hexutil.Uint64 `json:"status"`
-	Error       *callError     `json:"error,omitempty"`
+func (r *simBlockResult) MarshalJSON() ([]byte, error) {
+	blockData := types.RPCMarshalBlock(r.Block, true, r.fullTx, r.chainConfig)
+	blockData["calls"] = r.Calls
+	// Set tx sender if user requested full tx objects.
+	if r.fullTx {
+		if raw, ok := blockData["transactions"].([]any); ok {
+			for _, tx := range raw {
+				if tx, ok := tx.(*types.RPCTransaction); ok {
+					tx.From = r.senders[tx.Hash]
+				} else {
+					return nil, errors.New("simulated transaction result has invalid type")
+				}
+			}
+		}
+	}
+	return json.Marshal(blockData)
 }
 
 type simpleTrieHasher struct {

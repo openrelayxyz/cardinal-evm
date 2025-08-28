@@ -26,7 +26,6 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/rlp"
 	ctypes "github.com/openrelayxyz/cardinal-types"
-	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/holiman/uint256"
 )
 
@@ -79,14 +78,14 @@ type Authorization struct {
 	S       uint256.Int    `json:"s" gencodec:"required"`
 }
 
-// field type overrides for gencodec
-type authorizationMarshaling struct {
-	ChainID U256
-	Nonce   hexutil.Uint64
-	V       hexutil.Uint64
-	R       U256
-	S       U256
-}
+// // field type overrides for gencodec
+// type authorizationMarshaling struct {
+// 	ChainID U256
+// 	Nonce   hexutil.Uint64
+// 	V       hexutil.Uint64
+// 	R       U256
+// 	S       U256
+// }
 
 // SignAuth signs the provided authorization.
 func SignAuth(auth Authorization, prv *ecdsa.PrivateKey) (Authorization, error) {
