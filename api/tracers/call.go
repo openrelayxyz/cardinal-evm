@@ -21,7 +21,7 @@ import (
 //go:generate go run github.com/fjl/gencodec -type callFrame -field-override callFrameMarshaling -out gen_callframe_json.go
 
 func init() {
-	Register("callTracer", NewCallTracer)
+	Register("callTracer", NewCallTracer, false)
 }
 
 type callLog struct {
@@ -112,7 +112,7 @@ type callTracerConfig struct {
 
 // newCallTracer returns a native go tracer which tracks
 // call frames of a tx, and implements vm.EVMLogger.
-func NewCallTracer(cfg json.RawMessage, chainConfig *params.ChainConfig) (vm.Tracer, error) {
+func NewCallTracer(ctx *Context, cfg json.RawMessage, chainConfig *params.ChainConfig) (vm.Tracer, error) {
 	var config callTracerConfig
 	if err := json.Unmarshal(cfg, &config); err != nil {
 		return nil, err

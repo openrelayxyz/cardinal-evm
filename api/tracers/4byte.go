@@ -14,7 +14,7 @@ import (
 )
 
 func init() {
-	Register("4byteTracer", newFourByteTracer)
+	Register("4byteTracer", newFourByteTracer, false)
 }
 
 
@@ -42,7 +42,7 @@ type fourByteTracer struct {
 
 // newFourByteTracer returns a native go tracer which collects
 // 4 byte-identifiers of a tx, and implements vm.EVMLogger.
-func newFourByteTracer(cfg json.RawMessage, chainConfig *params.ChainConfig) (vm.Tracer, error) {
+func newFourByteTracer(ctx *Context, cfg json.RawMessage, chainConfig *params.ChainConfig) (vm.Tracer, error) {
 	t := &fourByteTracer{
 		ids:         make(map[string]int),
 	}

@@ -24,7 +24,7 @@ import (
 //go:generate go run github.com/fjl/gencodec -type callFrameWithOpcodes -field-override callFrameWithOpcodesMarshaling -out gen_callframewithopcodes_json.go
 
 func init() {
- 	Register("erc7562Tracer", newErc7562Tracer)
+ 	Register("erc7562Tracer", newErc7562Tracer, false)
 }
 
 type contractSizeWithOpcode struct {
@@ -148,7 +148,7 @@ func min(xs ...int) int {
 
 // newErc7562Tracer returns a native go tracer which tracks
 // call frames of a tx, and implements vm.EVMLogger.
-func newErc7562Tracer(cfg json.RawMessage, chainConfig *params.ChainConfig) (vm.Tracer, error) {
+func newErc7562Tracer(ctx *Context, cfg json.RawMessage, chainConfig *params.ChainConfig) (vm.Tracer, error) {
 	t, err := newErc7562TracerObject(cfg)
 	if err != nil {
 		return nil, err

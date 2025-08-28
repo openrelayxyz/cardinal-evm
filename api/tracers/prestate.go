@@ -21,7 +21,7 @@ import (
 //go:generate go run github.com/fjl/gencodec -type account -field-override accountMarshaling -out gen_account_json.go
 
 func init() {
-	Register("prestateTracer", newPrestateTracer)
+	Register("prestateTracer", newPrestateTracer, false)
 }
 
 type stateMap = map[common.Address]*account
@@ -64,7 +64,7 @@ type prestateTracerConfig struct {
 	IncludeEmpty   bool `json:"includeEmpty"`   // If true, this tracer will return empty state objects
 }
 
-func newPrestateTracer(cfg json.RawMessage, chainConfig *params.ChainConfig) (vm.Tracer, error) {
+func newPrestateTracer(ctx *Context, cfg json.RawMessage, chainConfig *params.ChainConfig) (vm.Tracer, error) {
 	var config prestateTracerConfig
 	if err := json.Unmarshal(cfg, &config); err != nil {
 		return nil, err

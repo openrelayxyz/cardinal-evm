@@ -28,7 +28,7 @@ import (
 )
 
 func init() {
-	Register("noopTracer", newNoopTracer)
+	Register("noopTracer", newNoopTracer, false)
 }
 
 // noopTracer is a go implementation of the Tracer interface which
@@ -36,7 +36,7 @@ func init() {
 type noopTracer struct{}
 
 // newNoopTracer returns a new noop tracer.
-func newNoopTracer(cfg json.RawMessage, chainConfig *params.ChainConfig) (vm.Tracer, error) {
+func newNoopTracer(ctx *Context, cfg json.RawMessage, chainConfig *params.ChainConfig) (vm.Tracer, error) {
 	t := &noopTracer{}
 	return t, nil
 }

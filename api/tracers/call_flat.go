@@ -38,7 +38,7 @@ import (
 //go:generate go run github.com/fjl/gencodec -type flatCallResult -field-override flatCallResultMarshaling -out gen_flatcallresult_json.go
 
 func init() {
-	Register("flatCallTracer", newFlatCallTracer)
+	Register("flatCallTracer", newFlatCallTracer, false)
 }
 
 var parityErrorMapping = map[string]string{
@@ -128,7 +128,7 @@ type flatCallTracerConfig struct {
 }
 
 // newFlatCallTracer returns a new flatCallTracer.
-func newFlatCallTracer(cfg json.RawMessage, chainConfig *params.ChainConfig) (vm.Tracer, error) {
+func newFlatCallTracer(ctx *Context, cfg json.RawMessage, chainConfig *params.ChainConfig) (vm.Tracer, error) {
 	var config flatCallTracerConfig
 	if err := json.Unmarshal(cfg, &config); err != nil {
 		return nil, err
@@ -136,7 +136,7 @@ func newFlatCallTracer(cfg json.RawMessage, chainConfig *params.ChainConfig) (vm
 
 	// Create inner call tracer with default configuration, don't forward
 	// the OnlyTopCall or WithLog to inner for now
-	t, err := NewCallTracer(json.RawMessage("{}"), chainConfig)
+	t, err := NewCallTracer(ctx, json.RawMessage("{}"), chainConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -145,8 +145,8 @@ func newFlatCallTracer(cfg json.RawMessage, chainConfig *params.ChainConfig) (vm
 	if !ok {
 		return nil, fmt.Errorf("failed to create call tracer")
 	}
-	ft := &flatCallTracer{tracer: ct, config: config,}
-	return ft, nil
+	ft := &flatCallTracer{tracer: ct, ctx: ctx, config: config,}
+	return ft, nil 
 }
 
 // OnEnter is called when EVM enters a new scope (via call, create or selfdestruct).

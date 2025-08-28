@@ -10,6 +10,7 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/common"
 	 "github.com/openrelayxyz/cardinal-evm/state"
 	"github.com/openrelayxyz/cardinal-types"
+	"github.com/holiman/uint256"
 )
 
 // Config are the configuration options for structured logger the EVM
@@ -109,4 +110,9 @@ func MemoryPtr(m []byte, offset, size int64) []byte {
 	}
 
 	return nil
+}
+
+// StackBack returns the n'th item in stack
+func StackBack(st []uint256.Int, n int) *uint256.Int {
+	return &st[len(st)-n-1]
 }

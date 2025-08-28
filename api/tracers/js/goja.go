@@ -23,20 +23,20 @@ import (
 	"math/big"
 	"slices"
 	"sync"
+	"time"
 
 	"github.com/dop251/goja"
-	"github.com/ethereum/go-ethereum/core/tracing"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/eth/tracers"
-	"github.com/ethereum/go-ethereum/eth/tracers/internal"
-	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
-	jsassets "github.com/ethereum/go-ethereum/eth/tracers/js/internal/tracers"
+	"github.com/openrelayxyz/cardinal-evm/api/tracers"
+	jsassets "github.com/openrelayxyz/cardinal-evm/api/tracers/js/internal/tracers"
+	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-evm/crypto"
+	"github.com/openrelayxyz/cardinal-evm/params"
+	"github.com/openrelayxyz/cardinal-evm/types"
+	"github.com/openrelayxyz/cardinal-evm/state"
+	"github.com/openrelayxyz/cardinal-evm/vm"
+	ctypes "github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 )
 
 var assetTracers = make(map[string]string)
@@ -48,16 +48,16 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	type ctorFn = func(*tracers.Context, json.RawMessage, *params.ChainConfig) (*tracers.Tracer, error)
+	type ctorFn = func(*tracers.Context, json.RawMessage, *params.ChainConfig) (vm.Tracer, error)
 	lookup := func(code string) ctorFn {
-		return func(ctx *tracers.Context, cfg json.RawMessage, chainConfig *params.ChainConfig) (*tracers.Tracer, error) {
+		return func(ctx *tracers.Context, cfg json.RawMessage, chainConfig *params.ChainConfig) (vm.Tracer, error) {
 			return newJsTracer(code, ctx, cfg, chainConfig)
 		}
 	}
 	for name, code := range assetTracers {
-		tracers.DefaultDirectory.Register(name, lookup(code), true)
+		tracers.Register(name, lookup(code), true)
 	}
-	tracers.DefaultDirectory.RegisterJSEval(newJsTracer)
+	tracers.RegisterJSEval(newJsTracer)
 }
 
 var compiledBigInt *goja.Program
@@ -111,7 +111,7 @@ func fromBuf(vm *goja.Runtime, bufType goja.Value, buf goja.Value, allowString b
 // JS functions on the relevant EVM hooks. It uses Goja as its JS engine.
 type jsTracer struct {
 	vm                *goja.Runtime
-	env               *tracing.VMContext
+	env               *tracers.VMContext
 	chainConfig       *params.ChainConfig
 	toBig             toBigFn               // Converts a hex string into a JS bigint
 	toBuf             toBufFn               // Converts a []byte into a JS buffer
@@ -122,6 +122,7 @@ type jsTracer struct {
 	traceFrame        bool                  // True if tracer object exposes the `enter()` and `exit()` methods
 	err               error                 // Any error that should stop tracing
 	obj               *goja.Object          // Trace object
+	depth			  int
 
 	// Methods exposed by tracer
 	result goja.Callable
@@ -149,7 +150,7 @@ type jsTracer struct {
 // The methods `result` and `fault` are required to be present.
 // The methods `step`, `enter`, and `exit` are optional, but note that
 // `enter` and `exit` always go together.
-func newJsTracer(code string, ctx *tracers.Context, cfg json.RawMessage, chainConfig *params.ChainConfig) (*tracers.Tracer, error) {
+func newJsTracer(code string, ctx *tracers.Context, cfg json.RawMessage, chainConfig *params.ChainConfig) (vm.Tracer, error) {
 	vm := goja.New()
 	// By default field names are exported to JS as is, i.e. capitalized.
 	vm.SetFieldNameMapper(goja.UncapFieldNameMapper())
@@ -165,13 +166,13 @@ func newJsTracer(code string, ctx *tracers.Context, cfg json.RawMessage, chainCo
 	if ctx == nil {
 		ctx = new(tracers.Context)
 	}
-	if ctx.BlockHash != (common.Hash{}) {
+	if ctx.BlockHash != (ctypes.Hash{}) {
 		blockHash, err := t.toBuf(vm, ctx.BlockHash.Bytes())
 		if err != nil {
 			return nil, err
 		}
 		t.ctx["blockHash"] = blockHash
-		if ctx.TxHash != (common.Hash{}) {
+		if ctx.TxHash != (ctypes.Hash{}) {
 			t.ctx["txIndex"] = vm.ToValue(ctx.TxIndex)
 			txHash, err := t.toBuf(vm, ctx.TxHash.Bytes())
 			if err != nil {
@@ -234,40 +235,36 @@ func newJsTracer(code string, ctx *tracers.Context, cfg json.RawMessage, chainCo
 	t.frameResultValue = t.frameResult.setupObject()
 	t.logValue = t.log.setupObject()
 
-	return &tracers.Tracer{
-		Hooks: &tracing.Hooks{
-			OnTxStart: t.OnTxStart,
-			OnTxEnd:   t.OnTxEnd,
-			OnEnter:   t.OnEnter,
-			OnExit:    t.OnExit,
-			OnOpcode:  t.OnOpcode,
-			OnFault:   t.OnFault,
-		},
-		GetResult: t.GetResult,
-		Stop:      t.Stop,
-	}, nil
+	return t, nil
 }
+
+func (t *jsTracer) SetVMContext(ctx *tracers.VMContext) {
+    t.env = ctx
+}
+
+func (t *jsTracer) CaptureLog(log *types.Log) {}
 
 // OnTxStart implements the Tracer interface and is invoked at the beginning of
 // transaction processing.
-func (t *jsTracer) OnTxStart(env *tracing.VMContext, tx *types.Transaction, from common.Address) {
-	t.env = env
+func (t *jsTracer) CaptureStart(from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
 	// Need statedb access for db object
-	db := &dbObj{db: env.StateDB, vm: t.vm, toBig: t.toBig, toBuf: t.toBuf, fromBuf: t.fromBuf}
+	db := &dbObj{db: t.env.StateDB, vm: t.vm, toBig: t.toBig, toBuf: t.toBuf, fromBuf: t.fromBuf}
 	t.dbValue = db.setupObject()
 	// Update list of precompiles based on current block
-	rules := t.chainConfig.Rules(env.BlockNumber, env.Random != nil, env.Time)
+	rules := t.chainConfig.Rules(t.env.BlockNumber, t.env.Random != nil,  new(big.Int).SetUint64(t.env.Time))
 	t.activePrecompiles = vm.ActivePrecompiles(rules)
 	t.ctx["block"] = t.vm.ToValue(t.env.BlockNumber.Uint64())
-	t.ctx["gas"] = t.vm.ToValue(tx.Gas())
-	gasTip, _ := tx.EffectiveGasTip(env.BaseFee)
-	gasPriceBig, err := t.toBig(t.vm, gasTip.String())
-	if err != nil {
-		t.err = err
-		return
-	}
-	t.ctx["gasPrice"] = gasPriceBig
-	coinbase, err := t.toBuf(t.vm, env.Coinbase.Bytes())
+	t.ctx["gas"] = t.vm.ToValue(gas)
+	
+	// CHORE: find a way to calculate gasPrice
+	// gasTip, _ := tx.EffectiveGasTip(t.env.BaseFee)
+	// gasPriceBig, err := t.toBig(t.vm, gasTip.String())
+	// if err != nil {
+	// 	t.err = err
+	// 	return
+	// }
+	// t.ctx["gasPrice"] = gasPriceBig
+	coinbase, err := t.toBuf(t.vm, t.env.Coinbase.Bytes())
 	if err != nil {
 		t.err = err
 		return
@@ -277,7 +274,7 @@ func (t *jsTracer) OnTxStart(env *tracing.VMContext, tx *types.Transaction, from
 
 // OnTxEnd implements the Tracer interface and is invoked at the end of
 // transaction processing.
-func (t *jsTracer) OnTxEnd(receipt *types.Receipt, err error) {
+func (t *jsTracer) CaptureEnd(output []byte, gasUsed uint64, time time.Duration, err error) {
 	if t.err != nil {
 		return
 	}
@@ -288,9 +285,7 @@ func (t *jsTracer) OnTxEnd(receipt *types.Receipt, err error) {
 		}
 		return
 	}
-	if receipt != nil {
-		t.ctx["gasUsed"] = t.vm.ToValue(receipt.GasUsed)
-	}
+		t.ctx["gasUsed"] = t.vm.ToValue(gasUsed)
 }
 
 // onStart implements the Tracer interface to initialize the tracing operation.
@@ -330,7 +325,7 @@ func (t *jsTracer) onStart(from common.Address, to common.Address, create bool, 
 }
 
 // OnOpcode implements the Tracer interface to trace a single step of VM execution.
-func (t *jsTracer) OnOpcode(pc uint64, op byte, gas, cost uint64, scope tracing.OpContext, rData []byte, depth int, err error) {
+func (t *jsTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, rData []byte, depth int, err error) {
 	if !t.traceStep {
 		return
 	}
@@ -340,9 +335,9 @@ func (t *jsTracer) OnOpcode(pc uint64, op byte, gas, cost uint64, scope tracing.
 
 	log := t.log
 	log.op.op = vm.OpCode(op)
-	log.memory.memory = scope.MemoryData()
-	log.stack.stack = scope.StackData()
-	log.contract.scope = scope
+	log.memory.memory = scope.Memory.Data()
+	log.stack.stack = scope.Stack.Data()
+	log.contract.scope = *scope
 	log.pc = pc
 	log.gas = gas
 	log.cost = cost
@@ -355,7 +350,7 @@ func (t *jsTracer) OnOpcode(pc uint64, op byte, gas, cost uint64, scope tracing.
 }
 
 // OnFault implements the Tracer interface to trace an execution fault
-func (t *jsTracer) OnFault(pc uint64, op byte, gas, cost uint64, scope tracing.OpContext, depth int, err error) {
+func (t *jsTracer) CaptureFault(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, depth int, err error) {
 	if t.err != nil {
 		return
 	}
@@ -383,11 +378,11 @@ func (t *jsTracer) onEnd(output []byte, gasUsed uint64, err error, reverted bool
 }
 
 // OnEnter is called when EVM enters a new scope (via call, create or selfdestruct).
-func (t *jsTracer) OnEnter(depth int, typ byte, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {
+func (t *jsTracer) CaptureEnter(typ vm.OpCode, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {
 	if t.err != nil {
 		return
 	}
-	if depth == 0 {
+	if t.depth == 0 {
 		t.onStart(from, to, vm.OpCode(typ) == vm.CREATE, input, gas, value)
 		return
 	}
@@ -408,16 +403,18 @@ func (t *jsTracer) OnEnter(depth int, typ byte, from common.Address, to common.A
 	if _, err := t.enter(t.obj, t.frameValue); err != nil {
 		t.onError("enter", err)
 	}
+	t.depth++ 
 }
 
 // OnExit is called when EVM exits a scope, even if the scope didn't
 // execute any code.
-func (t *jsTracer) OnExit(depth int, output []byte, gasUsed uint64, err error, reverted bool) {
+func (t *jsTracer) CaptureExit(output []byte, gasUsed uint64, err error) {
+	t.depth--
 	if t.err != nil {
 		return
 	}
-	if depth == 0 {
-		t.onEnd(output, gasUsed, err, reverted)
+	if t.depth == 0 {
+		t.onEnd(output, gasUsed, err, err==nil)
 		return
 	}
 	if !t.traceFrame {
@@ -485,7 +482,7 @@ func (t *jsTracer) setBuiltinFunctions() {
 			vm.Interrupt(err)
 			return nil
 		}
-		b = common.BytesToHash(b).Bytes()
+		b = ctypes.BytesToHash(b).Bytes()
 		res, err := t.toBuf(vm, b)
 		if err != nil {
 			vm.Interrupt(err)
@@ -536,7 +533,7 @@ func (t *jsTracer) setBuiltinFunctions() {
 		}
 		code = common.CopyBytes(code)
 		codeHash := crypto.Keccak256(code)
-		b := crypto.CreateAddress2(addr, common.HexToHash(salt), codeHash).Bytes()
+		b := crypto.CreateAddress2(addr, ctypes.HexToHash(salt), codeHash).Bytes()
 		res, err := t.toBuf(vm, b)
 		if err != nil {
 			vm.Interrupt(err)
@@ -659,7 +656,8 @@ func (mo *memoryObj) slice(begin, end int64) ([]byte, error) {
 	if end < begin || begin < 0 {
 		return nil, fmt.Errorf("tracer accessed out of bound memory: offset %d, end %d", begin, end)
 	}
-	slice, err := internal.GetMemoryCopyPadded(mo.memory, begin, end-begin)
+	
+	slice, err := tracers.GetMemoryCopyPadded(mo.memory, begin, end-begin)
 	if err != nil {
 		return nil, err
 	}
@@ -685,7 +683,7 @@ func (mo *memoryObj) getUint(addr int64) (*big.Int, error) {
 	if len(mo.memory) < int(addr)+32 || addr < 0 {
 		return nil, fmt.Errorf("tracer accessed out of bound memory: available %d, offset %d, size %d", len(mo.memory), addr, 32)
 	}
-	return new(big.Int).SetBytes(internal.MemoryPtr(mo.memory, addr, 32)), nil
+	return new(big.Int).SetBytes(tracers.MemoryPtr(mo.memory, addr, 32)), nil
 }
 
 func (mo *memoryObj) Length() int {
@@ -725,7 +723,7 @@ func (s *stackObj) peek(idx int) (*big.Int, error) {
 	if len(s.stack) <= idx || idx < 0 {
 		return nil, fmt.Errorf("tracer accessed out of bound stack: size %d, index %d", len(s.stack), idx)
 	}
-	return internal.StackBack(s.stack, idx).ToBig(), nil
+	return tracers.StackBack(s.stack, idx).ToBig(), nil
 }
 
 func (s *stackObj) Length() int {
@@ -740,7 +738,7 @@ func (s *stackObj) setupObject() *goja.Object {
 }
 
 type dbObj struct {
-	db      tracing.StateDB
+	db      state.StateDB
 	vm      *goja.Runtime
 	toBig   toBigFn
 	toBuf   toBufFn
@@ -801,7 +799,7 @@ func (do *dbObj) GetState(addrSlice goja.Value, hashSlice goja.Value) goja.Value
 		do.vm.Interrupt(err)
 		return nil
 	}
-	hash := common.BytesToHash(h)
+	hash := ctypes.BytesToHash(h)
 	state := do.db.GetState(addr, hash).Bytes()
 	res, err := do.toBuf(do.vm, state)
 	if err != nil {
@@ -832,14 +830,14 @@ func (do *dbObj) setupObject() *goja.Object {
 }
 
 type contractObj struct {
-	scope tracing.OpContext
+	scope vm.ScopeContext
 	vm    *goja.Runtime
 	toBig toBigFn
 	toBuf toBufFn
 }
 
 func (co *contractObj) GetCaller() goja.Value {
-	caller := co.scope.Caller().Bytes()
+	caller := co.scope.Contract.Caller().Bytes()
 	res, err := co.toBuf(co.vm, caller)
 	if err != nil {
 		co.vm.Interrupt(err)
@@ -849,7 +847,7 @@ func (co *contractObj) GetCaller() goja.Value {
 }
 
 func (co *contractObj) GetAddress() goja.Value {
-	addr := co.scope.Address().Bytes()
+	addr := co.scope.Contract.Address().Bytes()
 	res, err := co.toBuf(co.vm, addr)
 	if err != nil {
 		co.vm.Interrupt(err)
@@ -859,7 +857,7 @@ func (co *contractObj) GetAddress() goja.Value {
 }
 
 func (co *contractObj) GetValue() goja.Value {
-	value := co.scope.CallValue()
+	value := co.scope.Contract.Value()
 	res, err := co.toBig(co.vm, value.String())
 	if err != nil {
 		co.vm.Interrupt(err)
@@ -869,7 +867,7 @@ func (co *contractObj) GetValue() goja.Value {
 }
 
 func (co *contractObj) GetInput() goja.Value {
-	input := common.CopyBytes(co.scope.CallInput())
+	input := common.CopyBytes(co.scope.Contract.Input)
 	res, err := co.toBuf(co.vm, input)
 	if err != nil {
 		co.vm.Interrupt(err)

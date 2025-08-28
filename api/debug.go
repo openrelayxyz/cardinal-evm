@@ -180,7 +180,12 @@ func (s *PrivateDebugAPI) traceTx(ctx *rpc.CallContext, tx *types.Transaction, m
 	if config == nil || config.Tracer == nil {
 		 tracer = vm.NewStructLogger(&vm.LogConfig{})
 	} else {
-		tracer, err = tracers.New(*config.Tracer, config.TracerConfig, chainConfig)
+		context := &tracers.Context{
+			BlockNumber: header.Number,
+			BlockHash: header.Hash(),
+			TxHash: header.TxHash,
+		}
+		tracer, err = tracers.New(*config.Tracer, context, config.TracerConfig, chainConfig)
 		if err != nil {
             return nil, err
         }

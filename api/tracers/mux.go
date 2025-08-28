@@ -12,7 +12,7 @@ import (
 )
 
 func init() {
-	Register("muxTracer", NewMuxTracer)
+	Register("muxTracer", NewMuxTracer, false)
 }
 
 // muxTracer is a go implementation of the Tracer interface which
@@ -23,7 +23,7 @@ type muxTracer struct {
 }
 
 // newMuxTracer returns a new mux tracer.
-func NewMuxTracer(cfg json.RawMessage, chainConfig *params.ChainConfig) (vm.Tracer, error) {
+func NewMuxTracer(ctx *Context, cfg json.RawMessage, chainConfig *params.ChainConfig) (vm.Tracer, error) {
 	var config map[string]json.RawMessage
 	if err := json.Unmarshal(cfg, &config); err != nil {
 		return nil, err
@@ -31,7 +31,7 @@ func NewMuxTracer(cfg json.RawMessage, chainConfig *params.ChainConfig) (vm.Trac
 	objects := make([]vm.Tracer, 0, len(config))
 	names := make([]string, 0, len(config))
 	for k, _ := range config {
-		t, err := New(k, cfg, chainConfig)
+		t, err := New(k, ctx, cfg, chainConfig)
 		if err != nil {
 			return nil, err
 		}
