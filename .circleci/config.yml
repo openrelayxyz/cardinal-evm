@@ -13,7 +13,9 @@ jobs:
             mkdir -p /home/circleci/go/src
             mkdir artifacts
             go mod tidy
-
+      - run:
+          name: test api
+          command: go test ./api/
       - run:
           name: test abi
           command: go test ./abi/
