@@ -126,7 +126,7 @@ var PrecompiledContractsNapoli = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{8}):  &bn256PairingIstanbul{},
 	common.BytesToAddress([]byte{9}):  &blake2F{},
 	common.BytesToAddress([]byte{10}): &kzgPointEvaluation{},
-	common.BytesToAddress([]byte{0x01, 0x00}): &p256Verify{},
+	common.BytesToAddress([]byte{0x01, 0x00}): &p256Verify{gas: 3450},
 }
 
 var PrecompiledContractsPrague = map[common.Address]PrecompiledContract{
@@ -167,7 +167,7 @@ var PrecompiledContractsNapoliPrague = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{0x0f}): &bls12381Pairing{},
 	common.BytesToAddress([]byte{0x10}): &bls12381MapG1{},
 	common.BytesToAddress([]byte{0x11}): &bls12381MapG2{},
-	common.BytesToAddress([]byte{0x01, 0x00}): &p256Verify{},
+	common.BytesToAddress([]byte{0x01, 0x00}): &p256Verify{gas: 3450},
 }
 
 // // PrecompiledContractsBLS contains the set of pre-compiled Ethereum
@@ -1208,11 +1208,13 @@ func kZGToVersionedHash(kzg kzg4844.Commitment) types.Hash {
 
 // P256VERIFY (secp256r1 signature verification)
 // implemented as a native contract
-type p256Verify struct{}
+type p256Verify struct{
+	gas uint64
+}
 
 // RequiredGas returns the gas required to execute the precompiled contract
 func (c *p256Verify) RequiredGas(input []byte) uint64 {
-	return params.P256VerifyGas
+	return c.gas
 }
 
 // Run executes the precompiled contract with given 160 bytes of param, returning the output and the used gas
