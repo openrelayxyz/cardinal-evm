@@ -126,7 +126,7 @@ var PrecompiledContractsNapoli = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{8}):  &bn256PairingIstanbul{},
 	common.BytesToAddress([]byte{9}):  &blake2F{},
 	common.BytesToAddress([]byte{10}): &kzgPointEvaluation{},
-	common.BytesToAddress([]byte{0x01, 0x00}): &p256Verify{},
+	common.BytesToAddress([]byte{0x01, 0x00}): &p256Verify{gas: 3450},
 }
 
 var PrecompiledContractsPrague = map[common.Address]PrecompiledContract{
@@ -147,6 +147,27 @@ var PrecompiledContractsPrague = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{0x0f}): &bls12381Pairing{},
 	common.BytesToAddress([]byte{0x10}): &bls12381MapG1{},
 	common.BytesToAddress([]byte{0x11}): &bls12381MapG2{},
+}
+
+var PrecompiledContractsNapoliPrague = map[common.Address]PrecompiledContract{
+	common.BytesToAddress([]byte{1}):  &ecrecover{},
+	common.BytesToAddress([]byte{2}):  &sha256hash{},
+	common.BytesToAddress([]byte{3}):  &ripemd160hash{},
+	common.BytesToAddress([]byte{4}):  &dataCopy{},
+	common.BytesToAddress([]byte{5}):  &bigModExp{eip2565: true},
+	common.BytesToAddress([]byte{6}):  &bn256AddIstanbul{},
+	common.BytesToAddress([]byte{7}):  &bn256ScalarMulIstanbul{},
+	common.BytesToAddress([]byte{8}):  &bn256PairingIstanbul{},
+	common.BytesToAddress([]byte{9}):  &blake2F{},
+	common.BytesToAddress([]byte{0x0a}): &kzgPointEvaluation{},
+	common.BytesToAddress([]byte{0x0b}): &bls12381G1Add{},
+	common.BytesToAddress([]byte{0x0c}): &bls12381G1MultiExp{},
+	common.BytesToAddress([]byte{0x0d}): &bls12381G2Add{},
+	common.BytesToAddress([]byte{0x0e}): &bls12381G2MultiExp{},
+	common.BytesToAddress([]byte{0x0f}): &bls12381Pairing{},
+	common.BytesToAddress([]byte{0x10}): &bls12381MapG1{},
+	common.BytesToAddress([]byte{0x11}): &bls12381MapG2{},
+	common.BytesToAddress([]byte{0x01, 0x00}): &p256Verify{gas: 3450},
 }
 
 // // PrecompiledContractsBLS contains the set of pre-compiled Ethereum
@@ -184,6 +205,13 @@ var PrecompiledContractsOsaka = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{0x10}): &bls12381MapG1{},
 	common.BytesToAddress([]byte{0x11}): &bls12381MapG2{},
 
+	common.BytesToAddress([]byte{0x1, 0x00}): &p256Verify{gas: 6900},
+}
+
+
+// PrecompiledContractsP256Verify contains the precompiled Ethereum
+// contract specified in EIP-7212. This is exported for testing purposes.
+var PrecompiledContractsP256Verify = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{0x1, 0x00}): &p256Verify{},
 }
 
@@ -214,7 +242,13 @@ func init() {
 		PrecompiledAddressesCancun = append(PrecompiledAddressesCancun, k)
 	}
 	for k := range PrecompiledContractsNapoli {
-		PrecompiledAddressesCancun = append(PrecompiledAddressesNapoli, k)
+		PrecompiledAddressesNapoli = append(PrecompiledAddressesNapoli, k)
+	}
+	for k := range PrecompiledContractsPrague {
+		PrecompiledAddressesPrague = append(PrecompiledAddressesPrague, k)
+	}
+	for k := range PrecompiledContractsNapoliPrague {
+		PrecompiledAddressesNapoliPrague = append(PrecompiledAddressesNapoliPrague, k)
 	}
 	for k := range PrecompiledContractsOsaka {
 		PrecompiledAddressesOsaka = append(PrecompiledAddressesOsaka, k)
@@ -226,6 +260,10 @@ func ActivePrecompiles(rules params.Rules) []common.Address {
 	switch {
 	case rules.IsOsaka:
 		return PrecompiledAddressesOsaka
+	case rules.IsPrague && rules.IsNapoli:
+		return PrecompiledAddressesNapoliPrague
+	case rules.IsPrague:
+		return PrecompiledAddressesPrague
 	case rules.IsNapoli:
 		return PrecompiledAddressesNapoli
 	case rules.IsCancun:
@@ -1234,11 +1272,13 @@ func kZGToVersionedHash(kzg kzg4844.Commitment) types.Hash {
 
 // P256VERIFY (secp256r1 signature verification)
 // implemented as a native contract
-type p256Verify struct{}
+type p256Verify struct{
+	gas uint64
+}
 
 // RequiredGas returns the gas required to execute the precompiled contract
 func (c *p256Verify) RequiredGas(input []byte) uint64 {
-	return params.P256VerifyGas
+	return c.gas
 }
 
 // Run executes the precompiled contract with given 160 bytes of param, returning the output and the used gas
