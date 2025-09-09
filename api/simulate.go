@@ -237,7 +237,7 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		callResults = make([]simCallResult, len(block.Calls))
 		receipts    = make([]*types.Receipt, len(block.Calls))
 		senders     = make(map[ctypes.Hash]common.Address)
-		// allLogs     []*types.Log
+		allLogs     []*types.Log
 	)
 
 	getHashFn := func(n uint64) ctypes.Hash {
@@ -339,7 +339,7 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 			}
 		} else {
 			callRes.Status = hexutil.Uint64(types.ReceiptStatusSuccessful)
-			// allLogs = append(allLogs, receipt.Logs...)
+			allLogs = append(allLogs, receipt.Logs...)
 		}
 		callResults[i] = callRes
 	}
