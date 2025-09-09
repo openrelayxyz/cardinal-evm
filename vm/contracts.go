@@ -217,6 +217,8 @@ var PrecompiledContractsP256Verify = map[common.Address]PrecompiledContract{
 
 var (
 	PrecompiledAddressesOsaka     []common.Address
+	PrecompiledAddressesPrague    []common.Address
+	PrecompiledAddressesNapoliPrague []common.Address
 	PrecompiledAddressesNapoli    []common.Address
 	PrecompiledAddressesCancun    []common.Address
 	PrecompiledAddressesBerlin    []common.Address
