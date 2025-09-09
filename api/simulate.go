@@ -361,3 +361,5 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 
 	return blck, callResults, senders, nil
 }
+
+// there is a virtual log being returned by geth on any eth transfer. It is present in geth and we need to figure out how to implement it in EVM.

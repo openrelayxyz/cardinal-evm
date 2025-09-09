@@ -349,7 +349,9 @@ func (sdb *stateDB) RevertToSnapshot(snap int) {
 	sdb.journal = sdb.journal[:snap]
 }
 func (sdb *stateDB) Snapshot() int { return len(sdb.journal) }
+
 func (sdb *stateDB) AddLog(log *types.Log) {
+
 	sdb.journal = append(sdb.journal, journalEntry{nil, func(sdb *stateDB) {
         logs := sdb.logs[sdb.thash]
         if len(logs) > 0 {
@@ -385,6 +387,9 @@ func (s *stateDB) GetLogs(hash ctypes.Hash, blockNumber uint64, blockHash ctypes
 // used when the EVM emits new state logs. It should be invoked before
 // transaction execution.
 func (s *stateDB) SetTxContext(thash ctypes.Hash, ti int) {
+	if s.logs == nil {
+		s.logs = make(map[ctypes.Hash][]*types.Log)
+	}
 	s.thash = thash
 	s.txIndex = ti
 }
