@@ -31,11 +31,11 @@ type PrivateDebugAPI struct {
 
 // TraceConfig holds extra parameters to trace functions.
 type TraceConfig struct {
-	*vm.LogConfig
+	vm.LogConfig
 	Tracer  *string
 	Timeout *string
 	Reexec  *uint64
-	// Config specific to given tracer. Note struct logger
+	// Config specific tore given tracer. Note struct logger
 	// config are historically embedded in main object.x
 	TracerConfig json.RawMessage
 }
