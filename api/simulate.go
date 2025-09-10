@@ -40,6 +40,8 @@ type BlockOverrides struct {
 	PrevRandao    *ctypes.Hash
 	BaseFeePerGas *hexutil.Big
 	BlobBaseFee   *hexutil.Big
+	BeaconRoot    *ctypes.Hash
+	Withdrawals   *types.Withdrawals
 }
 
 // simOpts are the inputs to eth_simulateV1.
@@ -356,10 +358,18 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 	header.Bloom = types.CreateBloom(receipts)
 	header.Root = s.base.Root
 
-	blockBody := &types.Body{Transactions: txes}
+	blockBody := &types.Body{Transactions: txes, Withdrawals: *block.BlockOverrides.Withdrawals}
 	blck := types.NewBlock(header, blockBody, receipts, hasher)
 
 	return blck, callResults, senders, nil
 }
 
 // there is a virtual log being returned by geth on any eth transfer. It is present in geth and we need to figure out how to implement it in EVM.
+// aparently geth removes the extra data field from the block which we ran the call against, while evm includes it.
+// look into how the block hash is being produced -- Probably not worth trying to do.  
+// evm includes mix hash where geth does not. 
+// look into parent beacon block root and why it appears to be left off from geth. 
+// receipt root should be achievable (maybe geth is including the virtual log in the receipts)
+// geth returns a size value where evm appears not to. 
+// research why evm is producing a different tx hash
+// evm is not including withdrawals and withdrawals hash in what we return but should. 
