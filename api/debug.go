@@ -131,6 +131,7 @@ func (s *PrivateDebugAPI) TraceCall(ctx *rpc.CallContext, args TransactionArgs, 
 			}
 		}
 		gasCap := new(GasPool).AddGas(header.GasLimit)
+
 		if err := args.setDefaults(ctx, evmFn, statedb, header, bNrOrHash); err != nil {
 			return err
 		}
@@ -138,7 +139,7 @@ func (s *PrivateDebugAPI) TraceCall(ctx *rpc.CallContext, args TransactionArgs, 
 		if err != nil {
 			return err
 		}
-		tx := args.ToTransaction(types.LegacyTxType)
+		// tx := args.ToTransaction(types.LegacyTxType)
 		if msg.GasPrice().Sign() == 0 {
 			header.BaseFee = new(big.Int)
 		}
@@ -146,7 +147,7 @@ func (s *PrivateDebugAPI) TraceCall(ctx *rpc.CallContext, args TransactionArgs, 
 		if config != nil {
 			traceConfig = &config.TraceConfig
 		}
-		result, err = s.traceTx(ctx, tx, msg, new(tracers.Context), header, statedb, evmFn, cfg, traceConfig)
+		result, err = s.traceTx(ctx, msg, new(tracers.Context), header, statedb, evmFn, cfg, traceConfig)
 		return err
 	})
 	if err != nil {
@@ -164,7 +165,7 @@ func (s *PrivateDebugAPI) TraceCall(ctx *rpc.CallContext, args TransactionArgs, 
 // traceTx configures a new tracer according to the provided configuration, and
 // executes the given message in the provided environment. The return value will
 // be tracer dependent.
-func (s *PrivateDebugAPI) traceTx(ctx *rpc.CallContext, tx *types.Transaction, message Msg, txctx *tracers.Context, header *types.Header, statedb state.StateDB, getEVM func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, chainConfig *params.ChainConfig, config *TraceConfig) (interface{}, error){
+func (s *PrivateDebugAPI) traceTx(ctx *rpc.CallContext, message Msg, txctx *tracers.Context, header *types.Header, statedb state.StateDB, getEVM func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, chainConfig *params.ChainConfig, config *TraceConfig) (interface{}, error){
 	var ( 
 		timeout = s.traceTimeout
 		err error

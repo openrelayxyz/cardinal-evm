@@ -263,11 +263,15 @@ func (l *StructLogger) GetResult() (json.RawMessage, error) {
 	if failed && !errors.Is(l.err, ErrExecutionReverted) {
 		returnData = []byte{}
 	}
+	logs := l.logs
+	if logs == nil {
+		logs = []StructLog{}
+	}
 	return json.Marshal(&ExecutionResult{
 		Gas:         l.usedGas,
 		Failed:      failed,
 		ReturnValue: returnData,
-		StructLogs:  l.logs,
+		StructLogs:  logs,
 	})
 }
 // Stop terminates execution of the tracer at the first opportune moment.
