@@ -113,6 +113,7 @@ var PrecompiledContractsCancun = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{9}):  &blake2F{},
 	common.BytesToAddress([]byte{10}): &kzgPointEvaluation{},
 }
+
 // PrecompiledContractsNapoli contains the default set of pre-compiled Ethereum
 // contracts used in the Napoli release.
 var PrecompiledContractsNapoli = map[common.Address]PrecompiledContract{
@@ -205,7 +206,7 @@ var PrecompiledContractsOsaka = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{0x10}): &bls12381MapG1{},
 	common.BytesToAddress([]byte{0x11}): &bls12381MapG2{},
 
-	common.BytesToAddress([]byte{0x1, 0x00}): &p256Verify{gas: 6900},
+	common.BytesToAddress([]byte{0x1, 0x00}): &p256Verify{gas:6900},
 }
 
 
@@ -1306,4 +1307,9 @@ func (c *p256Verify) Run(input []byte) ([]byte, error) {
 		// Signature is invalid
 		return nil, nil
 	}
+	return nil, nil
+}
+
+func (c *p256Verify) Name() string {
+	return "P256VERIFY"
 }
