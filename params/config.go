@@ -467,6 +467,45 @@ var (
 		},
 	}
 
+	Fd5ChainConfig = &ChainConfig{
+		ChainID:                 big.NewInt(7092415936),
+		HomesteadBlock:          big.NewInt(0),
+		DAOForkBlock:            nil,
+		DAOForkSupport:          true,
+		EIP150Block:             big.NewInt(0),
+		EIP155Block:             big.NewInt(0),
+		EIP158Block:             big.NewInt(0),
+		ByzantiumBlock:          big.NewInt(0),
+		ConstantinopleBlock:     big.NewInt(0),
+		PetersburgBlock:         big.NewInt(0),
+		IstanbulBlock:           big.NewInt(0),
+		MuirGlacierBlock:        big.NewInt(0),
+		BerlinBlock:             big.NewInt(0),
+		LondonBlock:             big.NewInt(0),
+		ShanghaiTime:            big.NewInt(0),
+		CancunTime:              big.NewInt(0),
+		PragueTime:              big.NewInt(0),
+		OsakaTime:               big.NewInt(1757611104),
+		Ethash:                  new(EthashConfig),
+		Engine:              ETHashEngine,
+		BlobSchedule:        []*BlobConfig{
+			// Cancun
+			&BlobConfig{
+				ActivationTime: 0,
+				Target: 3,
+				Max : 6,
+				UpdateFraction: 3338477,
+			},
+			// Prague
+			&BlobConfig{
+				ActivationTime: 0,
+				Target: 6,
+				Max : 9,
+				UpdateFraction: 5007716,
+			},
+		},
+	}
+
 	// AllEthashProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Ethash consensus.
 	//
@@ -498,6 +537,7 @@ var ChainLookup = map[int64]*ChainConfig{
 	1337802: KilnChainConfig,
 	11155111: SepoliaChainConfig,
 	560048: HoodiChainConfig,
+	7092415936: Fd5ChainConfig,
 }
 
 // ChainConfig is the core config which determines the blockchain settings.
