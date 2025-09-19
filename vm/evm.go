@@ -192,26 +192,10 @@ func (evm *EVM) Interpreter() *EVMInterpreter {
 // the necessary steps to create accounts and reverses the state in case of an
 // execution error or failed value transfer.
 func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas uint64, value *big.Int) (ret []byte, leftOverGas uint64, err error) {
-	if evm.Config.Debug {
-        if evm.depth == 0 {
-            evm.Config.Tracer.CaptureStart(caller.Address(), addr, false, input, gas, value)
-            defer func(startGas uint64, startTime time.Time) {
-                evm.Config.Tracer.CaptureEnd(ret, startGas-gas, time.Since(startTime), err)
-            }(gas, time.Now())
-        } else {
-            evm.Config.Tracer.CaptureEnter(CALL, caller.Address(), addr, input, gas, value)
-            defer func(startGas uint64) {
-                evm.Config.Tracer.CaptureExit(ret, startGas-gas, err)
-            }(gas)
-        }
-    }
-
 	// Fail if we're trying to execute above the call depth limit
 	if evm.depth > int(params.CallCreateDepth) {
 		return nil, gas, ErrDepth
 	}
-
-	
 	// Fail if we're trying to transfer more than the available balance
 	if value.Sign() != 0 && !evm.Context.CanTransfer(evm.StateDB, caller.Address(), value) {
 		return nil, gas, ErrInsufficientBalance
@@ -220,15 +204,38 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	p, isPrecompile := evm.precompile(addr)
 
 	if !evm.StateDB.Exist(addr) {
-        if !isPrecompile && evm.chainRules.IsEIP158 && value.Sign() == 0 {
-            return nil, gas, nil
-        }
-        evm.StateDB.CreateAccount(addr)
-    }
-
-
+		if !isPrecompile && evm.chainRules.IsEIP158 && value.Sign() == 0 {
+			// Calling a non existing account, don't do anything, but ping the tracer
+			if evm.Config.Debug {
+				if evm.depth == 0 {
+					evm.Config.Tracer.CaptureStart(caller.Address(), addr, false, input, gas, value)
+					evm.Config.Tracer.CaptureEnd(ret, 0, 0, nil)
+				} else {
+					evm.Config.Tracer.CaptureEnter(CALL, caller.Address(), addr, input, gas, value)
+					evm.Config.Tracer.CaptureExit(ret, 0, nil)
+				}
+			}
+			return nil, gas, nil
+		}
+		evm.StateDB.CreateAccount(addr)
+	}
 	evm.Context.Transfer(evm.StateDB, caller.Address(), addr, value)
 
+	// Capture the tracer start/end events in debug mode
+	if evm.Config.Debug {
+	  if evm.depth == 0 {
+			evm.Config.Tracer.CaptureStart(caller.Address(), addr, false, input, gas, value)
+			defer func(startGas uint64, startTime time.Time) { // Lazy evaluation of the parameters
+				evm.Config.Tracer.CaptureEnd(ret, startGas-gas, time.Since(startTime), err)
+			}(gas, time.Now())
+		} else {
+			// Handle tracer events for entering and exiting a call frame
+			evm.Config.Tracer.CaptureEnter(CALL, caller.Address(), addr, input, gas, value)
+			defer func(startGas uint64) {
+				evm.Config.Tracer.CaptureExit(ret, startGas-gas, err)
+			}(gas)
+		}
+	}
 
 	if isPrecompile {
 		ret, gas, err = RunPrecompiledContract(p, input, gas)
