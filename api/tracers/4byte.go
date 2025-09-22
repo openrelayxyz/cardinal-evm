@@ -25,7 +25,6 @@ import (
 
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/params"
-	"github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/vm"
 )
 
@@ -121,7 +120,6 @@ func (t *fourByteTracer) CaptureEnd([]byte, uint64, time.Duration, error) { }
 func (t *fourByteTracer) CaptureExit(output []byte, gasUsed uint64, err error) {}
 func (t *fourByteTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, rData []byte, depth int, err error) {}
 func (t *fourByteTracer) CaptureFault(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, depth int, err error){}
-func (t *fourByteTracer) CaptureLog(log *types.Log){}
 func (t *fourByteTracer) CaptureTxEnd(res uint64){}
 func (t *fourByteTracer) CaptureTxStart(res uint64){}
 

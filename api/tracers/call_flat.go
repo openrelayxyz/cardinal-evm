@@ -28,7 +28,6 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"time"
-	"github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-evm/params"
 	ctypes "github.com/openrelayxyz/cardinal-types"
@@ -213,10 +212,6 @@ func (t *flatCallTracer) CaptureEnd(output []byte, gasUsed uint64, duration time
 		return
 	}
 	t.tracer.CaptureEnd(output, gasUsed, duration, err)
-}
-
-func (t *flatCallTracer) CaptureLog(log *types.Log) {
-	t.tracer.CaptureLog(log)
 }
 
 func (t *flatCallTracer) CaptureTxStart(gasLimit uint64) {

@@ -26,7 +26,6 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/abi"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/params"
-	"github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 
@@ -136,6 +135,71 @@ func NewCallTracer(cfg json.RawMessage, chainConfig *params.ChainConfig) (vm.Tra
 	return &callTracer{callstack: make([]callFrame, 0, 1), config: config}, nil
 }
 
+func (t *callTracer) CaptureStart(from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
+	toCopy := to
+	t.callstack[0] = callFrame{
+		Type:  vm.CALL,
+		From:  from,
+		To:    &toCopy,
+		Input: common.CopyBytes(input),
+		Gas:   t.gasLimit,
+		Value: value,
+	}
+	if create {
+		t.callstack[0].Type = vm.CREATE
+	}
+}
+
+
+func (t *callTracer) captureEnd(output []byte, gasUsed uint64, err error, reverted bool) {
+	if len(t.callstack) != 1 {
+		return
+	}
+	t.callstack[0].processOutput(output, err, reverted)
+}
+
+func (t *callTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, rData []byte, depth int, err error) {
+	if err != nil {
+		return
+	}
+	// Only logs need to be captured via opcode processing
+	if !t.config.WithLog {
+		return
+	}
+	// Avoid processing nested calls when only caring about top call
+	if t.config.OnlyTopCall && depth > 0 {
+		return
+	}
+	// Skip if tracing was interrupted
+	if t.interrupt.Load() {
+		return
+	}
+	switch op {
+	case vm.LOG0, vm.LOG1, vm.LOG2, vm.LOG3, vm.LOG4:
+		size := int(op - vm.LOG0)
+
+		stack := scope.Stack
+		stackData := stack.Data()
+
+		// Don't modify the stack
+		mStart := stackData[len(stackData)-1]
+		mSize := stackData[len(stackData)-2]
+		topics := make([]ctypes.Hash, size)
+		for i := 0; i < size; i++ {
+			topic := stackData[len(stackData)-2-(i+1)]
+			topics[i] = ctypes.Hash(topic.Bytes32())
+		}
+
+		data, err := GetMemoryCopyPadded(scope.Memory.Data(), int64(mStart.Uint64()), int64(mSize.Uint64()))
+		if err != nil {
+			// mSize was unrealistically large
+			return
+		}
+
+		log := callLog{Address: scope.Contract.Address(), Topics: topics, Data: hexutil.Bytes(data)}
+		t.callstack[len(t.callstack)-1].Logs = append(t.callstack[len(t.callstack)-1].Logs, log)
+	}
+}
 
 // OnEnter is called when EVM enters a new scope (via call, create or selfdestruct).
 func (t *callTracer) CaptureEnter(typ vm.OpCode, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {
@@ -190,65 +254,23 @@ func (t *callTracer) CaptureExit(output []byte, gasUsed uint64, err error) {
 	t.callstack[size-1].Calls = append(t.callstack[size-1].Calls, call)
 }
 
-func (t *callTracer) captureEnd(output []byte, gasUsed uint64, err error, reverted bool) {
-	if len(t.callstack) != 1 {
-		return
-	}
-	t.callstack[0].processOutput(output, err, reverted)
-}
-
-func (t *callTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, rData []byte, depth int, err error) {}
 func (t *callTracer) CaptureFault(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, depth int, err error){}
 
-func (t *callTracer) CaptureStart(from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
-	t.gasLimit = gas
-}
-
-func (t *callTracer) CaptureEnd(output []byte, gasUsed uint64, duration time.Duration, err error) {
-    if err != nil {
-        return
-    }
-    if len(t.callstack) > 0 {
-        t.callstack[0].GasUsed = gasUsed
-    }
-
-    if t.config.WithLog {
-        clearFailedLogs(&t.callstack[0], false)
-    }
-}
-
-func (t *callTracer) CaptureLog(log *types.Log) {
-	// Only logs need to be captured via opcode processing
-	if !t.config.WithLog {
-		return
-	}
-	// Avoid processing nested calls when only caring about top call
-	if t.config.OnlyTopCall && t.depth > 0 {
-		return
-	}
-	// Skip if tracing was interrupted
-	if t.interrupt.Load() {
-		return
-	}
-	l := callLog{
-		Address:  log.Address,
-		Topics:   log.Topics,
-		Data:     log.Data,
-		Position: hexutil.Uint(len(t.callstack[len(t.callstack)-1].Calls)),
-	}
-	t.callstack[len(t.callstack)-1].Logs = append(t.callstack[len(t.callstack)-1].Logs, l)
+// CaptureEnd is called after the call finishes to finalize the tracing.
+func (t *callTracer) CaptureEnd(output []byte, gasUsed uint64, time time.Duration, err error) {
+	t.callstack[0].processOutput(output, err, err!=nil)
 }
 
 func (t *callTracer) CaptureTxStart(gasLimit uint64) {
-	// t.gasLimit = gasLimit
+	t.gasLimit = gasLimit
 }
 
 func (t *callTracer) CaptureTxEnd(restGas uint64) {
-	// t.callstack[0].GasUsed = t.gasLimit - restGas
-	// if t.config.WithLog {
-	// 	// Logs are not emitted when the call fails
-	// 	clearFailedLogs(&t.callstack[0], false)
-	// }
+	t.callstack[0].GasUsed = t.gasLimit - restGas
+	if t.config.WithLog {
+		// Logs are not emitted when the call fails
+		clearFailedLogs(&t.callstack[0], false)
+	}
 }
 
 // GetResult returns the json-encoded nested list of call traces, and any

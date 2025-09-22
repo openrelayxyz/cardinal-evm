@@ -23,7 +23,6 @@ import (
 
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/params"
-	"github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/vm"
 )
 
@@ -93,13 +92,6 @@ func (t *muxTracer) CaptureStart(from common.Address, to common.Address, create 
 func (t *muxTracer) CaptureEnd(output []byte, gasUsed uint64, duration time.Duration, err error) {
 	for _, t := range t.tracers {
 			t.CaptureEnd(output, gasUsed, duration, err)
-		}
-}
-
-
-func (t *muxTracer) CaptureLog(log *types.Log) {
-	for _, t := range t.tracers {
-			t.CaptureLog(log)
 		}
 }
 
