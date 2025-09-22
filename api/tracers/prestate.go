@@ -180,6 +180,18 @@ func (t *prestateTracer) CaptureStart(from common.Address, to common.Address, cr
 
 }
 
+func (t *prestateTracer) CaptureTxStart(gasLimit uint64) {
+	// t.gasLimit = gasLimit
+}
+
+func (t *prestateTracer) CaptureTxEnd(restGas uint64) {
+	// t.callstack[0].GasUsed = t.gasLimit - restGas
+	// if t.config.WithLog {
+	// 	// Logs are not emitted when the call fails
+	// 	clearFailedLogs(&t.callstack[0], false)
+	// }
+}
+
 func (t *prestateTracer) CaptureEnter(typ vm.OpCode, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {}
 func (t *prestateTracer) CaptureExit(output []byte, gasUsed uint64, err error) {}
 func (t *prestateTracer) CaptureFault(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, depth int, err error){}

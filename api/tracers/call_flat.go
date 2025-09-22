@@ -218,6 +218,18 @@ func (t *flatCallTracer) CaptureEnd(output []byte, gasUsed uint64, duration time
 func (t *flatCallTracer) CaptureLog(log *types.Log) {
 	t.tracer.CaptureLog(log)
 }
+
+func (t *flatCallTracer) CaptureTxStart(gasLimit uint64) {
+	// t.gasLimit = gasLimit
+}
+
+func (t *flatCallTracer) CaptureTxEnd(restGas uint64) {
+	// t.callstack[0].GasUsed = t.gasLimit - restGas
+	// if t.config.WithLog {
+	// 	// Logs are not emitted when the call fails
+	// 	clearFailedLogs(&t.callstack[0], false)
+	// }
+}
 // GetResult returns an empty json object.
 func (t *flatCallTracer) GetResult() (json.RawMessage, error) {
 	if len(t.tracer.callstack) < 1 {

@@ -103,6 +103,18 @@ func (t *muxTracer) CaptureLog(log *types.Log) {
 		}
 }
 
+func (t *muxTracer) CaptureTxStart(gasLimit uint64) {
+	// t.gasLimit = gasLimit
+}
+
+func (t *muxTracer) CaptureTxEnd(restGas uint64) {
+	// t.callstack[0].GasUsed = t.gasLimit - restGas
+	// if t.config.WithLog {
+	// 	// Logs are not emitted when the call fails
+	// 	clearFailedLogs(&t.callstack[0], false)
+	// }
+}
+
 // GetResult returns an empty json object.
 func (t *muxTracer) GetResult() (json.RawMessage, error) {
 	resObject := make(map[string]json.RawMessage)

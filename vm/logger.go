@@ -117,6 +117,8 @@ type Tracer interface {
 	CaptureLog(log *types.Log)
 	GetResult() (json.RawMessage, error)
 	Stop(err error)
+	CaptureTxStart(gasLimit uint64)
+	CaptureTxEnd(restGas uint64)
 }
 
 // StructLogger is an EVM state logger and implements Tracer.
@@ -239,6 +241,10 @@ func (l *StructLogger) CaptureEnd(output []byte, gasUsed uint64, t time.Duration
 		}
 	}
 }
+
+func (t *StructLogger) CaptureTxStart(gasLimit uint64) {}
+
+func (t *StructLogger) CaptureTxEnd(restGas uint64) {}
 
 func (l *StructLogger) CaptureEnter(typ OpCode, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {}
 func (l *StructLogger) CaptureExit(output []byte, gasUsed uint64, err error) {}

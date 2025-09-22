@@ -293,6 +293,18 @@ func (t *erc7562Tracer) CaptureExit(output []byte, gasUsed uint64, err error) {
 	t.callstackWithOpcodes[size-1].Calls = append(t.callstackWithOpcodes[size-1].Calls, call)
 }
 
+func (t *erc7562Tracer) CaptureTxStart(gasLimit uint64) {
+	// t.gasLimit = gasLimit
+}
+
+func (t *erc7562Tracer) CaptureTxEnd(restGas uint64) {
+	// t.callstack[0].GasUsed = t.gasLimit - restGas
+	// if t.config.WithLog {
+	// 	// Logs are not emitted when the call fails
+	// 	clearFailedLogs(&t.callstack[0], false)
+	// }
+}
+
 func (t *erc7562Tracer) CaptureFault(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, depth int, err error){}
 
 func (t *erc7562Tracer) CaptureEnd(output []byte, gasUsed uint64, duration time.Duration, err error) {

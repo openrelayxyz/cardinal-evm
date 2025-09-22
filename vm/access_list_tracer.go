@@ -169,6 +169,18 @@ func (*AccessListTracer) CaptureFault(pc uint64, op OpCode, gas, cost uint64, sc
 
 func (*AccessListTracer) CaptureEnd(output []byte, gasUsed uint64, t time.Duration, err error) {}
 
+func (t *AccessListTracer) CaptureTxStart(gasLimit uint64) {
+	// t.gasLimit = gasLimit
+}
+
+func (t *AccessListTracer) CaptureTxEnd(restGas uint64) {
+	// t.callstack[0].GasUsed = t.gasLimit - restGas
+	// if t.config.WithLog {
+	// 	// Logs are not emitted when the call fails
+	// 	clearFailedLogs(&t.callstack[0], false)
+	// }
+}
+
 func ( *AccessListTracer) GetResult() (json.RawMessage, error) {return nil, nil}
 func (t *AccessListTracer) CaptureLog(log *types.Log){}
 func (t *AccessListTracer) Stop(err error){}
