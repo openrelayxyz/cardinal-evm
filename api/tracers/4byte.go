@@ -54,6 +54,7 @@ type fourByteTracer struct {
 	reason            error          // Textual reason for the interruption
 	chainConfig       *params.ChainConfig
 	activePrecompiles []common.Address // Updated on tx start based on given rules
+	env 	*VMContext
 }
 
 // newFourByteTracer returns a native go tracer which collects
@@ -61,6 +62,7 @@ type fourByteTracer struct {
 func newFourByteTracer(cfg json.RawMessage, chainConfig *params.ChainConfig) (vm.Tracer, error) {
 	t := &fourByteTracer{
 		ids:         make(map[string]int),
+		chainConfig: chainConfig,
 	}
 	return t, nil
 }
@@ -81,6 +83,9 @@ func (t *fourByteTracer) store(id []byte, size int) {
 	t.ids[key] += 1
 }
 
+func (t *fourByteTracer) SetVMContext(ctx *VMContext) {
+    t.env = ctx
+}
 
 func (t *fourByteTracer) CaptureEnter(typ vm.OpCode, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {
     // Skip if tracing was interrupted
@@ -103,7 +108,15 @@ func (t *fourByteTracer) CaptureEnter(typ vm.OpCode, from common.Address, to com
     t.store(input[0:4], len(input)-4)
 }
 
-func (t *fourByteTracer) CaptureStart(from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {}
+func (t *fourByteTracer) CaptureStart(from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
+	rules := t.chainConfig.Rules(t.env.BlockNumber, t.env.Random != nil, new(big.Int).SetUint64(t.env.Time))
+	t.activePrecompiles = vm.ActivePrecompiles(rules)
+
+	// Save the outer calldata also
+	if len(input) >= 4 {
+		t.store(input[0:4], len(input)-4)
+	}
+}
 func (t *fourByteTracer) CaptureEnd([]byte, uint64, time.Duration, error) { }
 func (t *fourByteTracer) CaptureExit(output []byte, gasUsed uint64, err error) {}
 func (t *fourByteTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, rData []byte, depth int, err error) {}
