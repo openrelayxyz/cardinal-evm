@@ -132,7 +132,7 @@ func NewCallTracer(cfg json.RawMessage, chainConfig *params.ChainConfig) (vm.Tra
 	if err := json.Unmarshal(cfg, &config); err != nil {
 		return nil, err
 	}
-	return &callTracer{callstack: make([]callFrame, 0, 1), config: config}, nil
+	return &callTracer{callstack: make([]callFrame, 1), config: config}, nil
 }
 
 func (t *callTracer) CaptureStart(from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
