@@ -164,6 +164,7 @@ func (t *callTracer) captureEnd(output []byte, gasUsed uint64, err error, revert
 }
 
 func (t *callTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, rData []byte, depth int, err error) {
+	log.Error("DEBUG: CaptureState called")
 	if err != nil {
 		return
 	}
@@ -208,6 +209,7 @@ func (t *callTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64, sco
 
 // OnEnter is called when EVM enters a new scope (via call, create or selfdestruct).
 func (t *callTracer) CaptureEnter(typ vm.OpCode, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {
+	log.Error("DEBUG: CaptureEnter called")
 	if t.config.OnlyTopCall && t.depth > 1 {
         return
     }
@@ -235,6 +237,7 @@ func (t *callTracer) CaptureEnter(typ vm.OpCode, from common.Address, to common.
 // OnExit is called when EVM exits a scope, even if the scope didn't
 // execute any code.
 func (t *callTracer) CaptureExit(output []byte, gasUsed uint64, err error) {
+	log.Error("DEBUG: CaptureExit called")
 	t.depth--
 	if t.depth == 0 {
 		t.captureEnd(output, gasUsed, err, err!=nil)
@@ -263,14 +266,17 @@ func (t *callTracer) CaptureFault(pc uint64, op vm.OpCode, gas, cost uint64, sco
 
 // CaptureEnd is called after the call finishes to finalize the tracing.
 func (t *callTracer) CaptureEnd(output []byte, gasUsed uint64, time time.Duration, err error) {
+	log.Error("DEBUG: CaptureEnd Called")
 	t.callstack[0].processOutput(output, err, err!=nil)
 }
 
 func (t *callTracer) CaptureTxStart(gasLimit uint64) {
+	log.Error("DEBUG: CaptureTxStart Called")
 	t.gasLimit = gasLimit
 }
 
 func (t *callTracer) CaptureTxEnd(restGas uint64) {
+	log.Error("DEBUG: CaptureTxEnd Called")
 	t.callstack[0].GasUsed = t.gasLimit - restGas
 	if t.config.WithLog {
 		// Logs are not emitted when the call fails
