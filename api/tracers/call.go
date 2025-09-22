@@ -147,7 +147,7 @@ func (t *callTracer) CaptureStart(from common.Address, to common.Address, create
 		From:  from,
 		To:    &toCopy,
 		Input: common.CopyBytes(input),
-		Gas:   t.gasLimit,
+		Gas:   gas,
 		Value: value,
 	}
 	if create {
