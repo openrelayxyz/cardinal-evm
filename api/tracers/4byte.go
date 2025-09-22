@@ -23,12 +23,14 @@ import (
 	"strconv"
 	"sync/atomic"
 
+	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/params"
 	"github.com/openrelayxyz/cardinal-evm/vm"
 )
 
 func init() {
+	log.Error("register callTracer")
 	Register("4byteTracer", newFourByteTracer)
 }
 

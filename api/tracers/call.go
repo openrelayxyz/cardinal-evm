@@ -17,13 +17,13 @@
 package tracers
 
 import (
-	"fmt"
 	"encoding/json"
 	"errors"
 	"math/big"
 	"sync/atomic"
 	"time"
 
+	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/abi"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/params"
@@ -37,6 +37,7 @@ import (
 //go:generate go run github.com/fjl/gencodec -type callFrame -field-override callFrameMarshaling -out gen_callframe_json.go
 
 func init() {
+	log.Error("register callTracer")
 	Register("callTracer", NewCallTracer)
 }
 
@@ -137,7 +138,7 @@ func NewCallTracer(cfg json.RawMessage, chainConfig *params.ChainConfig) (vm.Tra
 }
 
 func (t *callTracer) CaptureStart(from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
-	fmt.Printf("DEBUG: CaptureStart called\n")
+	log.Error("DEBUG: CaptureStart called")
 	toCopy := to
 	t.callstack[0] = callFrame{
 		Type:  vm.CALL,
@@ -278,19 +279,19 @@ func (t *callTracer) CaptureTxEnd(restGas uint64) {
 // GetResult returns the json-encoded nested list of call traces, and any
 // error arising from the encoding or forceful termination (via `Stop`).
 func (t *callTracer) GetResult() (json.RawMessage, error) {
-	fmt.Printf("DEBUG: callstack length: %d\n", len(t.callstack))
+	log.Error("callstack length: %d\n", len(t.callstack))
 	if len(t.callstack) != 1 {
-		fmt.Printf("DEBUG: incorrect callstack length, returning error\n")
+		log.Error("incorrect callstack length, returning error")
 		return nil, errors.New("incorrect number of top-level calls")
 	}
 
-	fmt.Printf("DEBUG: attempting to marshal callFrame: %+v\n", t.callstack[0])
+	log.Error("attempting to marshal callFrame: %+v\n", t.callstack[0])
 	res, err := json.Marshal(t.callstack[0])
 	if err != nil {
 		return nil, err
 	}
 
-	fmt.Printf("DEBUG: marshal successful, returning result\n")
+	log.Error("marshal successful, returning result")
 	return json.RawMessage(res), t.reason
 }
 
