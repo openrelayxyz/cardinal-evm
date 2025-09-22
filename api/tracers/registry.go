@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 
+	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/params"
 	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-types"
@@ -34,6 +35,7 @@ func Register(name string, factory TracerFactory) {
 func New(name string, config json.RawMessage, chainConfig *params.ChainConfig) (vm.Tracer, error) {
     factory, exists := Registry[name]
     if !exists {
+		log.Error("tracer %s not found in registry", name)
         return nil, fmt.Errorf("unknown tracer: %s", name)
     }
     return factory(config, chainConfig)

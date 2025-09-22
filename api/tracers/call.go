@@ -37,7 +37,6 @@ import (
 //go:generate go run github.com/fjl/gencodec -type callFrame -field-override callFrameMarshaling -out gen_callframe_json.go
 
 func init() {
-	log.Error("register callTracer")
 	Register("callTracer", NewCallTracer)
 }
 
