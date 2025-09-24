@@ -128,6 +128,12 @@ type callTracerConfig struct {
 // newCallTracer returns a native go tracer which tracks
 // call frames of a tx, and implements vm.EVMLogger.
 func NewCallTracer(cfg json.RawMessage, chainConfig *params.ChainConfig) (vm.Tracer, error) {
+	defer func() {
+        if r := recover(); r != nil {
+            log.Error("DEBUG: Panic in NewCallTracer", "panic", r)
+        }
+    }()
+
 	log.Error("NewCallTracer constructor called")
 	var config callTracerConfig
 	if err := json.Unmarshal(cfg, &config); err != nil {
@@ -153,6 +159,7 @@ func (t *callTracer) CaptureStart(from common.Address, to common.Address, create
 		t.callstack[0].Type = vm.CREATE
 	}
 }
+
 
 func (t *callTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, rData []byte, depth int, err error) {
 	log.Error("DEBUG: CaptureState called")
@@ -215,7 +222,7 @@ func (t *callTracer) CaptureEnter(typ vm.OpCode, from common.Address, to common.
 		From:  from,
 		To:    &toCopy,
 		Input: common.CopyBytes(input),
-		Gas:   gas,
+		Gas:   t.gasLimit,
 		Value: value,
 	}
 
@@ -250,7 +257,6 @@ func (t *callTracer) CaptureFault(pc uint64, op vm.OpCode, gas, cost uint64, sco
 // CaptureEnd is called after the call finishes to finalize the tracing.
 func (t *callTracer) CaptureEnd(output []byte, gasUsed uint64, time time.Duration, err error) {
 	log.Error("DEBUG: CaptureEnd Called")
-	t.callstack[0].GasUsed = gasUsed
 	t.callstack[0].processOutput(output, err, err!=nil)
 }
 
@@ -261,7 +267,7 @@ func (t *callTracer) CaptureTxStart(gasLimit uint64) {
 
 func (t *callTracer) CaptureTxEnd(restGas uint64) {
 	log.Error("DEBUG: CaptureTxEnd Called")
-	// t.callstack[0].GasUsed = t.gasLimit - restGas
+	t.callstack[0].GasUsed = t.gasLimit - restGas
 	if t.config.WithLog {
 		// Logs are not emitted when the call fails
 		clearFailedLogs(&t.callstack[0], false)
