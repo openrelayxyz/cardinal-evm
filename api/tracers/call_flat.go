@@ -155,9 +155,6 @@ func (t *flatCallTracer) CaptureEnter(typ vm.OpCode, from common.Address, to com
 	}
 	t.tracer.CaptureEnter(typ, from, to, input, gas, value)
 
-	if t.tracer.depth == 0 {
-		return
-	}
 	// Child calls must have a value, even if it's zero.
 	// Practically speaking, only STATICCALL has nil value. Set it to zero.
 	if t.tracer.callstack[len(t.tracer.callstack)-1].Value == nil && value == nil {
@@ -175,9 +172,6 @@ func (t *flatCallTracer) CaptureExit(output []byte, gasUsed uint64, err error) {
 	}
 	t.tracer.CaptureExit(output, gasUsed, err)
 
-	if t.tracer.depth == 0 {
-		return
-	}
 	// Parity traces don't include CALL/STATICCALLs to precompiles.
 	// By default we remove them from the callstack.
 	if t.config.IncludePrecompiles {

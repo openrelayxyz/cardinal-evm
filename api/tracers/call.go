@@ -116,7 +116,6 @@ type callTracer struct {
 	callstack []callFrame
 	config    callTracerConfig
 	gasLimit  uint64
-	depth     int
 	interrupt atomic.Bool // Atomic flag to signal execution interruption
 	reason    error       // Textual reason for the interruption
 }
@@ -153,14 +152,6 @@ func (t *callTracer) CaptureStart(from common.Address, to common.Address, create
 	if create {
 		t.callstack[0].Type = vm.CREATE
 	}
-}
-
-
-func (t *callTracer) captureEnd(output []byte, gasUsed uint64, err error, reverted bool) {
-	if len(t.callstack) != 1 {
-		return
-	}
-	t.callstack[0].processOutput(output, err, reverted)
 }
 
 func (t *callTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, rData []byte, depth int, err error) {
@@ -210,7 +201,7 @@ func (t *callTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64, sco
 // OnEnter is called when EVM enters a new scope (via call, create or selfdestruct).
 func (t *callTracer) CaptureEnter(typ vm.OpCode, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {
 	log.Error("DEBUG: CaptureEnter called")
-	if t.config.OnlyTopCall && t.depth > 1 {
+	if t.config.OnlyTopCall {
         return
     }
 	// Skip if tracing was interrupted
@@ -224,25 +215,17 @@ func (t *callTracer) CaptureEnter(typ vm.OpCode, from common.Address, to common.
 		From:  from,
 		To:    &toCopy,
 		Input: common.CopyBytes(input),
-		Gas:   gas,
+		Gas:   t.gasLimit,
 		Value: value,
 	}
-	if t.depth == 0 {
-		call.Gas = t.gasLimit
-	}
+
 	t.callstack = append(t.callstack, call)
-	t.depth++ 
 }
 
 // OnExit is called when EVM exits a scope, even if the scope didn't
 // execute any code.
 func (t *callTracer) CaptureExit(output []byte, gasUsed uint64, err error) {
 	log.Error("DEBUG: CaptureExit called")
-	t.depth--
-	if t.depth == 0 {
-		t.captureEnd(output, gasUsed, err, err!=nil)
-		return
-	}
 	if t.config.OnlyTopCall {
 		return
 	}
@@ -266,7 +249,6 @@ func (t *callTracer) CaptureFault(pc uint64, op vm.OpCode, gas, cost uint64, sco
 
 // CaptureEnd is called after the call finishes to finalize the tracing.
 func (t *callTracer) CaptureEnd(output []byte, gasUsed uint64, time time.Duration, err error) {
-	log.Error("DEBUG: CaptureEnd Called")
 	t.callstack[0].processOutput(output, err, err!=nil)
 }
 
