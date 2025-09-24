@@ -113,7 +113,7 @@ func (m *StreamManager) Start() error {
 	select {
 	case <-m.consumer.Ready():
 		waiting = true
-	default:
+	case <-time.After(500*time.Millisecond):
 	}
 
 	waitCh := make(chan struct{})
