@@ -215,7 +215,7 @@ func (t *callTracer) CaptureEnter(typ vm.OpCode, from common.Address, to common.
 		From:  from,
 		To:    &toCopy,
 		Input: common.CopyBytes(input),
-		Gas:   t.gasLimit,
+		Gas:   gas,
 		Value: value,
 	}
 
@@ -249,6 +249,8 @@ func (t *callTracer) CaptureFault(pc uint64, op vm.OpCode, gas, cost uint64, sco
 
 // CaptureEnd is called after the call finishes to finalize the tracing.
 func (t *callTracer) CaptureEnd(output []byte, gasUsed uint64, time time.Duration, err error) {
+	log.Error("DEBUG: CaptureEnd Called")
+	t.callstack[0].GasUsed = gasUsed
 	t.callstack[0].processOutput(output, err, err!=nil)
 }
 
@@ -259,7 +261,7 @@ func (t *callTracer) CaptureTxStart(gasLimit uint64) {
 
 func (t *callTracer) CaptureTxEnd(restGas uint64) {
 	log.Error("DEBUG: CaptureTxEnd Called")
-	t.callstack[0].GasUsed = t.gasLimit - restGas
+	// t.callstack[0].GasUsed = t.gasLimit - restGas
 	if t.config.WithLog {
 		// Logs are not emitted when the call fails
 		clearFailedLogs(&t.callstack[0], false)
