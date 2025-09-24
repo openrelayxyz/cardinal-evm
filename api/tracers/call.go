@@ -21,17 +21,15 @@ import (
 	"errors"
 	"math/big"
 	"sync/atomic"
+
 	"time"
 
-	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/abi"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/params"
 	"github.com/openrelayxyz/cardinal-evm/vm"
-	"github.com/openrelayxyz/cardinal-types/hexutil"
-
-	// "github.com/openrelayxyz/cardinal-evm/params"
 	ctypes "github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 )
 
 //go:generate go run github.com/fjl/gencodec -type callFrame -field-override callFrameMarshaling -out gen_callframe_json.go
@@ -44,7 +42,7 @@ type callLog struct {
 	Address common.Address `json:"address"`
 	Topics  []ctypes.Hash  `json:"topics"`
 	Data    hexutil.Bytes  `json:"data"`
-	// Position of the log relative to subcalls within the same trace
+		// Position of the log relative to subcalls within the same trace
 	// See https://github.com/ethereum/go-ethereum/pull/28389 for details
 	Position hexutil.Uint `json:"position"`
 }
@@ -63,8 +61,7 @@ type callFrame struct {
 	Logs         []callLog       `json:"logs,omitempty" rlp:"optional"`
 	// Placed at end on purpose. The RLP will be decoded to 0 instead of
 	// nil if there are non-empty elements after in the struct.
-	Value            *big.Int `json:"value,omitempty" rlp:"optional"`
-	revertedSnapshot bool
+	Value *big.Int `json:"value,omitempty" rlp:"optional"`
 }
 
 func (f callFrame) TypeString() string {
@@ -72,22 +69,16 @@ func (f callFrame) TypeString() string {
 }
 
 func (f callFrame) failed() bool {
-	return len(f.Error) > 0 && f.revertedSnapshot
+	return len(f.Error) > 0
 }
 
-func (f *callFrame) processOutput(output []byte, err error, reverted bool) {
+func (f *callFrame) processOutput(output []byte, err error) {
 	output = common.CopyBytes(output)
-	// Clear error if tx wasn't reverted. This happened
-	// for pre-homestead contract storage OOG.
-	if err != nil && !reverted {
-		err = nil
-	}
 	if err == nil {
 		f.Output = output
 		return
 	}
 	f.Error = err.Error()
-	f.revertedSnapshot = reverted
 	if f.Type == vm.CREATE || f.Type == vm.CREATE2 {
 		f.To = nil
 	}
@@ -98,7 +89,7 @@ func (f *callFrame) processOutput(output []byte, err error, reverted bool) {
 	if len(output) < 4 {
 		return
 	}
-	if unpacked, err := abi.UnpackRevert(output); err == nil {
+	if unpacked, err :=  abi.UnpackRevert(output); err == nil {
 		f.RevertReason = unpacked
 	}
 }
@@ -113,6 +104,7 @@ type callFrameMarshaling struct {
 }
 
 type callTracer struct {
+	noopTracer
 	callstack []callFrame
 	config    callTracerConfig
 	gasLimit  uint64
@@ -128,31 +120,26 @@ type callTracerConfig struct {
 // newCallTracer returns a native go tracer which tracks
 // call frames of a tx, and implements vm.EVMLogger.
 func NewCallTracer(cfg json.RawMessage, chainConfig *params.ChainConfig) (vm.Tracer, error) {
-	defer func() {
-        if r := recover(); r != nil {
-            log.Error("DEBUG: Panic in NewCallTracer", "panic", r)
-        }
-    }()
-
-	log.Error("NewCallTracer constructor called")
 	var config callTracerConfig
-	if err := json.Unmarshal(cfg, &config); err != nil {
-		return nil, err
+	if cfg != nil {
+		if err := json.Unmarshal(cfg, &config); err != nil {
+			return nil, err
+		}
 	}
-
-	log.Error("NewCallTracer constructor successful")
+	// First callframe contains tx context info
+	// and is populated on start and end.
 	return &callTracer{callstack: make([]callFrame, 1), config: config}, nil
 }
 
+// CaptureStart implements the EVMLogger interface to initialize the tracing operation.
 func (t *callTracer) CaptureStart(from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
-	log.Error("DEBUG: CaptureStart called")
 	toCopy := to
 	t.callstack[0] = callFrame{
 		Type:  vm.CALL,
 		From:  from,
 		To:    &toCopy,
 		Input: common.CopyBytes(input),
-		Gas:   gas,
+		Gas:   t.gasLimit,
 		Value: value,
 	}
 	if create {
@@ -160,9 +147,14 @@ func (t *callTracer) CaptureStart(from common.Address, to common.Address, create
 	}
 }
 
+// CaptureEnd is called after the call finishes to finalize the tracing.
+func (t *callTracer) CaptureEnd(output []byte, gasUsed uint64, time time.Duration, err error) {
+	t.callstack[0].processOutput(output, err)
+}
 
+// CaptureState implements the EVMLogger interface to trace a single step of VM execution.
 func (t *callTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, rData []byte, depth int, err error) {
-	log.Error("DEBUG: CaptureState called")
+	// skip if the previous op caused an error
 	if err != nil {
 		return
 	}
@@ -205,12 +197,11 @@ func (t *callTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64, sco
 	}
 }
 
-// OnEnter is called when EVM enters a new scope (via call, create or selfdestruct).
+// CaptureEnter is called when EVM enters a new scope (via call, create or selfdestruct).
 func (t *callTracer) CaptureEnter(typ vm.OpCode, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {
-	log.Error("DEBUG: CaptureEnter called")
 	if t.config.OnlyTopCall {
-        return
-    }
+		return
+	}
 	// Skip if tracing was interrupted
 	if t.interrupt.Load() {
 		return
@@ -218,55 +209,41 @@ func (t *callTracer) CaptureEnter(typ vm.OpCode, from common.Address, to common.
 
 	toCopy := to
 	call := callFrame{
-		Type:  vm.OpCode(typ),
+		Type:  typ,
 		From:  from,
 		To:    &toCopy,
 		Input: common.CopyBytes(input),
-		Gas:   t.gasLimit,
+		Gas:   gas,
 		Value: value,
 	}
-
 	t.callstack = append(t.callstack, call)
 }
 
-// OnExit is called when EVM exits a scope, even if the scope didn't
+// CaptureExit is called when EVM exits a scope, even if the scope didn't
 // execute any code.
 func (t *callTracer) CaptureExit(output []byte, gasUsed uint64, err error) {
-	log.Error("DEBUG: CaptureExit called")
 	if t.config.OnlyTopCall {
 		return
 	}
-
 	size := len(t.callstack)
 	if size <= 1 {
 		return
 	}
-	// Pop call.
+	// pop call
 	call := t.callstack[size-1]
 	t.callstack = t.callstack[:size-1]
 	size -= 1
 
 	call.GasUsed = gasUsed
-	call.processOutput(output, err, err!=nil)
-	// Nest call into parent.
+	call.processOutput(output, err)
 	t.callstack[size-1].Calls = append(t.callstack[size-1].Calls, call)
 }
 
-func (t *callTracer) CaptureFault(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, depth int, err error){}
-
-// CaptureEnd is called after the call finishes to finalize the tracing.
-func (t *callTracer) CaptureEnd(output []byte, gasUsed uint64, time time.Duration, err error) {
-	log.Error("DEBUG: CaptureEnd Called")
-	t.callstack[0].processOutput(output, err, err!=nil)
-}
-
 func (t *callTracer) CaptureTxStart(gasLimit uint64) {
-	log.Error("DEBUG: CaptureTxStart Called")
 	t.gasLimit = gasLimit
 }
 
 func (t *callTracer) CaptureTxEnd(restGas uint64) {
-	log.Error("DEBUG: CaptureTxEnd Called")
 	t.callstack[0].GasUsed = t.gasLimit - restGas
 	if t.config.WithLog {
 		// Logs are not emitted when the call fails
@@ -277,20 +254,15 @@ func (t *callTracer) CaptureTxEnd(restGas uint64) {
 // GetResult returns the json-encoded nested list of call traces, and any
 // error arising from the encoding or forceful termination (via `Stop`).
 func (t *callTracer) GetResult() (json.RawMessage, error) {
-	log.Error("callstack length: %d\n", len(t.callstack))
 	if len(t.callstack) != 1 {
-		log.Error("incorrect callstack length, returning error")
 		return nil, errors.New("incorrect number of top-level calls")
 	}
 
-	log.Error("attempting to marshal callFrame: %+v\n", t.callstack[0])
-	// res, err := json.Marshal(t.callstack[0])
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	log.Error("marshal successful, returning result")
-	return json.RawMessage(`{"test": "callTracer works"}`), nil
+	res, err := json.Marshal(t.callstack[0])
+	if err != nil {
+		return nil, err
+	}
+	return json.RawMessage(res), t.reason
 }
 
 // Stop terminates execution of the tracer at the first opportune moment.
