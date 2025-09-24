@@ -104,7 +104,7 @@ type callFrameMarshaling struct {
 }
 
 type callTracer struct {
-	noopTracer
+	// noopTracer
 	callstack []callFrame
 	config    callTracerConfig
 	gasLimit  uint64
@@ -250,6 +250,8 @@ func (t *callTracer) CaptureTxEnd(restGas uint64) {
 		clearFailedLogs(&t.callstack[0], false)
 	}
 }
+
+func (t *callTracer) CaptureFault(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, depth int, err error){}
 
 // GetResult returns the json-encoded nested list of call traces, and any
 // error arising from the encoding or forceful termination (via `Stop`).
