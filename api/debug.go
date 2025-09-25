@@ -187,15 +187,6 @@ func (s *PrivateDebugAPI) traceTx(ctx *rpc.CallContext, message Msg, txctx *trac
 		if err != nil {
             return nil, err
         }
-		if stateinjector, ok := tracer.(tracers.StateInjector); ok{
-			vmCtx := &tracers.VMContext{
-				Coinbase:    header.Coinbase,
-				BlockNumber: header.Number,
-				Time:        header.Time,
-				StateDB:     statedb,
-			}
-			stateinjector.SetVMContext(vmCtx)
-		}
 	}
 	deadlineCtx, cancel := context.WithTimeout(ctx.Context(), timeout)
 	defer cancel()

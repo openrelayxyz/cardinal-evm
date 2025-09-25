@@ -2,14 +2,10 @@ package tracers
 
 
 import (
-	"math/big"
 	"encoding/json"
 	"fmt"
 	"errors"
 	"github.com/openrelayxyz/cardinal-evm/vm"
-	"github.com/openrelayxyz/cardinal-evm/common"
-	 "github.com/openrelayxyz/cardinal-evm/state"
-	"github.com/openrelayxyz/cardinal-types"
 )
 
 // Config are the configuration options for structured logger the EVM
@@ -45,17 +41,6 @@ type TraceCallConfig struct {
 
 type TracerResult interface {
 	vm.Tracer
-}
-
-
-// VMContext provides the context for the EVM execution.
-type VMContext struct {
-	Coinbase    common.Address
-	BlockNumber *big.Int
-	Time        uint64
-	Random      *types.Hash
-	BaseFee     *big.Int
-	StateDB     state.StateDB
 }
 
 const (

@@ -18,11 +18,12 @@ package vm
 
 import (
 	"encoding/json"
+	"math/big"
+	"time"
+
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/types"
 	ctypes "github.com/openrelayxyz/cardinal-types"
-	"math/big"
-	"time"
 )
 
 // accessList is an accumulator for the set of accounts and storage slots an EVM
@@ -138,9 +139,7 @@ func NewAccessListTracer(acl types.AccessList, from, to common.Address, precompi
 	}
 }
 
-func (a *AccessListTracer) CaptureStart(from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
-}
-
+func (a *AccessListTracer) CaptureStart(env *EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {}
 func (a *AccessListTracer) CaptureEnter(typ OpCode, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {}
 func (a *AccessListTracer) CaptureExit(output []byte, gasUsed uint64, err error) {}
 

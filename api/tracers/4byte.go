@@ -19,7 +19,6 @@ package tracers
 import (
 	"encoding/json"
 	"math/big"
-	"time"
 	"strconv"
 	"sync/atomic"
 
@@ -48,12 +47,12 @@ func init() {
 //	  0xc281d19e-0: 1
 //	}
 type fourByteTracer struct {
+	noopTracer
 	ids               map[string]int // ids aggregates the 4byte ids found
 	interrupt         atomic.Bool    // Atomic flag to signal execution interruption
 	reason            error          // Textual reason for the interruption
 	chainConfig       *params.ChainConfig
 	activePrecompiles []common.Address // Updated on tx start based on given rules
-	env 	*VMContext
 }
 
 // newFourByteTracer returns a native go tracer which collects
@@ -82,10 +81,6 @@ func (t *fourByteTracer) store(id []byte, size int) {
 	t.ids[key] += 1
 }
 
-func (t *fourByteTracer) SetVMContext(ctx *VMContext) {
-    t.env = ctx
-}
-
 func (t *fourByteTracer) CaptureEnter(typ vm.OpCode, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {
     // Skip if tracing was interrupted
     if t.interrupt.Load() {
@@ -107,8 +102,8 @@ func (t *fourByteTracer) CaptureEnter(typ vm.OpCode, from common.Address, to com
     t.store(input[0:4], len(input)-4)
 }
 
-func (t *fourByteTracer) CaptureStart(from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
-	rules := t.chainConfig.Rules(t.env.BlockNumber, t.env.Random != nil, new(big.Int).SetUint64(t.env.Time))
+func (t *fourByteTracer) CaptureStart(env *vm.EVM,from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
+	rules := env.ChainConfig().Rules(env.Context.BlockNumber, env.Context.Random != nil, env.Context.Time)
 	t.activePrecompiles = vm.ActivePrecompiles(rules)
 
 	// Save the outer calldata also
@@ -116,12 +111,12 @@ func (t *fourByteTracer) CaptureStart(from common.Address, to common.Address, cr
 		t.store(input[0:4], len(input)-4)
 	}
 }
-func (t *fourByteTracer) CaptureEnd([]byte, uint64, time.Duration, error) { }
-func (t *fourByteTracer) CaptureExit(output []byte, gasUsed uint64, err error) {}
-func (t *fourByteTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, rData []byte, depth int, err error) {}
-func (t *fourByteTracer) CaptureFault(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, depth int, err error){}
-func (t *fourByteTracer) CaptureTxEnd(res uint64){}
-func (t *fourByteTracer) CaptureTxStart(res uint64){}
+// func (t *fourByteTracer) CaptureEnd([]byte, uint64, time.Duration, error) { }
+// func (t *fourByteTracer) CaptureExit(output []byte, gasUsed uint64, err error) {}
+// func (t *fourByteTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, rData []byte, depth int, err error) {}
+// func (t *fourByteTracer) CaptureFault(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, depth int, err error){}
+// func (t *fourByteTracer) CaptureTxEnd(res uint64){}
+// func (t *fourByteTracer) CaptureTxStart(res uint64){}
 
 // GetResult returns the json-encoded nested list of call traces, and any
 // error arising from the encoding or forceful termination (via `Stop`).

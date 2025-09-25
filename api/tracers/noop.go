@@ -54,7 +54,7 @@ func (t *noopTracer) CaptureEnter(typ vm.OpCode, from common.Address, to common.
 func (t *noopTracer) CaptureExit(output []byte, gasUsed uint64, err error) {
 }
 
-func (*noopTracer) CaptureStart(from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
+func (*noopTracer) CaptureStart(env *vm.EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
 }
 
 func (*noopTracer) CaptureEnd(output []byte, gasUsed uint64, t time.Duration, err error) {}

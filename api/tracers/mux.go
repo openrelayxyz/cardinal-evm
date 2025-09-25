@@ -83,9 +83,9 @@ func (t *muxTracer) CaptureExit(output []byte, gasUsed uint64, err error) {
 	}
 }
 
-func (t *muxTracer) CaptureStart(from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
+func (t *muxTracer) CaptureStart(env *vm.EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
 	for _, t := range t.tracers {
-			t.CaptureStart(from, to, create, input, gas, value)
+			t.CaptureStart(env, from, to, create, input, gas, value)
 		}
 }
 
@@ -96,15 +96,15 @@ func (t *muxTracer) CaptureEnd(output []byte, gasUsed uint64, duration time.Dura
 }
 
 func (t *muxTracer) CaptureTxStart(gasLimit uint64) {
-	// t.gasLimit = gasLimit
+	for _, t := range t.tracers {
+		t.CaptureTxStart(gasLimit)
+	}
 }
 
 func (t *muxTracer) CaptureTxEnd(restGas uint64) {
-	// t.callstack[0].GasUsed = t.gasLimit - restGas
-	// if t.config.WithLog {
-	// 	// Logs are not emitted when the call fails
-	// 	clearFailedLogs(&t.callstack[0], false)
-	// }
+	for _, t := range t.tracers {
+		t.CaptureTxEnd(restGas)
+	}
 }
 
 // GetResult returns an empty json object.

@@ -19,19 +19,16 @@ package tracers
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"math/big"
-	"sync/atomic"
 	"time"
+	"sync/atomic"
 
-	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
+	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/params"
-	"github.com/openrelayxyz/cardinal-evm/types"
-	"github.com/openrelayxyz/cardinal-evm/vm"
 	ctypes "github.com/openrelayxyz/cardinal-types"
-	"github.com/openrelayxyz/cardinal-types/hexutil"
 )
 
 //go:generate go run github.com/fjl/gencodec -type account -field-override accountMarshaling -out gen_account_json.go
@@ -43,12 +40,10 @@ func init() {
 type stateMap = map[common.Address]*account
 
 type account struct {
-	Balance  *big.Int                    `json:"balance,omitempty"`
-	Code     []byte                      `json:"code,omitempty"`
-	CodeHash *ctypes.Hash                `json:"codeHash,omitempty"`
-	Nonce    uint64                      `json:"nonce,omitempty"`
-	Storage  map[ctypes.Hash]ctypes.Hash `json:"storage,omitempty"`
-	empty    bool
+	Balance *big.Int                    `json:"balance,omitempty"`
+	Code    []byte                      `json:"code,omitempty"`
+	Nonce   uint64                      `json:"nonce,omitempty"`
+	Storage map[ctypes.Hash]ctypes.Hash `json:"storage,omitempty"`
 }
 
 func (a *account) exists() bool {
@@ -61,51 +56,86 @@ type accountMarshaling struct {
 }
 
 type prestateTracer struct {
-	env         *VMContext
-	pre         stateMap
-	post        stateMap
-	to          common.Address
-	config      prestateTracerConfig
-	chainConfig *params.ChainConfig
-	interrupt   atomic.Bool // Atomic flag to signal execution interruption
-	reason      error       // Textual reason for the interruption
-	created     map[common.Address]bool
-	deleted     map[common.Address]bool
+	noopTracer
+	env       *vm.EVM
+	pre       stateMap
+	post      stateMap
+	create    bool
+	to        common.Address
+	gasLimit  uint64 // Amount of gas bought for the whole tx
+	config    prestateTracerConfig
+	interrupt atomic.Bool // Atomic flag to signal execution interruption
+	reason    error       // Textual reason for the interruption
+	created   map[common.Address]bool
+	deleted   map[common.Address]bool
 }
 
 type prestateTracerConfig struct {
-	DiffMode       bool `json:"diffMode"`       // If true, this tracer will return state modifications
-	DisableCode    bool `json:"disableCode"`    // If true, this tracer will not return the contract code
-	DisableStorage bool `json:"disableStorage"` // If true, this tracer will not return the contract storage
-	IncludeEmpty   bool `json:"includeEmpty"`   // If true, this tracer will return empty state objects
+	DiffMode bool `json:"diffMode"` // If true, this tracer will return state modifications
 }
 
 func newPrestateTracer(cfg json.RawMessage, chainConfig *params.ChainConfig) (vm.Tracer, error) {
 	var config prestateTracerConfig
-	if err := json.Unmarshal(cfg, &config); err != nil {
-		return nil, err
+	if cfg != nil {
+		if err := json.Unmarshal(cfg, &config); err != nil {
+			return nil, err
+		}
 	}
-	// Diff mode has special semantics around account creating and deletion which
-	// requires it to include empty accounts and storage.
-	if config.DiffMode && config.IncludeEmpty {
-		return nil, errors.New("cannot use diffMode with includeEmpty")
+	t:=  prestateTracer{
+		pre:     stateMap{},
+		post:    stateMap{},
+		config:  config,
+		created: make(map[common.Address]bool),
+		deleted: make(map[common.Address]bool),
 	}
-	t := prestateTracer{
-		pre:         stateMap{},
-		post:        stateMap{},
-		config:      config,
-		chainConfig: chainConfig,
-		created:     make(map[common.Address]bool),
-		deleted:     make(map[common.Address]bool),
-	}
+
 	return &t, nil
 }
 
-func (t *prestateTracer) SetVMContext(ctx *VMContext) {
-    t.env = ctx
+// CaptureStart implements the EVMLogger interface to initialize the tracing operation.
+func (t *prestateTracer) CaptureStart(env *vm.EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
+	t.env = env
+	t.create = create
+	t.to = to
+
+	t.lookupAccount(from)
+	t.lookupAccount(to)
+	t.lookupAccount(t.env.Context.Coinbase)
+
+	// The recipient balance includes the value transferred.
+	toBal := new(big.Int).Sub(t.pre[to].Balance, value)
+	t.pre[to].Balance = toBal
+
+	// The sender balance is after reducing: value and gasLimit.
+	// We need to re-add them to get the pre-tx balance.
+	fromBal := new(big.Int).Set(t.pre[from].Balance)
+	gasPrice := t.env.TxContext.GasPrice
+	consumedGas := new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(t.gasLimit))
+	fromBal.Add(fromBal, new(big.Int).Add(value, consumedGas))
+	t.pre[from].Balance = fromBal
+	t.pre[from].Nonce--
+
+	if create && t.config.DiffMode {
+		t.created[to] = true
+	}
 }
 
-// OnOpcode implements the EVMLogger interface to trace a single step of VM execution.
+// CaptureEnd is called after the call finishes to finalize the tracing.
+func (t *prestateTracer) CaptureEnd(output []byte, gasUsed uint64, time time.Duration, err error) {
+	if t.config.DiffMode {
+		return
+	}
+
+	if t.create {
+		// Keep existing account prior to contract creation at that address
+		if s := t.pre[t.to]; s != nil && !s.exists() {
+			// Exclude newly created contract.
+			delete(t.pre, t.to)
+		}
+	}
+}
+
+// CaptureState implements the EVMLogger interface to trace a single step of VM execution.
 func (t *prestateTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, rData []byte, depth int, err error) {
 	if err != nil {
 		return
@@ -114,8 +144,8 @@ func (t *prestateTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64,
 	if t.interrupt.Load() {
 		return
 	}
-
-	stackData := scope.Stack.Data()
+	stack := scope.Stack
+	stackData := stack.Data()
 	stackLen := len(stackData)
 	caller := scope.Contract.Address()
 	switch {
@@ -131,13 +161,6 @@ func (t *prestateTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64,
 	case stackLen >= 5 && (op == vm.DELEGATECALL || op == vm.CALL || op == vm.STATICCALL || op == vm.CALLCODE):
 		addr := common.Address(stackData[stackLen-2].Bytes20())
 		t.lookupAccount(addr)
-		// Lookup the delegation target
-		if t.chainConfig.IsPrague(t.env.BlockNumber, new(big.Int).SetUint64(t.env.Time)) {
-			code := t.env.StateDB.GetCode(addr)
-			if target, ok := types.ParseDelegation(code); ok {
-				t.lookupAccount(target)
-			}
-		}
 	case op == vm.CREATE:
 		nonce := t.env.StateDB.GetNonce(caller)
 		addr := crypto.CreateAddress(caller, nonce)
@@ -146,11 +169,7 @@ func (t *prestateTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64,
 	case stackLen >= 4 && op == vm.CREATE2:
 		offset := stackData[stackLen-2]
 		size := stackData[stackLen-3]
-		init, err := GetMemoryCopyPadded(scope.Memory.Data(), int64(offset.Uint64()), int64(size.Uint64()))
-		if err != nil {
-			log.Warn("failed to copy CREATE2 input", "err", err, "tracer", "prestateTracer", "offset", offset, "size", size)
-			return
-		}
+		init := scope.Memory.GetCopy(int64(offset.Uint64()), int64(size.Uint64()))
 		inithash := crypto.Keccak256(init)
 		salt := stackData[stackLen-4]
 		addr := crypto.CreateAddress2(caller, salt.Bytes32(), inithash)
@@ -159,61 +178,69 @@ func (t *prestateTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64,
 	}
 }
 
-func (t *prestateTracer) CaptureStart(from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
-	if to == (common.Address{}) {
-		t.to = crypto.CreateAddress(from, t.env.StateDB.GetNonce(from))
-		t.created[t.to] = true
-	} else {
-		t.to = to
-		// Lookup the delegation target
-		if t.chainConfig.IsPrague(t.env.BlockNumber, new(big.Int).SetUint64(t.env.Time)) {
-			code := t.env.StateDB.GetCode(t.to)
-			if target, ok := types.ParseDelegation(code); ok {
-				t.lookupAccount(target)
-			}
-		}
-	}
-
-	t.lookupAccount(from)
-	t.lookupAccount(t.to)
-	t.lookupAccount(t.env.Coinbase)
-
-}
-
 func (t *prestateTracer) CaptureTxStart(gasLimit uint64) {
-	// t.gasLimit = gasLimit
+	t.gasLimit = gasLimit
 }
 
 func (t *prestateTracer) CaptureTxEnd(restGas uint64) {
-	// t.callstack[0].GasUsed = t.gasLimit - restGas
-	// if t.config.WithLog {
-	// 	// Logs are not emitted when the call fails
-	// 	clearFailedLogs(&t.callstack[0], false)
-	// }
-}
-
-func (t *prestateTracer) CaptureEnter(typ vm.OpCode, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {}
-func (t *prestateTracer) CaptureExit(output []byte, gasUsed uint64, err error) {}
-func (t *prestateTracer) CaptureFault(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, depth int, err error){}
-func (t *prestateTracer) CaptureLog(log *types.Log){
-	t.CaptureLog(log)
-}
-
-func (t *prestateTracer) CaptureEnd(output []byte, gasUsed uint64, time time.Duration, err error) {
-	if err != nil {
+	if !t.config.DiffMode {
 		return
 	}
-	if t.config.DiffMode {
-		t.processDiffState()
-	}
-	// Remove accounts that were empty prior to execution. Unless
-	// user requested to include empty accounts.
-	if t.config.IncludeEmpty {
-		return
-	}
-	for addr, s := range t.pre {
-		if s.empty {
+
+	for addr, state := range t.pre {
+		// The deleted account's state is pruned from `post` but kept in `pre`
+		if _, ok := t.deleted[addr]; ok {
+			continue
+		}
+		modified := false
+		postAccount := &account{Storage: make(map[ctypes.Hash]ctypes.Hash)}
+		newBalance := t.env.StateDB.GetBalance(addr)
+		newNonce := t.env.StateDB.GetNonce(addr)
+		newCode := t.env.StateDB.GetCode(addr)
+
+		if newBalance.Cmp(t.pre[addr].Balance) != 0 {
+			modified = true
+			postAccount.Balance = newBalance
+		}
+		if newNonce != t.pre[addr].Nonce {
+			modified = true
+			postAccount.Nonce = newNonce
+		}
+		if !bytes.Equal(newCode, t.pre[addr].Code) {
+			modified = true
+			postAccount.Code = newCode
+		}
+
+		for key, val := range state.Storage {
+			// don't include the empty slot
+			if val == (ctypes.Hash{}) {
+				delete(t.pre[addr].Storage, key)
+			}
+
+			newVal := t.env.StateDB.GetState(addr, key)
+			if val == newVal {
+				// Omit unchanged slots
+				delete(t.pre[addr].Storage, key)
+			} else {
+				modified = true
+				if newVal != (ctypes.Hash{}) {
+					postAccount.Storage[key] = newVal
+				}
+			}
+		}
+
+		if modified {
+			t.post[addr] = postAccount
+		} else {
+			// if state is not modified, then no need to include into the pre state
 			delete(t.pre, addr)
+		}
+	}
+	// the new created contracts' prestate were empty, so delete them
+	for a := range t.created {
+		// the created contract maybe exists in statedb before the creating tx
+		if s := t.pre[a]; s != nil && !s.exists() {
+			delete(t.pre, a)
 		}
 	}
 }
@@ -243,76 +270,6 @@ func (t *prestateTracer) Stop(err error) {
 	t.interrupt.Store(true)
 }
 
-func (t *prestateTracer) processDiffState() {
-	for addr, state := range t.pre {
-		// The deleted account's state is pruned from `post` but kept in `pre`
-		if _, ok := t.deleted[addr]; ok {
-			continue
-		}
-		modified := false
-		postAccount := &account{Storage: make(map[ctypes.Hash]ctypes.Hash)}
-		newBalance := t.env.StateDB.GetBalance(addr)
-		newNonce := t.env.StateDB.GetNonce(addr)
-		newCodeHash := t.env.StateDB.GetCodeHash(addr)
-
-		if newBalance.Cmp(t.pre[addr].Balance) != 0 {
-			modified = true
-			postAccount.Balance = newBalance
-		}
-		if newNonce != t.pre[addr].Nonce {
-			modified = true
-			postAccount.Nonce = newNonce
-		}
-		prevCodeHash := ctypes.Hash{}
-		if t.pre[addr].CodeHash != nil {
-			prevCodeHash = *t.pre[addr].CodeHash
-		}
-		// Empty code hashes are excluded from the prestate. Normalize
-		// the empty code hash to a zero hash to make it comparable.
-		if newCodeHash == types.EmptyCodeHash {
-			newCodeHash = ctypes.Hash{}
-		}
-		if newCodeHash != prevCodeHash {
-			modified = true
-			postAccount.CodeHash = &newCodeHash
-		}
-		if !t.config.DisableCode {
-			newCode := t.env.StateDB.GetCode(addr)
-			if !bytes.Equal(newCode, t.pre[addr].Code) {
-				modified = true
-				postAccount.Code = newCode
-			}
-		}
-
-		if !t.config.DisableStorage {
-			for key, val := range state.Storage {
-				// don't include the empty slot
-				if val == (ctypes.Hash{}) {
-					delete(t.pre[addr].Storage, key)
-				}
-
-				newVal := t.env.StateDB.GetState(addr, key)
-				if val == newVal {
-					// Omit unchanged slots
-					delete(t.pre[addr].Storage, key)
-				} else {
-					modified = true
-					if newVal != (ctypes.Hash{}) {
-						postAccount.Storage[key] = newVal
-					}
-				}
-			}
-		}
-
-		if modified {
-			t.post[addr] = postAccount
-		} else {
-			// if state is not modified, then no need to include into the pre state
-			delete(t.pre, addr)
-		}
-	}
-}
-
 // lookupAccount fetches details of an account and adds it to the prestate
 // if it doesn't exist there.
 func (t *prestateTracer) lookupAccount(addr common.Address) {
@@ -320,36 +277,18 @@ func (t *prestateTracer) lookupAccount(addr common.Address) {
 		return
 	}
 
-	acc := &account{
+	t.pre[addr] = &account{
 		Balance: t.env.StateDB.GetBalance(addr),
 		Nonce:   t.env.StateDB.GetNonce(addr),
 		Code:    t.env.StateDB.GetCode(addr),
+		Storage: make(map[ctypes.Hash]ctypes.Hash),
 	}
-	codeHash := t.env.StateDB.GetCodeHash(addr)
-	// If the code is empty, we don't need to store it in the prestate.
-	if codeHash != (ctypes.Hash{}) && codeHash != types.EmptyCodeHash {
-		acc.CodeHash = &codeHash
-	}
-	if !acc.exists() {
-		acc.empty = true
-	}
-	// The code must be fetched first for the emptiness check.
-	if t.config.DisableCode {
-		acc.Code = nil
-	}
-	if !t.config.DisableStorage {
-		acc.Storage = make(map[ctypes.Hash]ctypes.Hash)
-	}
-	t.pre[addr] = acc
 }
 
 // lookupStorage fetches the requested storage slot and adds
 // it to the prestate of the given contract. It assumes `lookupAccount`
 // has been performed on the contract before.
 func (t *prestateTracer) lookupStorage(addr common.Address, key ctypes.Hash) {
-	if t.config.DisableStorage {
-		return
-	}
 	if _, ok := t.pre[addr].Storage[key]; ok {
 		return
 	}

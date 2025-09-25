@@ -104,7 +104,7 @@ type callFrameMarshaling struct {
 }
 
 type callTracer struct {
-	// noopTracer
+	noopTracer
 	callstack []callFrame
 	config    callTracerConfig
 	gasLimit  uint64
@@ -132,7 +132,7 @@ func NewCallTracer(cfg json.RawMessage, chainConfig *params.ChainConfig) (vm.Tra
 }
 
 // CaptureStart implements the EVMLogger interface to initialize the tracing operation.
-func (t *callTracer) CaptureStart(from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
+func (t *callTracer) CaptureStart(env *vm.EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
 	toCopy := to
 	t.callstack[0] = callFrame{
 		Type:  vm.CALL,
@@ -250,8 +250,6 @@ func (t *callTracer) CaptureTxEnd(restGas uint64) {
 		clearFailedLogs(&t.callstack[0], false)
 	}
 }
-
-func (t *callTracer) CaptureFault(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, depth int, err error){}
 
 // GetResult returns the json-encoded nested list of call traces, and any
 // error arising from the encoding or forceful termination (via `Stop`).
