@@ -23,7 +23,6 @@ import (
 	"sync/atomic"
 
 	"github.com/openrelayxyz/cardinal-evm/common"
-	"github.com/openrelayxyz/cardinal-evm/params"
 	"github.com/openrelayxyz/cardinal-evm/vm"
 )
 
@@ -51,16 +50,14 @@ type fourByteTracer struct {
 	ids               map[string]int // ids aggregates the 4byte ids found
 	interrupt         atomic.Bool    // Atomic flag to signal execution interruption
 	reason            error          // Textual reason for the interruption
-	chainConfig       *params.ChainConfig
 	activePrecompiles []common.Address // Updated on tx start based on given rules
 }
 
 // newFourByteTracer returns a native go tracer which collects
 // 4 byte-identifiers of a tx, and implements vm.EVMLogger.
-func newFourByteTracer(cfg json.RawMessage, chainConfig *params.ChainConfig) (vm.Tracer, error) {
+func newFourByteTracer(ctx *Context, cfg json.RawMessage) (vm.Tracer, error) {
 	t := &fourByteTracer{
 		ids:         make(map[string]int),
-		chainConfig: chainConfig,
 	}
 	return t, nil
 }

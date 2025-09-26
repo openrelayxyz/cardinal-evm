@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/openrelayxyz/cardinal-evm/common"
-	"github.com/openrelayxyz/cardinal-evm/params"
 	"github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/vm"
 )
@@ -36,7 +35,7 @@ func init() {
 type noopTracer struct{}
 
 // newNoopTracer returns a new noop tracer.
-func newNoopTracer(cfg json.RawMessage, chainConfig *params.ChainConfig) (vm.Tracer, error) {
+func newNoopTracer(ctx *Context, cfg json.RawMessage) (vm.Tracer, error) {
 	t := &noopTracer{}
 	return t, nil
 }

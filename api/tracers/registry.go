@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/openrelayxyz/cardinal-evm/params"
 	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-types"
 )
@@ -19,7 +18,7 @@ type Context struct {
 	TxHash      types.Hash // Hash of the transaction being traced (zero if dangling call)
 }
 
-type TracerFactory func(config json.RawMessage, chainConfig *params.ChainConfig) (vm.Tracer, error)
+type TracerFactory func(ctx *Context, config json.RawMessage) (vm.Tracer, error)
 
 var Registry = make(map[string]TracerFactory)
 
@@ -27,10 +26,10 @@ func Register(name string, factory TracerFactory) {
     Registry[name] = factory
 }
 
-func New(name string, config json.RawMessage, chainConfig *params.ChainConfig) (vm.Tracer, error) {
+func New(name string, ctx *Context, config json.RawMessage) (vm.Tracer, error) {
     factory, exists := Registry[name]
     if !exists {
         return nil, fmt.Errorf("unknown tracer: %s", name)
     }
-    return factory(config, chainConfig)
+    return factory(ctx, config)
 }

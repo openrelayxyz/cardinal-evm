@@ -29,7 +29,6 @@ import (
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"time"
 	"github.com/openrelayxyz/cardinal-evm/vm"
-	"github.com/openrelayxyz/cardinal-evm/params"
 	ctypes "github.com/openrelayxyz/cardinal-types"
 )
 
@@ -115,7 +114,6 @@ type flatCallResultMarshaling struct {
 type flatCallTracer struct {
 	tracer            *callTracer
 	config            flatCallTracerConfig
-	chainConfig       *params.ChainConfig
 	ctx               *Context // Holds tracer context data
 	interrupt         atomic.Bool      // Atomic flag to signal execution interruption
 	activePrecompiles []common.Address // Updated on tx start based on given rules
@@ -127,7 +125,7 @@ type flatCallTracerConfig struct {
 }
 
 // newFlatCallTracer returns a new flatCallTracer.
-func newFlatCallTracer(cfg json.RawMessage, chainConfig *params.ChainConfig) (vm.Tracer, error) {
+func newFlatCallTracer(ctx *Context, cfg json.RawMessage) (vm.Tracer, error) {
 	var config flatCallTracerConfig
 	if err := json.Unmarshal(cfg, &config); err != nil {
 		return nil, err
@@ -135,7 +133,7 @@ func newFlatCallTracer(cfg json.RawMessage, chainConfig *params.ChainConfig) (vm
 
 	// Create inner call tracer with default configuration, don't forward
 	// the OnlyTopCall or WithLog to inner for now
-	t, err := NewCallTracer(json.RawMessage("{}"), chainConfig)
+	t, err := NewCallTracer(ctx, json.RawMessage("{}"))
 	if err != nil {
 		return nil, err
 	}
@@ -152,6 +150,12 @@ func newFlatCallTracer(cfg json.RawMessage, chainConfig *params.ChainConfig) (vm
 func (t *flatCallTracer) CaptureStart(env *vm.EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
 	if t.interrupt.Load() {
 		return
+	}
+
+	blockHash := env.Context.GetHash(env.Context.BlockNumber.Uint64())
+	t.ctx = &Context{
+		BlockNumber: env.Context.BlockNumber,
+		BlockHash: blockHash,
 	}
 	t.tracer.CaptureStart(env, from, to, create, input, gas, value)
 	// Update list of precompiles based on current block

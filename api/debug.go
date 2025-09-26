@@ -183,7 +183,7 @@ func (s *PrivateDebugAPI) traceTx(ctx *rpc.CallContext, message Msg, txctx *trac
 	if config == nil || config.Tracer == nil {
 		 tracer = vm.NewStructLogger(&vm.LogConfig{})
 	} else {
-		tracer, err = tracers.New(*config.Tracer, config.TracerConfig, chainConfig)
+		tracer, err = tracers.New(*config.Tracer, txctx,config.TracerConfig)
 		if err != nil {
             return nil, err
         }
