@@ -1,4 +1,4 @@
-// Copyright 2023 The go-ethereum Authors
+// Copyright 2022 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
 // The go-ethereum library is free software: you can redistribute it and/or modify
@@ -21,13 +21,11 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"slices"
 	"strings"
-	"sync/atomic"
+	"time"
 
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
-	"time"
 	"github.com/openrelayxyz/cardinal-evm/vm"
 	ctypes "github.com/openrelayxyz/cardinal-types"
 )
@@ -53,7 +51,6 @@ var parityErrorMapping = map[string]string{
 }
 
 var parityErrorMappingStartingWith = map[string]string{
-	"out of gas:":     "Out of gas", // convert OOG wrapped errors, eg `out of gas: not enough gas for reentrancy sentry`
 	"invalid opcode:": "Bad instruction",
 	"stack underflow": "Stack underflow",
 }
@@ -115,8 +112,8 @@ type flatCallTracer struct {
 	tracer            *callTracer
 	config            flatCallTracerConfig
 	ctx               *Context // Holds tracer context data
-	interrupt         atomic.Bool      // Atomic flag to signal execution interruption
-	activePrecompiles []common.Address // Updated on tx start based on given rules
+	reason            error            // Textual reason for the interruption
+	activePrecompiles []common.Address // Updated on CaptureStart based on given rules
 }
 
 type flatCallTracerConfig struct {
@@ -127,61 +124,35 @@ type flatCallTracerConfig struct {
 // newFlatCallTracer returns a new flatCallTracer.
 func newFlatCallTracer(ctx *Context, cfg json.RawMessage) (vm.Tracer, error) {
 	var config flatCallTracerConfig
-	if err := json.Unmarshal(cfg, &config); err != nil {
-		return nil, err
+	if cfg != nil {
+		if err := json.Unmarshal(cfg, &config); err != nil {
+			return nil, err
+		}
 	}
 
-	// Create inner call tracer with default configuration, don't forward
-	// the OnlyTopCall or WithLog to inner for now
-	t, err := NewCallTracer(ctx, json.RawMessage("{}"))
+	tracer, err := New("callTracer", ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
-
-	ct, ok := t.(*callTracer)
+	t, ok := tracer.(*callTracer)
 	if !ok {
-		return nil, fmt.Errorf("failed to create call tracer")
+		return nil, errors.New("internal error: embedded tracer has wrong type")
 	}
-	ft := &flatCallTracer{tracer: ct, config: config, ctx: ctx}
-	return ft, nil
+
+	return &flatCallTracer{tracer: t, ctx: ctx, config: config}, nil
 }
 
 // CaptureStart implements the EVMLogger interface to initialize the tracing operation.
 func (t *flatCallTracer) CaptureStart(env *vm.EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
-	if t.interrupt.Load() {
-		return
-	}
-
-	blockHash := env.Context.GetHash(env.Context.BlockNumber.Uint64())
-	t.ctx = &Context{
-		BlockNumber: env.Context.BlockNumber,
-		BlockHash: blockHash,
-	}
 	t.tracer.CaptureStart(env, from, to, create, input, gas, value)
 	// Update list of precompiles based on current block
 	rules := env.ChainConfig().Rules(env.Context.BlockNumber, env.Context.Random != nil, env.Context.Time)
 	t.activePrecompiles = vm.ActivePrecompiles(rules)
 }
 
-func (t *flatCallTracer) CaptureEnd(output []byte, gasUsed uint64, duration time.Duration, err error) {
-	if t.interrupt.Load() {
-		return
-	}
-	t.tracer.CaptureEnd(output, gasUsed, duration, err)
-}
-
-// OnEnter is called when EVM enters a new scope (via call, create or selfdestruct).
-func (t *flatCallTracer) CaptureEnter(typ vm.OpCode, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {
-	if t.interrupt.Load() {
-		return
-	}
-	t.tracer.CaptureEnter(typ, from, to, input, gas, value)
-
-	// Child calls must have a value, even if it's zero.
-	// Practically speaking, only STATICCALL has nil value. Set it to zero.
-	if t.tracer.callstack[len(t.tracer.callstack)-1].Value == nil && value == nil {
-		t.tracer.callstack[len(t.tracer.callstack)-1].Value = big.NewInt(0)
-	}
+// CaptureEnd is called after the call finishes to finalize the tracing.
+func (t *flatCallTracer) CaptureEnd(output []byte, gasUsed uint64, time time.Duration, err error) {
+	t.tracer.CaptureEnd(output, gasUsed, time, err)
 }
 
 // CaptureState implements the EVMLogger interface to trace a single step of VM execution.
@@ -194,12 +165,20 @@ func (t *flatCallTracer) CaptureFault(pc uint64, op vm.OpCode, gas, cost uint64,
 	t.tracer.CaptureFault(pc, op, gas, cost, scope, depth, err)
 }
 
-// OnExit is called when EVM exits a scope, even if the scope didn't
+// CaptureEnter is called when EVM enters a new scope (via call, create or selfdestruct).
+func (t *flatCallTracer) CaptureEnter(typ vm.OpCode, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {
+	t.tracer.CaptureEnter(typ, from, to, input, gas, value)
+
+	// Child calls must have a value, even if it's zero.
+	// Practically speaking, only STATICCALL has nil value. Set it to zero.
+	if t.tracer.callstack[len(t.tracer.callstack)-1].Value == nil && value == nil {
+		t.tracer.callstack[len(t.tracer.callstack)-1].Value = big.NewInt(0)
+	}
+}
+
+// CaptureExit is called when EVM exits a scope, even if the scope didn't
 // execute any code.
 func (t *flatCallTracer) CaptureExit(output []byte, gasUsed uint64, err error) {
-	if t.interrupt.Load() {
-		return
-	}
 	t.tracer.CaptureExit(output, gasUsed, err)
 
 	// Parity traces don't include CALL/STATICCALLs to precompiles.
@@ -244,18 +223,22 @@ func (t *flatCallTracer) GetResult() (json.RawMessage, error) {
 	if err != nil {
 		return nil, err
 	}
-	return res, t.tracer.reason
+	return res, t.reason
 }
 
 // Stop terminates execution of the tracer at the first opportune moment.
 func (t *flatCallTracer) Stop(err error) {
 	t.tracer.Stop(err)
-	t.interrupt.Store(true)
 }
 
 // isPrecompiled returns whether the addr is a precompile.
 func (t *flatCallTracer) isPrecompiled(addr common.Address) bool {
-	return slices.Contains(t.activePrecompiles, addr)
+	for _, p := range t.activePrecompiles {
+		if p == addr {
+			return true
+		}
+	}
+	return false
 }
 
 func flatFromNested(input *callFrame, traceAddress []int, convertErrs bool, ctx *Context) (output []flatCallFrame, err error) {
@@ -264,7 +247,7 @@ func flatFromNested(input *callFrame, traceAddress []int, convertErrs bool, ctx 
 	case vm.CREATE, vm.CREATE2:
 		frame = newFlatCreate(input)
 	case vm.SELFDESTRUCT:
-		frame = newFlatSelfdestruct(input)
+		frame = newFlatSuicide(input)
 	case vm.CALL, vm.STATICCALL, vm.CALLCODE, vm.DELEGATECALL:
 		frame = newFlatCall(input)
 	default:
@@ -286,14 +269,16 @@ func flatFromNested(input *callFrame, traceAddress []int, convertErrs bool, ctx 
 	}
 
 	output = append(output, *frame)
-	for i, childCall := range input.Calls {
-		childAddr := childTraceAddress(traceAddress, i)
-		childCallCopy := childCall
-		flat, err := flatFromNested(&childCallCopy, childAddr, convertErrs, ctx)
-		if err != nil {
-			return nil, err
+	if len(input.Calls) > 0 {
+		for i, childCall := range input.Calls {
+			childAddr := childTraceAddress(traceAddress, i)
+			childCallCopy := childCall
+			flat, err := flatFromNested(&childCallCopy, childAddr, convertErrs, ctx)
+			if err != nil {
+				return nil, err
+			}
+			output = append(output, flat...)
 		}
-		output = append(output, flat...)
 	}
 
 	return output, nil
@@ -308,11 +293,10 @@ func newFlatCreate(input *callFrame) *flatCallFrame {
 	return &flatCallFrame{
 		Type: strings.ToLower(vm.CREATE.String()),
 		Action: flatCallAction{
-			CreationMethod: strings.ToLower(input.Type.String()),
-			From:           &input.From,
-			Gas:            &input.Gas,
-			Value:          input.Value,
-			Init:           &actionInit,
+			From:  &input.From,
+			Gas:   &input.Gas,
+			Value: input.Value,
+			Init:  &actionInit,
 		},
 		Result: &flatCallResult{
 			GasUsed: &input.GasUsed,
@@ -345,7 +329,7 @@ func newFlatCall(input *callFrame) *flatCallFrame {
 	}
 }
 
-func newFlatSelfdestruct(input *callFrame) *flatCallFrame {
+func newFlatSuicide(input *callFrame) *flatCallFrame {
 	return &flatCallFrame{
 		Type: "suicide",
 		Action: flatCallAction{
@@ -383,7 +367,6 @@ func convertErrorToParity(call *flatCallFrame) {
 		for gethError, parityError := range parityErrorMappingStartingWith {
 			if strings.HasPrefix(call.Error, gethError) {
 				call.Error = parityError
-				break
 			}
 		}
 	}
