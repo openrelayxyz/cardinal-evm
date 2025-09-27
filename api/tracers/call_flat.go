@@ -142,7 +142,7 @@ func newFlatCallTracer(ctx *Context, cfg json.RawMessage) (vm.Tracer, error) {
 	if !ok {
 		return nil, fmt.Errorf("failed to create call tracer")
 	}
-	ft := &flatCallTracer{tracer: ct, config: config,}
+	ft := &flatCallTracer{tracer: ct, config: config, ctx: ctx}
 	return ft, nil
 }
 
