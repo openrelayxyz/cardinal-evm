@@ -23,6 +23,10 @@ import (
 	"strconv"
 	"time"
 	"os"
+
+	// Force load the tracer engines to trigger registration
+	_ "github.com/openrelayxyz/cardinal-evm/api/tracers"
+	_ "github.com/openrelayxyz/cardinal-evm/api/tracers/js"
 )
 
 func main() {
