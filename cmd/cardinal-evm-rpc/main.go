@@ -143,7 +143,7 @@ func main() {
 			http.ListenAndServe("localhost:6060", nil)
 		}()
 		tm.Register("debug", sm.API())
-		tm.Register("debug", api.NewDebugAPI(s, mgr, cfg.Chainid))
+		tm.Register("debug", api.NewDebugAPI(s, mgr, cfg.Chainid, cfg.TraceTimeout))
 		tm.Register("debug", &metrics.MetricsAPI{})
 	}
 	log.Debug("Starting stream")
