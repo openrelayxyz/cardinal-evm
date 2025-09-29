@@ -17,11 +17,13 @@
 package vm
 
 import (
+	"encoding/json"
+	"math/big"
+	"time"
+
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/types"
 	ctypes "github.com/openrelayxyz/cardinal-types"
-	"math/big"
-	"time"
 )
 
 // accessList is an accumulator for the set of accounts and storage slots an EVM
@@ -137,9 +139,7 @@ func NewAccessListTracer(acl types.AccessList, from, to common.Address, precompi
 	}
 }
 
-func (a *AccessListTracer) CaptureStart(from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
-}
-
+func (a *AccessListTracer) CaptureStart(env *EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {}
 func (a *AccessListTracer) CaptureEnter(typ OpCode, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {}
 func (a *AccessListTracer) CaptureExit(output []byte, gasUsed uint64, err error) {}
 
@@ -164,10 +164,25 @@ func (a *AccessListTracer) CaptureState(pc uint64, op OpCode, gas, cost uint64, 
 	}
 }
 
-func (*AccessListTracer) CaptureFault(pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, depth int, err error) {
-}
+func (*AccessListTracer) CaptureFault(pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, depth int, err error) {}
 
 func (*AccessListTracer) CaptureEnd(output []byte, gasUsed uint64, t time.Duration, err error) {}
+
+func (t *AccessListTracer) CaptureTxStart(gasLimit uint64) {
+	// t.gasLimit = gasLimit
+}
+
+func (t *AccessListTracer) CaptureTxEnd(restGas uint64) {
+	// t.callstack[0].GasUsed = t.gasLimit - restGas
+	// if t.config.WithLog {
+	// 	// Logs are not emitted when the call fails
+	// 	clearFailedLogs(&t.callstack[0], false)
+	// }
+}
+
+func ( *AccessListTracer) GetResult() (json.RawMessage, error) {return nil, nil}
+func (t *AccessListTracer) CaptureLog(log *types.Log){}
+func (t *AccessListTracer) Stop(err error){}
 
 // AccessList returns the current accesslist maintained by the tracer.
 func (a *AccessListTracer) AccessList() types.AccessList {

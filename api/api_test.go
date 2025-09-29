@@ -67,9 +67,9 @@ func (f TransactionEmitterFunc) Emit(tx *types.Transaction) error {
 	return f(tx)
 }
 
-func newRPCBalance(balance *big.Int) **hexutil.Big {
+func newRPCBalance(balance *big.Int) *hexutil.Big {
 	rpcBalance := (*hexutil.Big)(balance)
-	return &rpcBalance
+	return rpcBalance
 }
 
 func hex2Bytes(str string) *hexutil.Bytes {
@@ -783,7 +783,7 @@ func TestEVMApi (t *testing.T){
 		data = append(data, ctypes.LeftPadBytes(big.NewInt(20).Bytes(), 32)...)
 		revertdata := hexutil.Bytes(ctypes.Hex2Bytes("a9cc4718"))
 
-		debugApi := NewDebugAPI(sdb.Storage, mgr, chainId)
+		debugApi := NewDebugAPI(sdb.Storage, mgr, chainId, defaultTraceTimeout)
 
 		var testSuite = []struct {
 			name string
