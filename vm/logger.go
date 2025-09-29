@@ -23,6 +23,8 @@ import (
 	"math/big"
 	"strings"
 	"time"
+	"errors"
+	"encoding/json"
 
 	"github.com/holiman/uint256"
 	"github.com/openrelayxyz/cardinal-evm/common"
@@ -106,12 +108,16 @@ func (s *StructLog) ErrorString() string {
 // Note that reference types are actual VM data structures; make copies
 // if you need to retain them beyond the current call.
 type Tracer interface {
-	CaptureStart(from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int)
+	CaptureStart(env *EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int)
 	CaptureState(pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, rData []byte, depth int, err error)
 	CaptureEnter(typ OpCode, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int)
 	CaptureExit(output []byte, gasUsed uint64, err error)
 	CaptureFault(pc uint64, op OpCode, gas, cost uint64, scope *ScopeContext, depth int, err error)
 	CaptureEnd(output []byte, gasUsed uint64, t time.Duration, err error)
+	GetResult() (json.RawMessage, error)
+	Stop(err error)
+	CaptureTxStart(gasLimit uint64)
+	CaptureTxEnd(restGas uint64)
 }
 
 // StructLogger is an EVM state logger and implements Tracer.
@@ -126,6 +132,8 @@ type StructLogger struct {
 	logs    []StructLog
 	output  []byte
 	err     error
+	usedGas uint64
+	reason    error       // Textual reason for the interruption
 }
 
 // NewStructLogger returns a new logger
@@ -148,8 +156,10 @@ func (l *StructLogger) Reset() {
 }
 
 // CaptureStart implements the Tracer interface to initialize the tracing operation.
-func (l *StructLogger) CaptureStart(from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
+func (l *StructLogger) CaptureStart(env *EVM, from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int) {
 }
+
+func (t *StructLogger) CaptureLog(log *types.Log){}
 
 // CaptureState logs a new structured log message and pushes it out to the environment
 //
@@ -222,6 +232,7 @@ func (l *StructLogger) CaptureFault(pc uint64, op OpCode, gas uint64, cost uint6
 func (l *StructLogger) CaptureEnd(output []byte, gasUsed uint64, t time.Duration, err error) {
 	l.output = output
 	l.err = err
+	l.usedGas = gasUsed 
 	if l.cfg.Debug {
 		fmt.Printf("0x%x\n", output)
 		if err != nil {
@@ -229,6 +240,10 @@ func (l *StructLogger) CaptureEnd(output []byte, gasUsed uint64, t time.Duration
 		}
 	}
 }
+
+func (t *StructLogger) CaptureTxStart(gasLimit uint64) {}
+
+func (t *StructLogger) CaptureTxEnd(restGas uint64) {}
 
 func (l *StructLogger) CaptureEnter(typ OpCode, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {}
 func (l *StructLogger) CaptureExit(output []byte, gasUsed uint64, err error) {}
@@ -241,6 +256,33 @@ func (l *StructLogger) Error() error { return l.err }
 
 // Output returns the VM return value captured by the trace.
 func (l *StructLogger) Output() []byte { return l.output }
+
+func (l *StructLogger) GetResult() (json.RawMessage, error) {
+	// Tracing aborted
+	if l.reason != nil {
+		return nil, l.reason
+	}
+	failed := l.err != nil
+	returnData := common.CopyBytes(l.output)
+	// Return data when successful and revert reason when reverted, otherwise empty.
+	if failed && !errors.Is(l.err, ErrExecutionReverted) {
+		returnData = []byte{}
+	}
+	logs := l.logs
+	if logs == nil {
+		logs = []StructLog{}
+	}
+	return json.Marshal(&ExecutionResult{
+		Gas:         l.usedGas,
+		Failed:      failed,
+		ReturnValue: returnData,
+		StructLogs:  logs,
+	})
+}
+// Stop terminates execution of the tracer at the first opportune moment.
+func (l *StructLogger) Stop(err error) {
+	l.reason = err
+}
 
 // WriteTrace writes a formatted trace to the given writer
 func WriteTrace(writer io.Writer, logs []StructLog) {
@@ -349,4 +391,14 @@ func (t *mdLogger) CaptureFault(env *EVM, pc uint64, op OpCode, gas, cost uint64
 func (t *mdLogger) CaptureEnd(output []byte, gasUsed uint64, tm time.Duration, err error) {
 	fmt.Fprintf(t.out, "\nOutput: `0x%x`\nConsumed gas: `%d`\nError: `%v`\n",
 		output, gasUsed, err)
+}
+
+// ExecutionResult groups all structured logs emitted by the EVM
+// while replaying a transaction in debug mode as well as transaction
+// execution status, the amount of gas used and the return value
+type ExecutionResult struct {
+	Gas         uint64            `json:"gas"`
+	Failed      bool              `json:"failed"`
+	ReturnValue hexutil.Bytes     `json:"returnValue"`
+	StructLogs  []StructLog 	  `json:"structLogs"`
 }

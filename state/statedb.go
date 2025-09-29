@@ -43,6 +43,8 @@ type stateDB struct {
 	refund     uint64
 	accessList *accessList
 	alcalc     bool
+	thash   ctypes.Hash
+	txIndex int
 }
 
 func NewStateDB(tx storage.Transaction, chainid int64) StateDB {
@@ -356,3 +358,11 @@ func (sdb *stateDB) AddPreimage(ctypes.Hash, []byte) {
 }
 
 // func (sdb *stateDB) ForEachStorage(addr common.Address, func(ctypes.Hash, ctypes.Hash) bool) error {return nil}
+
+// SetTxContext sets the current transaction hash and index which are
+// used when the EVM emits new state logs. It should be invoked before
+// transaction execution.
+func (s *stateDB) SetTxContext(thash ctypes.Hash, ti int) {
+	s.thash = thash
+	s.txIndex = ti
+}
