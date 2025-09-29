@@ -26,7 +26,7 @@ import (
 )
 
 func init() {
-	Register("muxTracer", NewMuxTracer)
+	Register("muxTracer", NewMuxTracer, false)
 }
 
 // muxTracer is a go implementation of the Tracer interface which

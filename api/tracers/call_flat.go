@@ -34,7 +34,7 @@ import (
 //go:generate go run github.com/fjl/gencodec -type flatCallResult -field-override flatCallResultMarshaling -out gen_flatcallresult_json.go
 
 func init() {
-	Register("flatCallTracer", newFlatCallTracer)
+	Register("flatCallTracer", newFlatCallTracer, false)
 }
 
 var parityErrorMapping = map[string]string{

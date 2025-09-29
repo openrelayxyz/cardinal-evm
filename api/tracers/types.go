@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"errors"
-	"github.com/openrelayxyz/cardinal-evm/vm"
 )
 
 // Config are the configuration options for structured logger the EVM
@@ -37,10 +36,6 @@ type TraceCallConfig struct {
 	TraceConfig
 	StateOverrides interface{}
 	BlockOverrides interface{}
-}
-
-type TracerResult interface {
-	vm.Tracer
 }
 
 const (

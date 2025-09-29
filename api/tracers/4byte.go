@@ -27,7 +27,7 @@ import (
 )
 
 func init() {
-	Register("4byteTracer", newFourByteTracer)
+	Register("4byteTracer", newFourByteTracer, false)
 }
 
 

@@ -40,10 +40,13 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect
 	github.com/dgraph-io/badger/v3 v3.2103.1 // indirect
 	github.com/dgraph-io/ristretto v0.1.0 // indirect
+	github.com/dlclark/regexp2 v1.11.4 // indirect
+	github.com/dop251/goja v0.0.0-20250630131328-58d95d85e994 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/eapache/go-resiliency v1.2.0 // indirect
 	github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21 // indirect
 	github.com/eapache/queue v1.1.0 // indirect
+	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b // indirect
@@ -52,6 +55,7 @@ require (
 	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb // indirect
 	github.com/google/flatbuffers v1.12.0 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
+	github.com/google/pprof v0.0.0-20230207041349-798e818bf904 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/hamba/avro v1.6.6 // indirect
 	github.com/hashicorp/go-uuid v1.0.2 // indirect

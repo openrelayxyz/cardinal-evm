@@ -18,18 +18,34 @@ type Context struct {
 	TxHash      types.Hash // Hash of the transaction being traced (zero if dangling call)
 }
 
-type TracerFactory func(ctx *Context, config json.RawMessage) (vm.Tracer, error)
-
-var Registry = make(map[string]TracerFactory)
-
-func Register(name string, factory TracerFactory) {
-    Registry[name] = factory
+type tracerInfo struct {
+    factory TracerFactory
+    isJS    bool
 }
 
+type TracerFactory func(ctx *Context, config json.RawMessage) (vm.Tracer, error)
+var jsEvalFactory func(string, *Context, json.RawMessage) (vm.Tracer, error)
+var Registry = make(map[string]tracerInfo)
+
+func Register(name string, factory TracerFactory, isJS bool) {
+    Registry[name] = tracerInfo{
+		factory: factory,
+		isJS: isJS,
+	}
+}
+
+func RegisterJSEval(f func(string, *Context, json.RawMessage) (vm.Tracer, error)) {
+    jsEvalFactory = f
+}
+
+
 func New(name string, ctx *Context, config json.RawMessage) (vm.Tracer, error) {
-    factory, exists := Registry[name]
-    if !exists {
-        return nil, fmt.Errorf("unknown tracer: %s", name)
+    if info, exists := Registry[name]; exists {
+        return info.factory(ctx, config)
     }
-    return factory(ctx, config)
+    // Fallback to JS eval for unknown names
+    if jsEvalFactory != nil {
+        return jsEvalFactory(name, ctx, config)
+    }
+    return nil, fmt.Errorf("unknown tracer: %s", name)
 }
