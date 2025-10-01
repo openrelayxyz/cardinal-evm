@@ -386,7 +386,7 @@ func DoEstimateGas(ctx *rpc.CallContext, getEVM func(state.StateDB, *vm.Config, 
 	}
 
 	// Verify tx gas limit does not exceed EIP-7825 cap.
-	if chainConfig.IsOsaka(new(big.Int).SetUint64(prevState.header.Time), prevState.header.Number) && uint64(*args.Gas) > params.MaxTxGas{
+	if chainConfig.IsOsaka(new(big.Int).SetUint64(prevState.header.Time), prevState.header.Number) && args.Gas != nil && uint64(*args.Gas) > params.MaxTxGas{
 			return 0, nil, ErrGasLimitTooHigh
 	}
 
