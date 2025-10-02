@@ -161,6 +161,14 @@ func (s *simulator) execute(ctx *rpc.CallContext, blocks []simBlock) ([]*simBloc
 		header.ParentHash = parent.Hash()
 		header.Time = parent.Time + uint64(bi+1)*12
 
+		if block.BlockOverrides == nil {
+			block.BlockOverrides = &BlockOverrides{}
+		}
+		if block.BlockOverrides.Withdrawals == nil {
+			emptyWithdrawals := types.Withdrawals{}
+			block.BlockOverrides.Withdrawals = &emptyWithdrawals
+		}
+
 		override := *block.BlockOverrides
 
 		if override.Number != nil {header.Number = override.Number.ToInt()}
