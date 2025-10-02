@@ -19,6 +19,7 @@ import (
 	rpc "github.com/openrelayxyz/cardinal-rpc"
 	ctypes "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
+	log "github.com/inconshreveable/log15"
 )
 
 const (
@@ -321,7 +322,8 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 			TransactionIndex:  uint(i),
 		}
 		receipt.Logs = s.state.GetLogs(tx.Hash(), header.Number.Uint64(), header.Hash())
-		if s.traceTransfers {
+		if s.traceTransfers && tracer != nil{
+			log.Error("tracer captured %d transfer logs", len(tracer.Logs()))
 			receipt.Logs = append(receipt.Logs, tracer.Logs()...)
 		}
 		receipt.Bloom = types.CreateBloom([]*types.Receipt{receipt})

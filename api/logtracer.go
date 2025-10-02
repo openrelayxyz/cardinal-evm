@@ -7,6 +7,7 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	ctypes "github.com/openrelayxyz/cardinal-types"
+	log "github.com/inconshreveable/log15"
 )
 
 var (
@@ -41,6 +42,7 @@ func newTracer(traceTransfers bool, blockNumber uint64, blockHash, txHash ctypes
 }
 
 func (t *tracer) CaptureEnter(typ vm.OpCode, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {
+	log.Error("inside captureenter")
 	if !t.traceTransfers {
 		return
 	}
@@ -64,7 +66,9 @@ func (t *tracer) CaptureEnter(typ vm.OpCode, from common.Address, to common.Addr
 	}
 }
 
-func (t *tracer) CaptureStart(from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int){}
+func (t *tracer) CaptureStart(from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int){
+	log.Error("inside capturestart")
+}
 func (t *tracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, rData []byte, depth int, err error){}
 func (t *tracer) CaptureExit(output []byte, gasUsed uint64, err error){}
 func (t *tracer) CaptureFault(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, depth int, err error){}
@@ -72,7 +76,8 @@ func (t *tracer) CaptureEnd(output []byte, gasUsed uint64, time time.Duration, e
 
 // reset prepares the tracer for the next transaction.
 func (t *tracer) reset(txHash ctypes.Hash, txIdx uint) {
-	t.logs = nil
+	t.logs = make([]*types.Log, 0)
+	t.count = 0 
 	t.txHash = txHash
 	t.txIdx = txIdx
 }
