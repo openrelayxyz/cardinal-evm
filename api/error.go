@@ -145,5 +145,17 @@ func (e *invalidParamsError) ErrorCode() int { return errCodeInvalidParams }
 
 type clientLimitExceededError struct{ message string }
 
+type invalidBlockNumberError struct{ message string }
+func (e *invalidBlockNumberError) Error() string  { return e.message }
+func (e *invalidBlockNumberError) ErrorCode() int { return errCodeBlockNumberInvalid }
+
+type invalidBlockTimestampError struct{ message string }
+func (e *invalidBlockTimestampError) Error() string  { return e.message }
+
 func (e *clientLimitExceededError) Error() string  { return e.message }
 func (e *clientLimitExceededError) ErrorCode() int { return errCodeClientLimitExceeded }
+
+type blockGasLimitReachedError struct{ message string }
+
+func (e *blockGasLimitReachedError) Error() string  { return e.message }
+func (e *blockGasLimitReachedError) ErrorCode() int { return errCodeBlockGasLimitReached }

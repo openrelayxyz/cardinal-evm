@@ -155,22 +155,19 @@ func (s *simulator) execute(ctx *rpc.CallContext, blocks []simBlock) ([]*simBloc
 		parent  = s.base
 	)
 
+	var err error
+	blocks, err = s.sanitizeChain(blocks)
+	if err != nil {
+		return nil, err
+	}
+
 	for bi, block := range blocks {
 		header := types.CopyHeader(s.base)
 		header.Number = new(big.Int).Add(s.base.Number, big.NewInt(int64(bi+1)))
 		header.ParentHash = parent.Hash()
 		header.Time = parent.Time + uint64(bi+1)*12
 
-		if block.BlockOverrides == nil {
-			block.BlockOverrides = &BlockOverrides{}
-		}
-		if block.BlockOverrides.Withdrawals == nil {
-			emptyWithdrawals := types.Withdrawals{}
-			block.BlockOverrides.Withdrawals = &emptyWithdrawals
-		}
-
 		override := *block.BlockOverrides
-
 		if override.Number != nil {header.Number = override.Number.ToInt()}
 		if override.Difficulty != nil {header.Difficulty = override.Difficulty.ToInt()}
 		if override.Time != nil {header.Time = uint64(*override.Time)}
@@ -232,7 +229,6 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		header.ExcessBlobGas = &excess
 	}
 	
-
 	// State overrides are applied prior to execution of a block
 	if block.StateOverrides != nil {
 		if err := block.StateOverrides.Apply(s.state); err != nil {
@@ -263,6 +259,10 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 	}
 
 	for i, call := range block.Calls {
+		evm := s.evmFn(s.state, &vm.Config{
+			NoBaseFee: !s.validate,
+		}, call.from(), call.GasPrice.ToInt())
+
 		if err := ctx.Context().Err(); err != nil {
 			return nil, nil, nil, err
 		}
@@ -270,16 +270,21 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 			return nil, nil, nil, err
 		}
 		if gasUsed+uint64(*call.Gas) > header.GasLimit {
-			return nil, nil, nil, fmt.Errorf("block gas limit exceeded")
+			return nil,nil,nil, &blockGasLimitReachedError{fmt.Sprintf("block gas limit reached: %d >= %d", gasUsed, header.GasLimit)}
+		}
+		if call.Nonce == nil {
+			nonce := evm.StateDB.GetNonce(call.from())
+			call.Nonce = (*hexutil.Uint64)(&nonce)
+		}
+		// Let the call run wild unless explicitly specified.
+		if call.Gas == nil {
+			remaining := header.GasLimit - gasUsed
+        	call.Gas = (*hexutil.Uint64)(&remaining)
 		}
 		tx := call.ToTransaction(types.DynamicFeeTxType)
 		txes[i] = tx
 		senders[tx.Hash()] = call.from()
 		s.state.SetTxContext(tx.Hash(), i)
-
-		evm := s.evmFn(s.state, &vm.Config{
-			NoBaseFee: !s.validate,
-		}, call.from(), call.GasPrice.ToInt())
 
 		evm.Context.BaseFee = header.BaseFee
 
@@ -370,6 +375,71 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 	blck := types.NewBlock(header, blockBody, receipts, hasher)
 
 	return blck, callResults, senders, nil
+}
+
+// sanitizeChain checks the chain integrity. Specifically it checks that
+// block numbers and timestamp are strictly increasing, setting default values
+// when necessary. Gaps in block numbers are filled with empty blocks.
+// Note: It modifies the block's override object.
+func (s *simulator) sanitizeChain(blocks []simBlock) ([]simBlock, error) {
+	var (
+		res           = make([]simBlock, 0, len(blocks))
+		base          = s.base
+		prevNumber    = base.Number
+		prevTimestamp = base.Time
+	)
+	for _, block := range blocks {
+		if block.BlockOverrides == nil {
+			block.BlockOverrides = new(BlockOverrides)
+		}
+		if block.BlockOverrides.Number == nil {
+			n := new(big.Int).Add(prevNumber, big.NewInt(1))
+			block.BlockOverrides.Number = (*hexutil.Big)(n)
+		}
+		if block.BlockOverrides.Withdrawals == nil {
+			block.BlockOverrides.Withdrawals = &types.Withdrawals{}
+		}
+		diff := new(big.Int).Sub(block.BlockOverrides.Number.ToInt(), prevNumber)
+		if diff.Cmp(common.Big0) <= 0 {
+			return nil, &invalidBlockNumberError{fmt.Sprintf("block numbers must be in order: %d <= %d", block.BlockOverrides.Number.ToInt().Uint64(), prevNumber)}
+		}
+		if total := new(big.Int).Sub(block.BlockOverrides.Number.ToInt(), base.Number); total.Cmp(big.NewInt(maxSimulateBlocks)) > 0 {
+			return nil, &clientLimitExceededError{message: "too many blocks"}
+		}
+		if diff.Cmp(big.NewInt(1)) > 0 {
+			// Fill the gap with empty blocks.
+			gap := new(big.Int).Sub(diff, big.NewInt(1))
+			// Assign block number to the empty blocks.
+			for i := uint64(0); i < gap.Uint64(); i++ {
+				n := new(big.Int).Add(prevNumber, big.NewInt(int64(i+1)))
+				t := prevTimestamp + timestampIncrement
+				b := simBlock{
+					BlockOverrides: &BlockOverrides{
+						Number:      (*hexutil.Big)(n),
+						Time:        (*hexutil.Uint64)(&t),
+						Withdrawals: &types.Withdrawals{},
+					},
+				}
+				prevTimestamp = t
+				res = append(res, b)
+			}
+		}
+		// Only append block after filling a potential gap.
+		prevNumber = block.BlockOverrides.Number.ToInt()
+		var t uint64
+		if block.BlockOverrides.Time == nil {
+			t = prevTimestamp + timestampIncrement
+			block.BlockOverrides.Time = (*hexutil.Uint64)(&t)
+		} else {
+			t = uint64(*block.BlockOverrides.Time)
+			if t <= prevTimestamp {
+				return nil, &invalidBlockTimestampError{fmt.Sprintf("block timestamps must be in order: %d <= %d", t, prevTimestamp)}
+			}
+		}
+		prevTimestamp = t
+		res = append(res, block)
+	}
+	return res, nil
 }
 
 // there is a virtual log being returned by geth on any eth transfer. It is present in geth and we need to figure out how to implement it in EVM.
