@@ -243,7 +243,6 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		callResults = make([]simCallResult, len(block.Calls))
 		receipts    = make([]*types.Receipt, len(block.Calls))
 		senders     = make(map[ctypes.Hash]common.Address)
-		allLogs     []*types.Log
 	)
 
 	getHashFn := func(n uint64) ctypes.Hash {
@@ -259,8 +258,9 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 	}
 
 	for i, call := range block.Calls {
+		tracer := newTracer(s.traceTransfers, header.Number.Uint64(), header.Hash(), ctypes.Hash{}, uint(i))
 		evm := s.evmFn(s.state, &vm.Config{
-			NoBaseFee: !s.validate,
+			NoBaseFee: !s.validate, Tracer: tracer,
 		}, call.from(), call.GasPrice.ToInt())
 
 		if err := ctx.Context().Err(); err != nil {
@@ -284,6 +284,7 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		tx := call.ToTransaction(types.DynamicFeeTxType)
 		txes[i] = tx
 		senders[tx.Hash()] = call.from()
+		tracer.reset(tx.Hash(), uint(i))
 		s.state.SetTxContext(tx.Hash(), i)
 
 		evm.Context.BaseFee = header.BaseFee
@@ -320,6 +321,9 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 			TransactionIndex:  uint(i),
 		}
 		receipt.Logs = s.state.GetLogs(tx.Hash(), header.Number.Uint64(), header.Hash())
+		if s.traceTransfers {
+			receipt.Logs = append(receipt.Logs, tracer.Logs()...)
+		}
 		receipt.Bloom = types.CreateBloom([]*types.Receipt{receipt})
 		if tx.To() == nil {
 			receipt.ContractAddress = crypto.CreateAddress(*call.From, tx.Nonce())
@@ -354,7 +358,6 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 			}
 		} else {
 			callRes.Status = hexutil.Uint64(types.ReceiptStatusSuccessful)
-			allLogs = append(allLogs, receipt.Logs...)
 		}
 		callResults[i] = callRes
 	}
