@@ -45,32 +45,53 @@ func newTracer(traceTransfers bool, blockNumber uint64, blockHash, txHash ctypes
 }
 
 func (t *tracer) CaptureEnter(typ vm.OpCode, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {
-	log.Error("inside captureenter")
-	if !t.traceTransfers {
-		return
-	}
-	if typ != vm.DELEGATECALL && value != nil && value.Sign() > 0 {
-		topics := []ctypes.Hash{
-			transferTopic,
-			ctypes.BytesToHash(from.Bytes()),
-			ctypes.BytesToHash(to.Bytes()),
-		}
-		t.logs = append(t.logs, &types.Log{
-			Address:     transferAddress,
-			Topics:      topics,
-			Data:        ctypes.BigToHash(value).Bytes(),
-			BlockNumber: t.blockNumber,
-			BlockHash:   t.blockHash,
-			TxHash:      t.txHash,
-			TxIndex:     t.txIdx,
-			Index:       uint(t.count),
-		})
-		t.count++
-	}
+	// log.Error("inside captureenter")
+	// if !t.traceTransfers {
+	// 	return
+	// }
+	// if typ != vm.DELEGATECALL && value != nil && value.Sign() > 0 {
+	// 	topics := []ctypes.Hash{
+	// 		transferTopic,
+	// 		ctypes.BytesToHash(from.Bytes()),
+	// 		ctypes.BytesToHash(to.Bytes()),
+	// 	}
+	// 	t.logs = append(t.logs, &types.Log{
+	// 		Address:     transferAddress,
+	// 		Topics:      topics,
+	// 		Data:        ctypes.BigToHash(value).Bytes(),
+	// 		BlockNumber: t.blockNumber,
+	// 		BlockHash:   t.blockHash,
+	// 		TxHash:      t.txHash,
+	// 		TxIndex:     t.txIdx,
+	// 		Index:       uint(t.count),
+	// 	})
+	// 	t.count++
+	// }
 }
 
 func (t *tracer) CaptureStart(from common.Address, to common.Address, create bool, input []byte, gas uint64, value *big.Int){
-	log.Error("inside capturestart")
+	if !t.traceTransfers {
+        return
+    }
+    // Capture the initial transaction value transfer
+    if !create && value != nil && value.Sign() > 0 {
+        topics := []ctypes.Hash{
+            transferTopic,
+            ctypes.BytesToHash(from.Bytes()),
+            ctypes.BytesToHash(to.Bytes()),
+        }
+        t.logs = append(t.logs, &types.Log{
+            Address:     transferAddress,
+            Topics:      topics,
+            Data:        ctypes.BigToHash(value).Bytes(), 
+            BlockNumber: t.blockNumber,
+            BlockHash:   t.blockHash,
+            TxHash:      t.txHash,
+            TxIndex:     t.txIdx,
+            Index:       uint(t.count),
+        })
+        t.count++
+    }
 }
 func (t *tracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, rData []byte, depth int, err error){}
 func (t *tracer) CaptureExit(output []byte, gasUsed uint64, err error){}
