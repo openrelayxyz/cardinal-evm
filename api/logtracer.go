@@ -1,13 +1,15 @@
 package api
 
 import (
+	"fmt"
 	"math/big"
 	"time"
+
+	log "github.com/inconshreveable/log15"
+	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/vm"
-	"github.com/openrelayxyz/cardinal-evm/common"
 	ctypes "github.com/openrelayxyz/cardinal-types"
-	log "github.com/inconshreveable/log15"
 )
 
 var (
@@ -31,6 +33,7 @@ type tracer struct {
 }
 
 func newTracer(traceTransfers bool, blockNumber uint64, blockHash, txHash ctypes.Hash, txIndex uint) *tracer {
+	log.Error(fmt.Sprintf("creating tracer traceTransfers: %v, txHash: %s", traceTransfers, txHash.Hex()))
 	return &tracer{
 		logs:           make([]*types.Log, 0),
 		traceTransfers: traceTransfers,

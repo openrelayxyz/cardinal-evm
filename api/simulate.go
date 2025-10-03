@@ -259,7 +259,9 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 	}
 
 	for i, call := range block.Calls {
-		tracer := newTracer(s.traceTransfers, header.Number.Uint64(), header.Hash(), ctypes.Hash{}, uint(i))
+		tx := call.ToTransaction(types.DynamicFeeTxType)
+		txes[i] = tx
+		tracer := newTracer(s.traceTransfers, header.Number.Uint64(), header.Hash(), tx.Hash(), uint(i))
 		evm := s.evmFn(s.state, &vm.Config{
 			NoBaseFee: !s.validate, Tracer: tracer,
 		}, call.from(), call.GasPrice.ToInt())
@@ -282,8 +284,7 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 			remaining := header.GasLimit - gasUsed
         	call.Gas = (*hexutil.Uint64)(&remaining)
 		}
-		tx := call.ToTransaction(types.DynamicFeeTxType)
-		txes[i] = tx
+
 		senders[tx.Hash()] = call.from()
 		tracer.reset(tx.Hash(), uint(i))
 		s.state.SetTxContext(tx.Hash(), i)
@@ -323,7 +324,7 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		}
 		receipt.Logs = s.state.GetLogs(tx.Hash(), header.Number.Uint64(), header.Hash())
 		if s.traceTransfers && tracer != nil{
-			log.Error("tracer captured %d transfer logs", len(tracer.Logs()))
+			log.Error(fmt.Sprintf("tracer captured %d transfer logs", len(tracer.Logs())))
 			receipt.Logs = append(receipt.Logs, tracer.Logs()...)
 		}
 		receipt.Bloom = types.CreateBloom([]*types.Receipt{receipt})
