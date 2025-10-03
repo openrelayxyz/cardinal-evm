@@ -281,7 +281,7 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 
 		tracer := newTracer(s.traceTransfers, header.Number.Uint64(), header.Hash(), tx.Hash(), uint(i))
 		evm := s.evmFn(s.state, &vm.Config{
-			NoBaseFee: !s.validate, Tracer: tracer,
+			NoBaseFee: !s.validate, Tracer: tracer, Debug: s.traceTransfers,
 		}, call.from(), call.GasPrice.ToInt())
 
 		evm.Context.BaseFee = header.BaseFee
