@@ -154,6 +154,9 @@ var (
 		ShanghaiTime:        big.NewInt(1677557088),
 		CancunTime:          big.NewInt(1706655072),
 		PragueTime:          big.NewInt(1741159776),
+		OsakaTime:           big.NewInt(1760427360),
+		BPO1Time:            big.NewInt(1761017184),
+		BPO2Time:            big.NewInt(1761607008),
 		Ethash:              new(EthashConfig),
 		Engine:              ETHashEngine,
 		BlobSchedule:        []*BlobConfig{
@@ -170,6 +173,27 @@ var (
 				Target: 6,
 				Max : 9,
 				UpdateFraction: 5007716,
+			},
+			// Osaka
+			&BlobConfig{
+				ActivationTime: 1760427360,
+				Target: 6,
+				Max: 9,
+				UpdateFraction: 5007716,
+			},
+			// BP01
+			&BlobConfig{
+				ActivationTime: 1761017184,
+				Target: 10,
+				Max: 15,
+				UpdateFraction: 8346193,
+			},
+			// BP02
+			&BlobConfig{
+				ActivationTime: 1761607008,
+				Target: 14,
+				Max: 21,
+				UpdateFraction: 11684671,
 			},
 		},
 	}
@@ -343,6 +367,9 @@ var (
 		ShanghaiTime:                  big.NewInt(1696000704),
 		CancunTime:                    big.NewInt(1707305664),
 		PragueTime:                    big.NewInt(1740434112),
+		OsakaTime:               	   big.NewInt(1759308480),
+		BPO1Time:                	   big.NewInt(1759800000),
+		BPO2Time:                	   big.NewInt(1760389824),
 		Ethash:                        new(EthashConfig),
 		Engine:                        ETHashEngine,
 		BlobSchedule:        []*BlobConfig{
@@ -359,6 +386,27 @@ var (
 				Target: 6,
 				Max : 9,
 				UpdateFraction: 5007716,
+			},
+			// Osaka
+			&BlobConfig{
+				ActivationTime: 1759308480,
+				Target: 6,
+				Max: 9,
+				UpdateFraction: 5007716,
+			},
+			// BP01
+			&BlobConfig{
+				ActivationTime: 1759800000,
+				Target: 10,
+				Max: 15,
+				UpdateFraction: 8346193,
+			},
+			// BP02
+			&BlobConfig{
+				ActivationTime: 1760389824,
+				Target: 14,
+				Max: 21,
+				UpdateFraction: 11684671,
 			},
 		},
 	}
@@ -381,6 +429,9 @@ var (
 		ShanghaiTime:            big.NewInt(0),
 		CancunTime:              big.NewInt(0),
 		PragueTime:              big.NewInt(1742999832),
+		OsakaTime:               big.NewInt(1761677592),
+		BPO1Time:                big.NewInt(1762365720),
+		BPO2Time:                big.NewInt(1762955544),
 		Ethash:                  new(EthashConfig),
 		Engine:              ETHashEngine,
 		BlobSchedule:        []*BlobConfig{
@@ -398,6 +449,27 @@ var (
 				Max : 9,
 				UpdateFraction: 5007716,
 			},
+			// Osaka
+			&BlobConfig{
+				ActivationTime: 1761677592,
+				Target: 6,
+				Max: 9,
+				UpdateFraction: 5007716,
+			},
+			// BP01
+			&BlobConfig{
+				ActivationTime: 1762365720,
+				Target: 10,
+				Max: 15,
+				UpdateFraction: 8346193,
+			},
+			// BP02
+			&BlobConfig{
+				ActivationTime: 1762955544,
+				Target: 14,
+				Max: 21,
+				UpdateFraction: 11684671,
+			},
 		},
 	}
 
@@ -406,16 +478,16 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, nil, nil,nil, nil, nil, nil, new(EthashConfig), nil, nil, ETHashEngine, nil}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, ETHashEngine, nil}
 
 	// AllCliqueProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Clique consensus.
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, big.NewInt(0), nil, nil, nil,nil, nil, nil, nil, nil, nil, nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}, nil, CliqueEngine, nil}
+	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, big.NewInt(0), nil, nil, nil,nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}, nil, CliqueEngine, nil}
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, big.NewInt(0), nil, nil, nil,nil, nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, ETHashEngine, nil}
+	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, big.NewInt(0), nil, nil, nil,nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, ETHashEngine, nil}
 	TestRules       = TestChainConfig.Rules(new(big.Int), false, new(big.Int))
 )
 
@@ -473,6 +545,12 @@ type ChainConfig struct {
 	CancunTime   *big.Int `json:"cancunTime,omitempty"`   // Cancun switch time (nil = no fork  or use CancunBlock, 0 = already on cancun)
 	PragueTime   *big.Int `json:"pragueTime,omitempty"`   // Prague switch time (nil = no fork or use PragueBlock, 0 = already on prague)
 	OsakaTime	 *big.Int `json:"osakaTime,omitempty"`   // Osaka switch time (nil = no fork or use OsakaBlock, 0 = already on osaka)
+	VerkleTime   *big.Int `json:"verkleTime,omitempty"`   // Verkle switch time (nil = no fork, 0 = already on verkle)
+	BPO1Time     *big.Int `json:"bpo1Time,omitempty"`     // BPO1 switch time (nil = no fork, 0 = already on bpo1)
+	BPO2Time     *big.Int `json:"bpo2Time,omitempty"`     // BPO2 switch time (nil = no fork, 0 = already on bpo2)
+	BPO3Time     *big.Int `json:"bpo3Time,omitempty"`     // BPO3 switch time (nil = no fork, 0 = already on bpo3)
+	BPO4Time     *big.Int `json:"bpo4Time,omitempty"`     // BPO4 switch time (nil = no fork, 0 = already on bpo4)
+	BPO5Time     *big.Int `json:"bpo5Time,omitempty"`     // BPO5 switch time (nil = no fork, 0 = already on bpo5)
 
 
 	MergeForkBlock      *big.Int `json:"mergeForkBlock,omitempty"`      // EIP-3675 (TheMerge) switch block (nil = no fork, 0 = already in merge proceedings)
