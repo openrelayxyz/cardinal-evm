@@ -3,7 +3,6 @@ package types
 import (
 	// "github.com/openrelayxyz/cardinal-evm/api"
 	"github.com/openrelayxyz/cardinal-evm/params"
-	"github.com/openrelayxyz/cardinal-evm/rlp"
 	"github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 )
@@ -54,9 +53,7 @@ func RPCMarshalHeader(head *Header) map[string]interface{} {
 // transaction hashes.
 func RPCMarshalBlock(block *Block, inclTx bool, fullTx bool, config *params.ChainConfig) map[string]interface{} {
 	fields := RPCMarshalHeader(block.Header())
-	encoded,_ := rlp.EncodeToBytes(block)
-	block.size.Store(uint64(len(encoded)))
-	fields["size"] = hexutil.Uint64(hexutil.Uint64(hexutil.Uint64(block.size.Load())))
+	fields["size"] = hexutil.Uint64(block.Size())
 
 	if inclTx {
 		formatTx := func(idx int, tx *Transaction) interface{} {

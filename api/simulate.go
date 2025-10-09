@@ -150,7 +150,6 @@ func (s *simulator) execute(ctx *rpc.CallContext, blocks []simBlock) ([]*simBloc
 		header := types.CopyHeader(s.base)
 		header.Number = new(big.Int).Add(s.base.Number, big.NewInt(int64(bi+1)))
 		header.ParentHash = parent.Hash()
-		header.Time = parent.Time + 12
 		header.Extra = []byte{}
 
 		override := *block.BlockOverrides

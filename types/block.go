@@ -11,6 +11,7 @@ import (
 
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
+	"github.com/openrelayxyz/cardinal-evm/rlp"
 	"github.com/openrelayxyz/cardinal-types"
 )
 
@@ -225,4 +226,16 @@ func CalcUncleHash(uncles []*Header) types.Hash {
 		return EmptyUncleHash
 	}
 	return rlpHash(uncles)
+}
+
+// Size returns the true RLP encoded storage size of the block, either by encoding
+// and returning it, or returning a previously cached value.
+func (b *Block) Size() uint64 {
+	if size := b.size.Load(); size > 0 {
+		return size
+	}
+	c := writeCounter(0)
+	rlp.Encode(&c, b)
+	b.size.Store(uint64(c))
+	return uint64(c)
 }
