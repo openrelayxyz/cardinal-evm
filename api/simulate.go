@@ -19,7 +19,7 @@ import (
 	rpc "github.com/openrelayxyz/cardinal-rpc"
 	ctypes "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
-	log "github.com/inconshreveable/log15"
+	// log "github.com/inconshreveable/log15"
 )
 
 const (
@@ -167,6 +167,7 @@ func (s *simulator) execute(ctx *rpc.CallContext, blocks []simBlock) ([]*simBloc
 		header.Number = new(big.Int).Add(s.base.Number, big.NewInt(int64(bi+1)))
 		header.ParentHash = parent.Hash()
 		header.Time = parent.Time + uint64(bi+1)*12
+		header.Extra = []byte{}
 
 		override := *block.BlockOverrides
 		if override.Number != nil {header.Number = override.Number.ToInt()}
@@ -267,15 +268,6 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		if err := call.setDefaults(ctx, s.evmFn, s.state, header, vm.BlockNumberOrHashWithHash(header.Hash(), false)); err != nil {
 			return nil, nil, nil, err
 		}
-		if call.ChainID == nil {
-			call.ChainID = (*hexutil.Big)(s.chainConfig.ChainID)
-		}
-		if call.MaxFeePerGas == nil {
-			call.MaxFeePerGas = (*hexutil.Big)(header.BaseFee)
-		}
-		if call.MaxPriorityFeePerGas == nil {
-			call.MaxPriorityFeePerGas = new(hexutil.Big)
-		}
 		// Let the call run wild unless explicitly specified.
 		if call.Gas == nil {
 			remaining := header.GasLimit - gasUsed
@@ -289,12 +281,9 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 			NoBaseFee: !s.validate, Tracer: tracer, Debug: s.traceTransfers,
 		}, call.from(), call.GasPrice.ToInt())
 
-		log.Error("before ToTransaction", "nonce", *call.Nonce, "gas", *call.Gas, "gasPrice", call.GasPrice, "maxFee", call.MaxFeePerGas, "maxPriority", call.MaxPriorityFeePerGas, "chainID", call.ChainID, "to", call.To, "value", call.Value)
 		tx := call.ToTransaction(types.DynamicFeeTxType)
 		txes[i] = tx
 		senders[tx.Hash()] = call.from()
-
-		log.Error("after ToTransaction", "nonce", *call.Nonce, "gas", *call.Gas, "gasPrice", call.GasPrice, "maxFee", call.MaxFeePerGas, "maxPriority", call.MaxPriorityFeePerGas, "chainID", call.ChainID, "to", call.To, "value", call.Value)
 
 		//update tracer with real tx hash
 		tracer.reset(tx.Hash(), uint(i))
@@ -322,7 +311,7 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 			root = nil
 		}
 		gasUsed += result.UsedGas
-		header.Root = s.base.Root
+		// header.Root = s.base.Root
 
 		receipt := &types.Receipt{
 			Type:              tx.Type(),
@@ -334,10 +323,6 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 			TransactionIndex:  uint(i),
 		}
 		receipt.Logs = s.state.GetLogs(tx.Hash(), header.Number.Uint64(), header.Hash())
-		if s.traceTransfers && tracer != nil{
-			log.Error(fmt.Sprintf("tracer captured %d transfer logs", len(tracer.Logs())))
-			receipt.Logs = append(receipt.Logs, tracer.Logs()...)
-		}
 		receipt.Bloom = types.CreateBloom([]*types.Receipt{receipt})
 		if tx.To() == nil {
 			receipt.ContractAddress = crypto.CreateAddress(*call.From, tx.Nonce())
@@ -360,6 +345,9 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 			GasUsed:  hexutil.Uint64(result.UsedGas),
 			ReturnValue: result.ReturnData,
 			Logs:  receipt.Logs,
+		}
+		if s.traceTransfers && tracer != nil{
+			callRes.Logs = append(callRes.Logs, tracer.Logs()...)
 		}
 		if result.Failed() {
 			callRes.Status = hexutil.Uint64(types.ReceiptStatusFailed)
@@ -386,7 +374,7 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 	header.TxHash = types.DeriveSha(types.Transactions(txes), hasher)
 	header.ReceiptHash = types.DeriveSha(types.Receipts(receipts), hasher)
 	header.Bloom = types.CreateBloom(receipts)
-	header.Root = s.base.Root
+	// header.Root = s.base.Root
 
 	blockBody := &types.Body{Transactions: txes, Withdrawals: *block.BlockOverrides.Withdrawals}
 	blck := types.NewBlock(header, blockBody, receipts, hasher)

@@ -181,18 +181,26 @@ func (args *TransactionArgs) setDefaults(ctx *rpc.CallContext, getEVM func(state
 	// if args.GasPrice != nil && (args.MaxFeePerGas != nil || args.MaxPriorityFeePerGas != nil) {
 	// 	return errors.New("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
 	// }
-	// if args.MaxFeePerGas == nil {
-	// 	args.MaxFeePerGas = (*hexutil.Big)(header.BaseFee)
-	// }
-	if args.GasPrice == nil && args.MaxFeePerGas == nil {
-		args.GasPrice = (*hexutil.Big)(header.BaseFee)
-	}
 	if args.Value == nil {
 		args.Value = new(hexutil.Big)
 	}
 	if args.Nonce == nil {
 		nonce := db.GetNonce(*args.From)
 		args.Nonce = (*hexutil.Uint64)(&nonce)
+	}
+	if header.BaseFee == nil {
+		// If there's no basefee, then it must be a non-1559 execution
+		if args.GasPrice == nil {
+			args.GasPrice = new(hexutil.Big)
+		}
+	} else {
+		// A basefee is provided, necessitating 1559-type execution
+		if args.MaxFeePerGas == nil {
+			args.MaxFeePerGas = new(hexutil.Big)
+		}
+		if args.MaxPriorityFeePerGas == nil {
+			args.MaxPriorityFeePerGas = new(hexutil.Big)
+		}
 	}
 	if args.Gas == nil {
 		gas, _, err := DoEstimateGas(ctx, getEVM, *args, &PreviousState{db.ALCalcCopy(), header}, blockNrOrHash, header.GasLimit, true)

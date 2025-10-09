@@ -17,7 +17,7 @@ func RPCMarshalHeader(head *Header) map[string]interface{} {
 		"mixHash":          head.MixDigest,
 		"sha3Uncles":       head.UncleHash,
 		"logsBloom":        hexutil.Encode(head.Bloom.Bytes()),
-		"stateRoot":        head.Root,
+		// "stateRoot":        head.Root,
 		"miner":            head.Coinbase,
 		"difficulty":       (*hexutil.Big)(head.Difficulty),
 		"extraData":        hexutil.Bytes(head.Extra),
