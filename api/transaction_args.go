@@ -189,17 +189,15 @@ func (args *TransactionArgs) setDefaults(ctx *rpc.CallContext, getEVM func(state
 		args.Nonce = (*hexutil.Uint64)(&nonce)
 	}
 	if header.BaseFee == nil {
-		// If there's no basefee, then it must be a non-1559 execution
 		if args.GasPrice == nil {
 			args.GasPrice = new(hexutil.Big)
 		}
 	} else {
-		// A basefee is provided, necessitating 1559-type execution
 		if args.MaxFeePerGas == nil {
-			args.MaxFeePerGas = new(hexutil.Big)
+			args.MaxFeePerGas = (*hexutil.Big)(header.BaseFee)  
 		}
 		if args.MaxPriorityFeePerGas == nil {
-			args.MaxPriorityFeePerGas = new(hexutil.Big)
+			args.MaxPriorityFeePerGas = new(hexutil.Big) 
 		}
 	}
 	if args.Gas == nil {
