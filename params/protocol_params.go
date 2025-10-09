@@ -172,7 +172,8 @@ const (
 	BlobTxMinDataGasprice              = 1       // Minimum gas price for data blobs
 	BlobTxDataGaspriceUpdateFraction   = 2225652 // Controls the maximum rate of change for data gas price
 	BlobTxPointEvaluationPrecompileGas = 50000   // Gas price for the point evaluation precompile.
-	BlobTxTargetBlobGasPerBlock        = 1 << 18 // Target consumable blob gas for data blobs per block (for 1559-like pricing)
+	//placeholder to represent blob target ** BlobTxBlobGasPerBlob 
+	BlobTxTargetBlobGasPerBlock        = 3 * (1 << 17)  
 
 	BlobTxMinBlobGasprice              = 1       // Minimum gas price for data blobs
 	BlobTxBlobGaspriceUpdateFraction   = 2225652 // Controls the maximum rate of change for blob gas price
