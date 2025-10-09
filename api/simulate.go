@@ -20,7 +20,7 @@ import (
 	rpc "github.com/openrelayxyz/cardinal-rpc"
 	ctypes "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
-	// log "github.com/inconshreveable/log15"
+	log "github.com/inconshreveable/log15"
 )
 
 const (
@@ -220,7 +220,9 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 			if parent.BlobGasUsed != nil {
 				parentBlobGasUsed = *parent.BlobGasUsed
 			}
+			log.Error("blob gas calculation", "parentExcess", parentExcess, "parentBlobGasUsed", parentBlobGasUsed)
 			excess = eip4844.CalcExcessBlobGas(parentExcess, parentBlobGasUsed)
+			log.Error("calculated excess", "excess", excess)
 		}
 		header.ExcessBlobGas = &excess
 	}
