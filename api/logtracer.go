@@ -75,6 +75,13 @@ func (t *tracer) CaptureExit(output []byte, gasUsed uint64, err error){}
 func (t *tracer) CaptureFault(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, depth int, err error){}
 func (t *tracer) CaptureEnd(output []byte, gasUsed uint64, time time.Duration, err error){}
 
+// reset prepares the tracer for the next transaction.
+func (t *tracer) reset(txHash ctypes.Hash, txIdx uint) {
+	t.logs = make([]*types.Log, 0)
+	t.count = 0 
+	t.txHash = txHash
+	t.txIdx = txIdx
+}
 
 func (t *tracer) Logs() []*types.Log {
 	return t.logs

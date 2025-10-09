@@ -259,6 +259,8 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 	}
 
 	for i, call := range block.Calls {
+		tracer := newTracer(s.traceTransfers, header.Number.Uint64(), ctypes.Hash{}, ctypes.Hash{}, uint(i))
+
 		if err := ctx.Context().Err(); err != nil {
 			return nil, nil, nil, err
 		}
@@ -274,18 +276,20 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 			return nil,nil,nil, &blockGasLimitReachedError{fmt.Sprintf("block gas limit reached: %d >= %d", gasUsed, header.GasLimit)}
 		}
 
-		tx := call.ToTransaction(types.DynamicFeeTxType)
-		txes[i] = tx
-		senders[tx.Hash()] = call.from()
-		s.state.SetTxContext(tx.Hash(), i)
-
-		tracer := newTracer(s.traceTransfers, header.Number.Uint64(), header.Hash(), tx.Hash(), uint(i))
 		evm := s.evmFn(s.state, &vm.Config{
 			NoBaseFee: !s.validate, Tracer: tracer, Debug: s.traceTransfers,
 		}, call.from(), call.GasPrice.ToInt())
 
-		evm.Context.BaseFee = header.BaseFee
+		tx := call.ToTransaction(types.DynamicFeeTxType)
+		txes[i] = tx
+		senders[tx.Hash()] = call.from()
 
+		//update tracer with real tx hash
+		tracer.reset(tx.Hash(), uint(i))
+
+		s.state.SetTxContext(tx.Hash(), i)
+		
+		evm.Context.BaseFee = header.BaseFee
 		if evm.Context.GetHash == nil {
 			evm.Context.GetHash = getHashFn
 		}
