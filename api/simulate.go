@@ -267,6 +267,15 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		if err := call.setDefaults(ctx, s.evmFn, s.state, header, vm.BlockNumberOrHashWithHash(header.Hash(), false)); err != nil {
 			return nil, nil, nil, err
 		}
+		if call.ChainID == nil {
+			call.ChainID = (*hexutil.Big)(s.chainConfig.ChainID)
+		}
+		if call.MaxFeePerGas == nil {
+			call.MaxFeePerGas = (*hexutil.Big)(header.BaseFee)
+		}
+		if call.MaxPriorityFeePerGas == nil {
+			call.MaxPriorityFeePerGas = new(hexutil.Big)
+		}
 		// Let the call run wild unless explicitly specified.
 		if call.Gas == nil {
 			remaining := header.GasLimit - gasUsed
