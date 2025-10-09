@@ -53,7 +53,7 @@ type Header struct {
 	ParentHash  types.Hash    `json:"parentHash"       gencodec:"required"`
 	UncleHash   types.Hash    `json:"sha3Uncles"       gencodec:"required"`
 	Coinbase    common.Address `json:"miner"`
-	// Root        types.Hash    `json:"stateRoot"        gencodec:"required"`
+	Root        types.Hash    `json:"stateRoot"        gencodec:"required"`
 	TxHash      types.Hash    `json:"transactionsRoot" gencodec:"required"`
 	ReceiptHash types.Hash    `json:"receiptsRoot"     gencodec:"required"`
 	Bloom       Bloom          `json:"logsBloom"        gencodec:"required"`
