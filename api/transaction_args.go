@@ -184,7 +184,7 @@ func (args *TransactionArgs) setDefaults(ctx *rpc.CallContext, getEVM func(state
 	// if args.MaxFeePerGas == nil {
 	// 	args.MaxFeePerGas = (*hexutil.Big)(header.BaseFee)
 	// }
-	if args.GasPrice == nil {
+	if args.GasPrice == nil && args.MaxFeePerGas == nil {
 		args.GasPrice = (*hexutil.Big)(header.BaseFee)
 	}
 	if args.Value == nil {
