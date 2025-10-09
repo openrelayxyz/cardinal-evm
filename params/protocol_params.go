@@ -25,6 +25,8 @@ const (
 	MinGasLimit          uint64 = 5000    // Minimum the gas limit may ever be.
 	GenesisGasLimit      uint64 = 4712388 // Gas limit of the Genesis block.
 
+	MaxTxGas uint64 = 1 << 24 // Maximum transaction gas limit after eip-7825 (16,777,216).
+	
 	MaximumExtraDataSize  uint64 = 32    // Maximum size extra data may be after Genesis.
 	ExpByteGas            uint64 = 10    // Times ceil(log256(exponent)) for the EXP instruction.
 	SloadGas              uint64 = 50    // Multiplied by the number of 32-byte words that are copied (round up) for any *COPY operation and added.
@@ -161,9 +163,6 @@ const (
 	Bls12381MapG1Gas          uint64 = 5500  // Gas price for BLS12-381 mapping field element to G1 operation
 	Bls12381MapG2Gas          uint64 = 23800 // Gas price for BLS12-381 mapping field element to G2 operation
 
-	P256VerifyGas uint64 = 3450 // secp256r1 elliptic curve signature verifier gas price
-
-
 	BlobTxHashVersion                  = 0x01    // Version byte of the commitment hash
 	BlobTxBlobGasPerBlob               = 1 << 17 // Gas consumption of a single data blob (== blob byte size)
 	BlobTxMaxDataGasPerBlock           = 1 << 19 // Maximum consumable data gas for data blobs per block
@@ -172,8 +171,6 @@ const (
 	BlobTxMinDataGasprice              = 1       // Minimum gas price for data blobs
 	BlobTxDataGaspriceUpdateFraction   = 2225652 // Controls the maximum rate of change for data gas price
 	BlobTxPointEvaluationPrecompileGas = 50000   // Gas price for the point evaluation precompile.
-	//placeholder to represent blob target ** BlobTxBlobGasPerBlob 
-	BlobTxTargetBlobGasPerBlock        = 3 * (1 << 17)  
 
 	BlobTxMinBlobGasprice              = 1       // Minimum gas price for data blobs
 	BlobTxBlobGaspriceUpdateFraction   = 2225652 // Controls the maximum rate of change for blob gas price
@@ -183,6 +180,8 @@ const (
 	// up to half the consumed gas could be refunded. Redefined as 1/5th in EIP-3529
 	RefundQuotient        uint64 = 2
 	RefundQuotientEIP3529 uint64 = 5
+
+	BlobBaseCost                       = 1 << 13 // Base execution gas cost for a blob.
 )
 
 // Gas discount table for BLS12-381 G1 and G2 multi exponentiation operations

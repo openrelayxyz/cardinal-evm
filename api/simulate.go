@@ -20,7 +20,7 @@ import (
 	rpc "github.com/openrelayxyz/cardinal-rpc"
 	ctypes "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
-	log "github.com/inconshreveable/log15"
+	// log "github.com/inconshreveable/log15"
 )
 
 const (
@@ -212,17 +212,7 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 	if s.chainConfig.IsCancun(header.Number, new(big.Int).SetUint64(header.Time)) {
 		var excess uint64
 		if s.chainConfig.IsCancun(parent.Number, new(big.Int).SetUint64(parent.Time)) {
-			parentExcess := uint64(0)
-			if parent.ExcessBlobGas != nil {
-				parentExcess = *parent.ExcessBlobGas
-			}
-			parentBlobGasUsed := uint64(0)
-			if parent.BlobGasUsed != nil {
-				parentBlobGasUsed = *parent.BlobGasUsed
-			}
-			log.Error("blob gas calculation", "parentExcess", parentExcess, "parentBlobGasUsed", parentBlobGasUsed)
-			excess = eip4844.CalcExcessBlobGas(parentExcess, parentBlobGasUsed)
-			log.Error("calculated excess", "excess", excess)
+			excess = eip4844.CalcExcessBlobGas(s.chainConfig, parent, header.Time)
 		}
 		header.ExcessBlobGas = &excess
 	}
@@ -261,7 +251,7 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		if err := ctx.Context().Err(); err != nil {
 			return nil, nil, nil, err
 		}
-		if err := call.setDefaults(ctx, s.evmFn, s.state, header, vm.BlockNumberOrHashWithHash(header.Hash(), false)); err != nil {
+		if err := call.setDefaults(ctx, s.chainConfig, s.evmFn, s.state, header, vm.BlockNumberOrHashWithHash(header.Hash(), false)); err != nil {
 			return nil, nil, nil, err
 		}
 		// Let the call run wild unless explicitly specified.

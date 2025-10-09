@@ -401,21 +401,60 @@ var (
 		},
 	}
 
+	Fd5ChainConfig = &ChainConfig{
+		ChainID:                 big.NewInt(7092415936),
+		HomesteadBlock:          big.NewInt(0),
+		DAOForkBlock:            nil,
+		DAOForkSupport:          true,
+		EIP150Block:             big.NewInt(0),
+		EIP155Block:             big.NewInt(0),
+		EIP158Block:             big.NewInt(0),
+		ByzantiumBlock:          big.NewInt(0),
+		ConstantinopleBlock:     big.NewInt(0),
+		PetersburgBlock:         big.NewInt(0),
+		IstanbulBlock:           big.NewInt(0),
+		MuirGlacierBlock:        big.NewInt(0),
+		BerlinBlock:             big.NewInt(0),
+		LondonBlock:             big.NewInt(0),
+		ShanghaiTime:            big.NewInt(0),
+		CancunTime:              big.NewInt(0),
+		PragueTime:              big.NewInt(0),
+		OsakaTime:               big.NewInt(1757611104),
+		Ethash:                  new(EthashConfig),
+		Engine:              ETHashEngine,
+		BlobSchedule:        []*BlobConfig{
+			// Cancun
+			&BlobConfig{
+				ActivationTime: 0,
+				Target: 3,
+				Max : 6,
+				UpdateFraction: 3338477,
+			},
+			// Prague
+			&BlobConfig{
+				ActivationTime: 0,
+				Target: 6,
+				Max : 9,
+				UpdateFraction: 5007716,
+			},
+		},
+	}
+
 	// AllEthashProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Ethash consensus.
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, ETHashEngine, nil}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, nil, nil,nil, nil, nil, nil, new(EthashConfig), nil, nil, ETHashEngine, nil}
 
 	// AllCliqueProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Clique consensus.
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, big.NewInt(0), nil, nil, nil, nil, nil, nil, nil, nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}, nil, CliqueEngine, nil}
+	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, big.NewInt(0), nil, nil, nil,nil, nil, nil, nil, nil, nil, nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}, nil, CliqueEngine, nil}
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, big.NewInt(0), nil, nil, nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, ETHashEngine, nil}
+	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), types.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, big.NewInt(0), nil, nil, nil,nil, nil, nil, nil, nil, nil, nil, new(EthashConfig), nil, nil, ETHashEngine, nil}
 	TestRules       = TestChainConfig.Rules(new(big.Int), false, new(big.Int))
 )
 
@@ -432,6 +471,7 @@ var ChainLookup = map[int64]*ChainConfig{
 	1337802: KilnChainConfig,
 	11155111: SepoliaChainConfig,
 	560048: HoodiChainConfig,
+	7092415936: Fd5ChainConfig,
 }
 
 // ChainConfig is the core config which determines the blockchain settings.
@@ -467,10 +507,12 @@ type ChainConfig struct {
 	NapoliBlock         *big.Int `json:"napoliBlock,omitempty"`         // Napoli switch block (nil = no fork, 0 = already on london)
 	Pip30Block          *big.Int `json:"pip30Block,omitempty"`          // Pip30 switch block (nil = no fork, 0 = already on london)
 	PragueBlock         *big.Int `json:"pragueBlock,omitempty"`         // Prague switch block or use PragueTime (nil = no fork, 0 = already on prague)
+	OsakaBlock          *big.Int `json:"osakaBlock,omitempty"`          // Osaka switch block or use OsakaTime (nil = no fork, 0 = already on osaka)
 
 	ShanghaiTime *big.Int `json:"shanghaiTime,omitempty"` // Shanghai switch time (nil = no fork or use ShanghaiBlock, 0 = already on shanghai)
 	CancunTime   *big.Int `json:"cancunTime,omitempty"`   // Cancun switch time (nil = no fork  or use CancunBlock, 0 = already on cancun)
 	PragueTime   *big.Int `json:"pragueTime,omitempty"`   // Prague switch time (nil = no fork or use PragueBlock, 0 = already on prague)
+	OsakaTime	 *big.Int `json:"osakaTime,omitempty"`   // Osaka switch time (nil = no fork or use OsakaBlock, 0 = already on osaka)
 
 
 	MergeForkBlock      *big.Int `json:"mergeForkBlock,omitempty"`      // EIP-3675 (TheMerge) switch block (nil = no fork, 0 = already in merge proceedings)
@@ -647,6 +689,14 @@ func (c *ChainConfig) IsPrague(time, block *big.Int) bool {
 	return isBlockForked(c.PragueBlock, block)
 }
 
+// IsOsaka returns whether num is either equal to the Osaka fork time or greater.
+func (c *ChainConfig) IsOsaka(time, block *big.Int) bool {
+	if c.OsakaTime != nil {
+		return isTimestampForked(c.OsakaTime, time)
+	}
+	return isBlockForked(c.OsakaBlock, block)
+}
+
 func (c *ChainConfig) BlobConfig(time *big.Int) *BlobConfig {
 	for _, config := range c.BlobSchedule {
 		if config.ActivationTime < time.Uint64() {
@@ -710,6 +760,7 @@ func (c *ChainConfig) CheckConfigForkOrder() error {
 		{name: "shanghaiTime", timestamp: c.ShanghaiTime},
 		{name: "cancunTime", timestamp: c.CancunTime, optional: true},
 		{name: "pragueTime", timestamp: c.PragueTime, optional: true},
+		{name: "osakaTime", timestamp: c.OsakaTime, optional: true},
 	} {
 		if lastFork.name != "" {
 			switch {
@@ -803,6 +854,9 @@ func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, headNumber *big.Int, 
 	}
 	if isForkTimestampIncompatible(c.PragueTime, newcfg.PragueTime, headTimestamp) {
 		return newTimestampCompatError("Prague fork timestamp", c.PragueTime, newcfg.PragueTime)
+	}
+	if isForkTimestampIncompatible(c.OsakaTime, newcfg.OsakaTime, headTimestamp) {
+		return newTimestampCompatError("Osaka fork timestamp", c.OsakaTime, newcfg.OsakaTime)
 	}
 	return nil
 }
@@ -949,7 +1003,7 @@ type Rules struct {
 	IsByzantium, IsConstantinople, IsPetersburg, IsIstanbul bool
 	IsBerlin, IsLondon                                      bool
 	IsMerge, IsShanghai, IsCancun, IsNapoli, IsPip30        bool
-	IsPrague                                                bool
+	IsPrague, IsOsaka                                       bool
 }
 
 // Rules ensures c's ChainID is not nil.
@@ -976,5 +1030,6 @@ func (c *ChainConfig) Rules(num *big.Int, isMerge bool, timestamp *big.Int) Rule
 		IsNapoli:         c.IsNapoli(num),
 		IsPip30:          c.IsPip30(num),
 		IsPrague:         c.IsPrague(timestamp, num),
+		IsOsaka: 		  c.IsOsaka(timestamp, num),			
 	}
 }

@@ -110,6 +110,12 @@ func (m *StreamManager) Start() error {
 	safeNumKey := fmt.Sprintf("c/%x/n/safe", m.chainid)
 	finalizedNumKey := fmt.Sprintf("c/%x/n/finalized", m.chainid)
 	waiting := false
+	select {
+	case <-m.consumer.Ready():
+		waiting = true
+	case <-time.After(500*time.Millisecond):
+	}
+
 	waitCh := make(chan struct{})
 	go func() {
 		<-m.consumer.Ready()

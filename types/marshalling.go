@@ -53,8 +53,6 @@ func RPCMarshalHeader(head *Header) map[string]interface{} {
 // transaction hashes.
 func RPCMarshalBlock(block *Block, inclTx bool, fullTx bool, config *params.ChainConfig) map[string]interface{} {
 	fields := RPCMarshalHeader(block.Header())
-	fields["size"] = hexutil.Uint64(block.Size())
-
 	if inclTx {
 		formatTx := func(idx int, tx *Transaction) interface{} {
 			return tx.Hash()
