@@ -264,13 +264,22 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		if err := ctx.Context().Err(); err != nil {
 			return nil, nil, nil, err
 		}
-		if err := call.setDefaults(ctx, s.evmFn, s.state, header, vm.BlockNumberOrHashWithHash(header.Hash(), false)); err != nil {
-			return nil, nil, nil, err
+		if call.From == nil {
+			call.From = &(common.Address{})
 		}
-		// Let the call run wild unless explicitly specified.
+		if call.Nonce == nil {
+			nonce := s.state.GetNonce(call.from())
+			call.Nonce = (*hexutil.Uint64)(&nonce)
+		}
 		if call.Gas == nil {
 			remaining := header.GasLimit - gasUsed
-        	call.Gas = (*hexutil.Uint64)(&remaining)
+			call.Gas = (*hexutil.Uint64)(&remaining)
+		}
+		if call.GasPrice == nil {
+			call.GasPrice = (*hexutil.Big)(header.BaseFee)
+		}
+		if call.Value == nil {
+			call.Value = new(hexutil.Big)
 		}
 		if gasUsed+uint64(*call.Gas) > header.GasLimit {
 			return nil,nil,nil, &blockGasLimitReachedError{fmt.Sprintf("block gas limit reached: %d >= %d", gasUsed, header.GasLimit)}
