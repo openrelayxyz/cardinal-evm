@@ -175,13 +175,24 @@ func (s *simulator) execute(ctx *rpc.CallContext, blocks []simBlock) ([]*simBloc
 		if override.Time != nil {header.Time = uint64(*override.Time)}
 		if override.GasLimit != nil {header.GasLimit = uint64(*override.GasLimit)}
 		if override.FeeRecipient != nil {header.Coinbase = *override.FeeRecipient}
-		if override.PrevRandao != nil {header.MixDigest = *override.PrevRandao}
+		if override.PrevRandao != nil {header.MixDigest = *override.PrevRandao} else{
+			header.MixDigest = ctypes.Hash{}
+		}
 		if override.BaseFeePerGas != nil {header.BaseFee = override.BaseFeePerGas.ToInt()}
 		if override.BlobBaseFee != nil {
 			val := *override.BlobBaseFee.ToInt()
 			ptr := val.Uint64()
 			header.ExcessBlobGas = &ptr
 		}
+
+		var parentBeaconRoot *ctypes.Hash
+		if s.chainConfig.IsCancun(override.Number.ToInt(), big.NewInt(int64(*override.Time))) {
+			parentBeaconRoot = &ctypes.Hash{}
+			if override.BeaconRoot != nil {
+				parentBeaconRoot = override.BeaconRoot
+			}
+		}
+		header.ParentBeaconRoot = parentBeaconRoot
 
 		s.gp = new(GasPool).AddGas(header.GasLimit)
 
@@ -276,7 +287,7 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		if call.ChainID == nil {
 			call.ChainID = (*hexutil.Big)(s.chainConfig.ChainID)
 		}
-		
+
 		if gasUsed+uint64(*call.Gas) > header.GasLimit {
 			return nil,nil,nil, &blockGasLimitReachedError{fmt.Sprintf("block gas limit reached: %d >= %d", gasUsed, header.GasLimit)}
 		}
