@@ -264,22 +264,13 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		if err := ctx.Context().Err(); err != nil {
 			return nil, nil, nil, err
 		}
-		if call.From == nil {
-			call.From = &(common.Address{})
+		if err := call.setDefaults(ctx, s.evmFn, s.state, header, vm.BlockNumberOrHashWithHash(header.Hash(), false)); err != nil {
+			return nil, nil, nil, err
 		}
-		if call.Nonce == nil {
-			nonce := s.state.GetNonce(call.from())
-			call.Nonce = (*hexutil.Uint64)(&nonce)
-		}
+		// Let the call run wild unless explicitly specified.
 		if call.Gas == nil {
 			remaining := header.GasLimit - gasUsed
-			call.Gas = (*hexutil.Uint64)(&remaining)
-		}
-		if call.GasPrice == nil {
-			call.GasPrice = (*hexutil.Big)(header.BaseFee)
-		}
-		if call.Value == nil {
-			call.Value = new(hexutil.Big)
+        	call.Gas = (*hexutil.Uint64)(&remaining)
 		}
 		if gasUsed+uint64(*call.Gas) > header.GasLimit {
 			return nil,nil,nil, &blockGasLimitReachedError{fmt.Sprintf("block gas limit reached: %d >= %d", gasUsed, header.GasLimit)}
@@ -289,9 +280,12 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 			NoBaseFee: !s.validate, Tracer: tracer, Debug: s.traceTransfers,
 		}, call.from(), call.GasPrice.ToInt())
 
+		log.Error("before ToTransaction", "nonce", *call.Nonce, "gas", *call.Gas, "gasPrice", call.GasPrice, "maxFee", call.MaxFeePerGas, "maxPriority", call.MaxPriorityFeePerGas, "chainID", call.ChainID, "to", call.To, "value", call.Value)
 		tx := call.ToTransaction(types.DynamicFeeTxType)
 		txes[i] = tx
 		senders[tx.Hash()] = call.from()
+
+		log.Error("after ToTransaction", "nonce", *call.Nonce, "gas", *call.Gas, "gasPrice", call.GasPrice, "maxFee", call.MaxFeePerGas, "maxPriority", call.MaxPriorityFeePerGas, "chainID", call.ChainID, "to", call.To, "value", call.Value)
 
 		//update tracer with real tx hash
 		tracer.reset(tx.Hash(), uint(i))
