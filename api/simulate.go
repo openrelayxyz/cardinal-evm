@@ -2,11 +2,11 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
 	"time"
-	"encoding/json"
 
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
@@ -14,6 +14,7 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/eips/eip4844"
 	"github.com/openrelayxyz/cardinal-evm/params"
 	"github.com/openrelayxyz/cardinal-evm/state"
+	"github.com/openrelayxyz/cardinal-evm/trie"
 	"github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/vm"
 	rpc "github.com/openrelayxyz/cardinal-rpc"
@@ -117,23 +118,6 @@ func (r *simBlockResult) MarshalJSON() ([]byte, error) {
 		}
 	}
 	return json.Marshal(blockData)
-}
-
-type simpleTrieHasher struct {
-	data []byte
-}
-
-func (h *simpleTrieHasher) Reset() {
-	h.data = h.data[:0] 
-}
-
-func (h *simpleTrieHasher) Update(key, value []byte) {
-	h.data = append(h.data, key...)
-	h.data = append(h.data, value...)
-}
-
-func (h *simpleTrieHasher) Hash() ctypes.Hash {
-	return crypto.Keccak256Hash(h.data)
 }
 
 func (s *simulator) execute(ctx *rpc.CallContext, blocks []simBlock) ([]*simBlockResult, error) {
@@ -383,16 +367,11 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 	if s.chainConfig.IsCancun(header.Number, new(big.Int).SetUint64(header.Time)) {
 		header.BlobGasUsed = &blobGasUsed
 	}
-
-	hasher := &simpleTrieHasher{}
-
-	header.TxHash = types.DeriveSha(types.Transactions(txes), hasher)
-	header.ReceiptHash = types.DeriveSha(types.Receipts(receipts), hasher)
 	header.Bloom = types.CreateBloom(receipts)
 	// header.Root = s.base.Root
 
 	blockBody := &types.Body{Transactions: txes, Withdrawals: *block.BlockOverrides.Withdrawals}
-	blck := types.NewBlock(header, blockBody, receipts, hasher)
+	blck := types.NewBlock(header, blockBody, receipts, trie.NewStackTrie(nil))
 
 	return blck, callResults, senders, nil
 }
