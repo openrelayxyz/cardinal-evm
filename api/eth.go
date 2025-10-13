@@ -342,7 +342,7 @@ func (s *PublicBlockChainAPI) Call(ctx *rpc.CallContext, args TransactionArgs, b
 		gasCap := s.gasLimit(header)
 
 		// Verify tx gas limit does not exceed EIP-7825 cap.
-		if chainConfig.IsOsaka(new(big.Int).SetUint64(header.Time), header.Number) && uint64(*args.Gas) > params.MaxTxGas{ 
+		if chainConfig.IsOsaka(new(big.Int).SetUint64(header.Time), header.Number) && args.Gas != nil && uint64(*args.Gas) > params.MaxTxGas{ 
 			return ErrGasLimitTooHigh
 		}
 		result, _, err := DoCall(ctx, evmFn, args, &PreviousState{statedb, header}, blockNrOrHash, overrides, timeout, gasCap)
