@@ -20,7 +20,7 @@ import (
 	rpc "github.com/openrelayxyz/cardinal-rpc"
 	ctypes "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
-	// log "github.com/inconshreveable/log15"
+	log "github.com/inconshreveable/log15"
 )
 
 const (
@@ -273,6 +273,7 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		}, call.from(), call.GasPrice.ToInt())
 
 		tx := call.ToTransaction(types.DynamicFeeTxType)
+		log.Error(fmt.Sprintf("TX: nonce=%d gas=%d gasFeeCap=%s gasTipCap=%s chainID=%s to=%s value=%s data=%s hash=%s\n", tx.Nonce(), tx.Gas(), tx.GasFeeCap(), tx.GasTipCap(), tx.ChainId(), tx.To().Hex(), tx.Value(), hexutil.Encode(tx.Data()), tx.Hash().Hex()))
 		txes[i] = tx
 		senders[tx.Hash()] = call.from()
 
@@ -360,7 +361,9 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		header.BlobGasUsed = &blobGasUsed
 	}
 	header.Bloom = types.CreateBloom(receipts)
-	// header.Root = s.base.Root
+	
+	reqHash := types.CalcRequestsHash([][]byte{})
+	header.RequestsHash = &reqHash
 
 	blockBody := &types.Body{Transactions: txes, Withdrawals: *block.BlockOverrides.Withdrawals}
 	blck := types.NewBlock(header, blockBody, receipts, trie.NewStackTrie(nil))

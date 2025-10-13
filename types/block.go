@@ -2,6 +2,7 @@ package types
 
 import (
 	"math/big"
+	"crypto/sha256"
 	"sync/atomic"
 	"time"
 	"slices"
@@ -225,4 +226,19 @@ func CalcUncleHash(uncles []*Header) types.Hash {
 		return EmptyUncleHash
 	}
 	return rlpHash(uncles)
+}
+
+// CalcRequestsHash creates the block requestsHash value for a list of requests.
+func CalcRequestsHash(requests [][]byte) types.Hash {
+	h1, h2 := sha256.New(), sha256.New()
+	var buf types.Hash
+	for _, item := range requests {
+		if len(item) > 1 { // skip items with only requestType and no data.
+			h1.Reset()
+			h1.Write(item)
+			h2.Write(h1.Sum(buf[:0]))
+		}
+	}
+	h2.Sum(buf[:0])
+	return buf
 }
