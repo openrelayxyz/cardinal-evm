@@ -151,6 +151,7 @@ func (s *simulator) execute(ctx *rpc.CallContext, blocks []simBlock) ([]*simBloc
 		header.Number = new(big.Int).Add(s.base.Number, big.NewInt(int64(bi+1)))
 		header.ParentHash = parent.Hash()
 		header.Extra = []byte{}
+		header.BaseFee = nil
 
 		override := *block.BlockOverrides
 		if override.Number != nil {header.Number = override.Number.ToInt()}
@@ -246,7 +247,7 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 	}
 
 	for i, call := range block.Calls {
-		tracer := newTracer(s.traceTransfers, header.Number.Uint64(), ctypes.Hash{}, ctypes.Hash{}, uint(i))
+		tracer := newTracer(s.traceTransfers, header.Number.Uint64(), header.Hash(), ctypes.Hash{}, uint(i))
 
 		if err := ctx.Context().Err(); err != nil {
 			return nil, nil, nil, err
