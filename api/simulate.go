@@ -252,6 +252,7 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		if err := ctx.Context().Err(); err != nil {
 			return nil, nil, nil, err
 		}
+		log.Error(fmt.Sprintf("call %d, balance of %s is %s", i, call.from().Hex(), s.state.GetBalance(call.from()).String()))
 		if err := call.setDefaults(ctx, s.chainConfig, s.evmFn, s.state, header, vm.BlockNumberOrHashWithHash(header.Hash(), false)); err != nil {
 			return nil, nil, nil, err
 		}
@@ -273,7 +274,6 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		}, call.from(), call.GasPrice.ToInt())
 
 		tx := call.ToTransaction(types.DynamicFeeTxType)
-		log.Error(fmt.Sprintf("TX: nonce=%d gas=%d gasFeeCap=%s gasTipCap=%s chainID=%s to=%s value=%s data=%s hash=%s\n", tx.Nonce(), tx.Gas(), tx.GasFeeCap(), tx.GasTipCap(), tx.ChainId(), tx.To().Hex(), tx.Value(), hexutil.Encode(tx.Data()), tx.Hash().Hex()))
 		txes[i] = tx
 		senders[tx.Hash()] = call.from()
 
