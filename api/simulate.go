@@ -252,7 +252,7 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		if err := ctx.Context().Err(); err != nil {
 			return nil, nil, nil, err
 		}
-		log.Error(fmt.Sprintf("call %d, balance of %s is %s", i, call.from().Hex(), s.state.GetBalance(call.from()).String()))
+		log.Error(fmt.Sprintf("before setDefaults for call %d, balance of %s is %s", i, call.from().Hex(), s.state.GetBalance(call.from()).String()))
 		if err := call.setDefaults(ctx, s.chainConfig, s.evmFn, s.state, header, vm.BlockNumberOrHashWithHash(header.Hash(), false)); err != nil {
 			return nil, nil, nil, err
 		}

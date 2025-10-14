@@ -248,7 +248,7 @@ func (sdb *stateDB) SetStorage(addr common.Address, storage map[ctypes.Hash]ctyp
 func (sdb *stateDB) SetBalance(addr common.Address, balance *big.Int) {
 	sobj := sdb.getAccount(addr)
 	sdb.journal = append(sdb.journal, sobj.setBalance(balance))
-	log.Error("balance inside setBalance", "b", balance.String(), "address", addr.String())
+	log.Error("balance inside SetBalance", "b", balance, "address", addr.Hex())
 }
 
 func (sdb *stateDB) Suicide(addr common.Address) bool {
