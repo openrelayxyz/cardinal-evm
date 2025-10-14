@@ -223,6 +223,7 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		if err := block.StateOverrides.Apply(s.state); err != nil {
 			return nil, nil, nil, err
 		}
+		log.Error("after Apply, checking balance", "addr", "0xC000000000000000000000000000000000000000", "balance", s.state.GetBalance(common.HexToAddress("0xC000000000000000000000000000000000000000")))
 	}
 
 	var (
