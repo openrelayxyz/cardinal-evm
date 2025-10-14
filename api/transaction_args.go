@@ -202,7 +202,7 @@ func (args *TransactionArgs) setDefaults(ctx *rpc.CallContext, chainConfig *para
 		}
 	}
 	if args.Gas == nil {
-		gas, _, err := DoEstimateGas(ctx, getEVM, *args, &PreviousState{db.ALCalcCopy(), header}, blockNrOrHash, header.GasLimit, true, chainConfig)
+		gas, _, err := DoEstimateGas(ctx, getEVM, *args, &PreviousState{db, header}, blockNrOrHash, header.GasLimit, true, chainConfig)
 		if err != nil {
 			return err
 		}
