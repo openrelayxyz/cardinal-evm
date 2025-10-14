@@ -135,31 +135,35 @@ def test_7825(url, forked):
     """EIP 7825 establishes a transaction limit on gas per transaction. The function below asserts a gas limit both equal to and over the established limit.
     By testing the reponses we can ascertain if the client in question has implemented EIP 7825.""" 
 
-    limit = 16777216
-    responses = []
+    # limit = 16777216
+    # responses = []
 
-    control_assertions = (['result'], '0x')
-    test_assertions = (['error', 'code'], -32000)
+    # control_assertions = (['result'], '0x')
+    # test_assertions = (['error', 'code'], -32000)
 
-    for i in range(0,2):
-        rpc = {"jsonrpc":"2.0","method":"eth_call","params":[{"to":"0x0000000000000000000000000000000000000000", "gas": hex(limit + i)},"latest"],"id":1}
-        try:
-            r = requests.post(url, json=rpc).json()
-        except Exception as e:
-            print(f"exception encountered when requesting eth call, 7825, exception: {e}")
-        responses.append(r)
+    # for i in range(0,2):
+    #     rpc = {"jsonrpc":"2.0","method":"eth_call","params":[{"to":"0x0000000000000000000000000000000000000000", "gas": hex(limit + i)},"latest"],"id":1}
+    #     try:
+    #         r = requests.post(url, json=rpc).json()
+    #     except Exception as e:
+    #         print(f"exception encountered when requesting eth call, 7825, exception: {e}")
+    #     responses.append(r)
 
-    cases = [control_assertions, control_assertions]
-    if forked:
-        cases[1] = test_assertions
+    # cases = [control_assertions, control_assertions]
+    # if forked:
+    #     cases[1] = test_assertions
 
-    for i, r in enumerate(responses):
-        if not assert_response(r, cases[i][0], cases[i][1], '7825'):
-            print(f"7825 failed")
-            return 
+    # for i, r in enumerate(responses):
+    #     if not assert_response(r, cases[i][0], cases[i][1], '7825'):
+    #         print(f"7825 failed")
+    #         return 
 
-    print(f"7825 passed")
+    # print(f"7825 passed")
 
+    """as of geth v1.16.4 this EIP has been reversed such that the limit only applies to sendRawTransactions as does not apply in the hypothetical cases of call or estimate gas.
+    as such, there is not practical way to get test coverage at this time so we are returning an NA result"""
+
+    print(f"7825 untested")
 
 def assert_response(response, path ,expected, eip):
     current = response
