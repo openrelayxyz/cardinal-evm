@@ -128,6 +128,9 @@ func (s *stateObject) copy() *stateObject {
 	if s.nonce != nil {
 		state.nonce = &(*s.nonce)
 	}
+	if s.fakeBalance != nil {
+		state.fakeBalance = new(big.Int).Set(s.fakeBalance)
+	}
 	return state
 }
 
@@ -228,6 +231,7 @@ func (s *stateObject) getBalance() *big.Int {
 	return new(big.Int).Add(delta, balance)
 }
 func (s *stateObject) setBalance(balance *big.Int) journalEntry {
+	log.Error("balance inside setBalance", "b", balance.String(), "address", s.address.String())
 	old := s.fakeBalance
 	s.fakeBalance = balance
 	return journalEntry{&s.address, func(sdb *stateDB) { sdb.getAccount(s.address).fakeBalance = old }}
