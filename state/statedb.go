@@ -17,7 +17,7 @@
 package state
 
 import (
-	log "github.com/inconshreveable/log15"
+	// log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
 	"github.com/openrelayxyz/cardinal-evm/params"
@@ -27,7 +27,6 @@ import (
 	"github.com/openrelayxyz/cardinal-storage/db/mem"
 	ctypes "github.com/openrelayxyz/cardinal-types"
 	"math/big"
-	"fmt"
 )
 
 type journalEntry struct {
@@ -169,7 +168,6 @@ func (sdb *stateDB) AddBalance(addr common.Address, amount *big.Int) {
 	sdb.journal = append(sdb.journal, sobj.addBalance(amount))
 }
 func (sdb *stateDB) GetBalance(addr common.Address) *big.Int {
-	log.Error("GetBalance pointer", "statedb", fmt.Sprintf("%p", sdb), "stateobj", fmt.Sprintf("%p", sdb.getAccount(addr)))
 	sobj := sdb.getAccount(addr)
 	if sobj.fakeBalance != nil {
 		return sobj.getBalance()
@@ -251,10 +249,8 @@ func (sdb *stateDB) SetStorage(addr common.Address, storage map[ctypes.Hash]ctyp
 	sdb.journal = append(sdb.journal, sobj.setStorage(storage))
 }
 func (sdb *stateDB) SetBalance(addr common.Address, balance *big.Int) {
-	log.Error("SetBalance pointer", "statedb", fmt.Sprintf("%p", sdb), "stateobj", fmt.Sprintf("%p", sdb.getAccount(addr)))
 	sobj := sdb.getAccount(addr)
 	sdb.journal = append(sdb.journal, sobj.setBalance(balance))
-	log.Error("balance inside SetBalance", "b", balance, "address", addr.Hex())
 }
 
 func (sdb *stateDB) Suicide(addr common.Address) bool {

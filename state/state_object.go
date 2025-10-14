@@ -111,8 +111,6 @@ func (s *stateObject) equal(b *stateObject) bool {
 }
 
 func (s *stateObject) copy() *stateObject {
-	log.Error("copy() called", "addr", s.address.Hex(), "fakeBalance", s.fakeBalance)
-
 	state := &stateObject{
 		address:  s.address,
 		account:  s.account,
@@ -131,7 +129,6 @@ func (s *stateObject) copy() *stateObject {
 	}
 	if s.fakeBalance != nil {
 		state.fakeBalance = new(big.Int).Set(s.fakeBalance)
-		log.Error("copied fakeBalance", "addr", s.address.Hex(), "value", state.fakeBalance)
 	}
 	return state
 }
@@ -233,7 +230,6 @@ func (s *stateObject) getBalance() *big.Int {
 	return new(big.Int).Add(delta, balance)
 }
 func (s *stateObject) setBalance(balance *big.Int) journalEntry {
-	log.Error("balance inside setBalance", "b", balance, "address", s.address.String())
 	old := s.fakeBalance
 	s.fakeBalance = balance
 	return journalEntry{&s.address, func(sdb *stateDB) { sdb.getAccount(s.address).fakeBalance = old }}
