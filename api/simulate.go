@@ -257,6 +257,13 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 			remaining := header.GasLimit - gasUsed
 			call.Gas = (*hexutil.Uint64)(&remaining)
 		}
+
+		// Cap at gas pool
+		gasCap := s.gp.Gas()
+		if gasCap > 0 && gasCap < uint64(*call.Gas) {
+			call.Gas = (*hexutil.Uint64)(&gasCap)
+		}
+
 		if gasUsed+uint64(*call.Gas) > header.GasLimit {
 			return nil,nil,nil, &blockGasLimitReachedError{fmt.Sprintf("block gas limit reached: %d >= %d", gasUsed, header.GasLimit)}
 		}
