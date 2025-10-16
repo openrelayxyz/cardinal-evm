@@ -20,7 +20,7 @@ import (
 	rpc "github.com/openrelayxyz/cardinal-rpc"
 	ctypes "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
-	log "github.com/inconshreveable/log15"
+	// log "github.com/inconshreveable/log15"
 )
 
 const (
@@ -232,6 +232,7 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		callResults = make([]simCallResult, len(block.Calls))
 		receipts    = make([]*types.Receipt, len(block.Calls))
 		senders     = make(map[ctypes.Hash]common.Address)
+		tracer      = newTracer(s.traceTransfers, header.Number.Uint64(), header.Hash(), ctypes.Hash{}, 0)
 	)
 
 	getHashFn := func(n uint64) ctypes.Hash {
@@ -247,8 +248,6 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 	}
 
 	for i, call := range block.Calls {
-		tracer := newTracer(s.traceTransfers, header.Number.Uint64(), header.Hash(), ctypes.Hash{}, uint(i))
-
 		if err := ctx.Context().Err(); err != nil {
 			return nil, nil, nil, err
 		}
@@ -279,7 +278,6 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		}, call.from(), call.GasPrice.ToInt())
 
 		tx := call.ToTransaction(types.DynamicFeeTxType)
-		log.Error(fmt.Sprintf("TX: nonce=%d gas=%d gasFeeCap=%s gasTipCap=%s chainID=%s to=%s value=%s data=%s hash=%s\n", tx.Nonce(), tx.Gas(), tx.GasFeeCap(), tx.GasTipCap(), tx.ChainId(), tx.To().Hex(), tx.Value(), hexutil.Encode(tx.Data()), tx.Hash().Hex()))
 		txes[i] = tx
 		senders[tx.Hash()] = call.from()
 

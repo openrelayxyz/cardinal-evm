@@ -75,7 +75,6 @@ func (t *tracer) CaptureEnd(output []byte, gasUsed uint64, time time.Duration, e
 // reset prepares the tracer for the next transaction.
 func (t *tracer) reset(txHash ctypes.Hash, txIdx uint) {
 	t.logs = make([]*types.Log, 0)
-	t.count = 0 
 	t.txHash = txHash
 	t.txIdx = txIdx
 }
