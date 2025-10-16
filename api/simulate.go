@@ -20,7 +20,7 @@ import (
 	rpc "github.com/openrelayxyz/cardinal-rpc"
 	ctypes "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
-	log "github.com/inconshreveable/log15"
+	// log "github.com/inconshreveable/log15"
 )
 
 const (
@@ -232,6 +232,7 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		callResults = make([]simCallResult, len(block.Calls))
 		receipts    = make([]*types.Receipt, len(block.Calls))
 		senders     = make(map[ctypes.Hash]common.Address)
+		tracer      = newTracer(s.traceTransfers, header.Number.Uint64(), header.Hash(), ctypes.Hash{}, 0)
 	)
 
 	getHashFn := func(n uint64) ctypes.Hash {
@@ -247,25 +248,29 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 	}
 
 	for i, call := range block.Calls {
-		tracer := newTracer(s.traceTransfers, header.Number.Uint64(), header.Hash(), ctypes.Hash{}, uint(i))
-
 		if err := ctx.Context().Err(); err != nil {
-			return nil, nil, nil, err
-		}
-		if err := call.setDefaults(ctx, s.chainConfig, s.evmFn, s.state, header, vm.BlockNumberOrHashWithHash(header.Hash(), false)); err != nil {
 			return nil, nil, nil, err
 		}
 		// Let the call run wild unless explicitly specified.
 		if call.Gas == nil {
 			remaining := header.GasLimit - gasUsed
-        	call.Gas = (*hexutil.Uint64)(&remaining)
+			call.Gas = (*hexutil.Uint64)(&remaining)
 		}
-		if call.ChainID == nil {
-			call.ChainID = (*hexutil.Big)(s.chainConfig.ChainID)
+
+		// Cap at gas pool
+		gasCap := s.gp.Gas()
+		if gasCap > 0 && gasCap < uint64(*call.Gas) {
+			call.Gas = (*hexutil.Uint64)(&gasCap)
 		}
 
 		if gasUsed+uint64(*call.Gas) > header.GasLimit {
 			return nil,nil,nil, &blockGasLimitReachedError{fmt.Sprintf("block gas limit reached: %d >= %d", gasUsed, header.GasLimit)}
+		}
+		if call.ChainID == nil {
+			call.ChainID = (*hexutil.Big)(s.chainConfig.ChainID)
+		}
+		if err := call.setDefaults(ctx, s.chainConfig, s.evmFn, s.state, header, vm.BlockNumberOrHashWithHash(header.Hash(), false)); err != nil {
+			return nil, nil, nil, err
 		}
 
 		evm := s.evmFn(s.state, &vm.Config{
@@ -273,7 +278,6 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		}, call.from(), call.GasPrice.ToInt())
 
 		tx := call.ToTransaction(types.DynamicFeeTxType)
-		log.Error(fmt.Sprintf("TX: nonce=%d gas=%d gasFeeCap=%s gasTipCap=%s chainID=%s to=%s value=%s data=%s hash=%s\n", tx.Nonce(), tx.Gas(), tx.GasFeeCap(), tx.GasTipCap(), tx.ChainId(), tx.To().Hex(), tx.Value(), hexutil.Encode(tx.Data()), tx.Hash().Hex()))
 		txes[i] = tx
 		senders[tx.Hash()] = call.from()
 

@@ -169,6 +169,9 @@ func (sdb *stateDB) AddBalance(addr common.Address, amount *big.Int) {
 }
 func (sdb *stateDB) GetBalance(addr common.Address) *big.Int {
 	sobj := sdb.getAccount(addr)
+	if sobj.fakeBalance != nil {
+		return sobj.getBalance()
+	}
 	if !sobj.loadAccount(sdb.tx, sdb.chainid) {
 		return common.Big0
 	}
