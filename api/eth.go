@@ -341,10 +341,6 @@ func (s *PublicBlockChainAPI) Call(ctx *rpc.CallContext, args TransactionArgs, b
 	err := s.evmmgr.View(blockNrOrHash, args.From, &vm.Config{NoBaseFee: true}, ctx, func(statedb state.StateDB, header *types.Header, evmFn func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, chainConfig *params.ChainConfig) error {
 		gasCap := s.gasLimit(header)
 
-		// Verify tx gas limit does not exceed EIP-7825 cap.
-		if chainConfig.IsOsaka(new(big.Int).SetUint64(header.Time), header.Number) && args.Gas != nil && uint64(*args.Gas) > params.MaxTxGas{ 
-			return ErrGasLimitTooHigh
-		}
 		result, _, err := DoCall(ctx, evmFn, args, &PreviousState{statedb, header}, blockNrOrHash, overrides, timeout, gasCap)
 		if err != nil {
 			return err
@@ -464,11 +460,6 @@ func DoEstimateGas(ctx *rpc.CallContext, getEVM func(state.StateDB, *vm.Config, 
 	} else {
 		// Retrieve the block to act as the gas ceiling
 		hi = prevState.header.GasLimit
-	}
-
-	// Verify tx gas limit does not exceed EIP-7825 cap.
-	if chainConfig.IsOsaka(new(big.Int).SetUint64(prevState.header.Time), prevState.header.Number) && args.Gas != nil && uint64(*args.Gas) > params.MaxTxGas{
-			return 0, nil, ErrGasLimitTooHigh
 	}
 
 	var feeCap *big.Int
@@ -609,10 +600,6 @@ func (s *PublicBlockChainAPI) CreateAccessList(ctx *rpc.CallContext, args Transa
 	var result *accessListResult
 	err := s.evmmgr.View(bNrOrHash, args.From, ctx, func(header *types.Header, statedb state.StateDB, evmFn func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, chaincfg *params.ChainConfig) error {
 		
-		// Verify tx gas limit does not exceed EIP-7825 cap.
-		if chaincfg.IsOsaka(new(big.Int).SetUint64(header.Time), header.Number) && uint64(*args.Gas) > params.MaxTxGas{ 
-			return ErrGasLimitTooHigh
-		}
 		acl, gasUsed, vmerr, err := AccessList(ctx, statedb, header, chaincfg, evmFn, bNrOrHash, args)
 		if err != nil {
 			return err
@@ -744,6 +731,7 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx *rpc.CallContext, inpu
 			return ErrGasLimit
 		}
 
+		// Verify tx gas limit does not exceed EIP-7825 cap.
 		if chaincfg.IsOsaka(new(big.Int).SetUint64(header.Time), header.Number) && tx.Gas() > params.MaxTxGas{
 			return ErrGasLimitTooHigh
 		}
