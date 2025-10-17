@@ -467,8 +467,8 @@ var (
 		},
 	}
 
-	Fd5ChainConfig = &ChainConfig{
-		ChainID:                 big.NewInt(7092415936),
+	IntegrationTestChainConfig = &ChainConfig{
+		ChainID:                 big.NewInt(70722),
 		HomesteadBlock:          big.NewInt(0),
 		DAOForkBlock:            nil,
 		DAOForkSupport:          true,
@@ -485,7 +485,7 @@ var (
 		ShanghaiTime:            big.NewInt(0),
 		CancunTime:              big.NewInt(0),
 		PragueTime:              big.NewInt(0),
-		OsakaTime:               big.NewInt(1757611104),
+		OsakaTime:               big.NewInt(0),
 		Ethash:                  new(EthashConfig),
 		Engine:              ETHashEngine,
 		BlobSchedule:        []*BlobConfig{
@@ -502,6 +502,27 @@ var (
 				Target: 6,
 				Max : 9,
 				UpdateFraction: 5007716,
+			},
+			// Osaka
+			&BlobConfig{
+				ActivationTime: 0,
+				Target: 6,
+				Max: 9,
+				UpdateFraction: 5007716,
+			},
+			// BP01
+			&BlobConfig{
+				ActivationTime: 0,
+				Target: 10,
+				Max: 15,
+				UpdateFraction: 8346193,
+			},
+			// BP02
+			&BlobConfig{
+				ActivationTime: 0,
+				Target: 14,
+				Max: 21,
+				UpdateFraction: 11684671,
 			},
 		},
 	}
@@ -537,7 +558,7 @@ var ChainLookup = map[int64]*ChainConfig{
 	1337802: KilnChainConfig,
 	11155111: SepoliaChainConfig,
 	560048: HoodiChainConfig,
-	7092415936: Fd5ChainConfig,
+	70722: IntegrationTestChainConfig,
 }
 
 // ChainConfig is the core config which determines the blockchain settings.
