@@ -1,36 +1,52 @@
 package api
 
 import (
+	"context"
+	"reflect"
+
 	log "github.com/inconshreveable/log15"
 
-	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-evm/params"
+	"github.com/openrelayxyz/cardinal-evm/types"
+	"github.com/openrelayxyz/cardinal-evm/vm"
 )
 
 type CardinalAPI struct {
+	mgr  *vm.EVMManager
 	config *params.ChainConfig
-	evmmgr  *vm.EVMManager
 }
 
 func NewCardinalAPI(evmmgr *vm.EVMManager, chaincfg *params.ChainConfig) *CardinalAPI {
 	return &CardinalAPI{
+		mgr: evmmgr,
 		config: chaincfg,
-		evmmgr: chaincfg,
 	}
 }
 
-func (api *CardinalAPI) ForkReady(forkName string) int {
-	nullCase := -1
-	switch {
+func (api *CardinalAPI) ForkReady(ctx context.Context, forkName string) int {
+	result := -1
+	switch forkName {
 	case "osaka":
 		var latestTime uint64
-		if err := api.evmmgr.View(ctx, func(header *types.Header) {
-			latestTime := header.Time
+		if err := api.mgr.View(ctx, func(header *types.Header) {
+			latestTime = header.Time
 		}); err != nil {
 			log.Error("error encountered calling for header, forkready", "err", err)
-			return nullCase
+			return result
 		}
-		api.config.OsakaTime 
+		cfg := reflect.ValueOf(api.config).Type()
+		if _, ok := cfg.FieldByName("OsakaTime"); ok {
+			if oTime := api.config.OsakaTime; oTime != nil {
+				osaka := *oTime
+				if osaka.Uint64() >= latestTime {
+					result = 2
+				} else {
+					result = 1
+				}
+			} else {
+				result = 0
+			}
+		} 
 	}
 	return result
 }
