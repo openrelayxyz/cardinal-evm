@@ -3,14 +3,11 @@ import requests
 import pytest, logging
 import argparse
 import os, time, json, gzip, shutil
+from collect import Payloads
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
 
 node = None
-
-# Payload = [
-#     {"jsonrpc":"2.0","method":"eth_simulateV1","params":[{"blockStateCalls":[{"blockOverrides":{"baseFeePerGas":"0x9","gasLimit":"0x1c9c380"},"stateOverrides":{"0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045":{"balance":"0x4a817c420"}},"calls":[{"from":"0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045","to":"0x014d023e954bAae7F21E56ed8a5d81b12902684D","gas":"0x5208","maxFeePerGas":"0xf","value":"0x1"}]}],"validation":True,"traceTransfers":True}],"id":1}
-# ]
 
 ignored_keys = ['blockHash', 'hash', 'stateRoot', 'timestamp', 'logsBloom']
 
@@ -25,43 +22,17 @@ def start_node(bin_path):
 def gather_data(endpoint=None):
     logging.info("running method")
     url = endpoint if endpoint else "http://localhost:8000"
-    rpc = {
-        "jsonrpc": "2.0",
-        "id": 1,
-        "method": "eth_simulateV1",
-        "params": [{
-            "blockStateCalls": [{
-                "blockOverrides": {"baseFeePerGas": "0x9"},
-                "stateOverrides": {
-                    "0xc000000000000000000000000000000000000000": {"balance": "0x4a817c800"}
-                },
-                "calls": [
-                    {
-                        "from": "0xc000000000000000000000000000000000000000",
-                        "to": "0xc000000000000000000000000000000000000001",
-                        "maxFeePerGas": "0xf",
-                        "value": "0x1",
-                        "gas": "0x5208"
-                    },
-                    {
-                        "from": "0xc000000000000000000000000000000000000000",
-                        "to": "0xc000000000000000000000000000000000000002",
-                        "maxFeePerGas": "0xf",
-                        "value": "0x1",
-                        "gas": "0x5208"
-                    }
-                ]
-            }],
-            "validation": True,
-            "traceTransfers": True
-        }]
-    }
-    response = requests.post(url, json=rpc, timeout=3)
-    response.raise_for_status()
+    results = []
+    for i,j in enumerate(Payloads):
+        response = requests.post(url, json=j)
+        if response.status_code == 200:
+            results.append(response.json().get("result"))
+        else:
+           raise Exception(f"error calling method {i} :{response.text}")
 
     output_file = os.path.join(os.path.dirname(__file__), "./resources/cardinal_test.json")
     with open(output_file, "w") as f:
-        json.dump(response.json(), f)
+        json.dump(results, f)
 
     return output_file
 
@@ -108,7 +79,7 @@ def compare_values(control, test, path=""):
 
 
 def compare_results():
-    with gzip.open('./resources/01.json.gz', "rb") as f:
+    with gzip.open('./resources/control-data.json.gz', "rb") as f:
         with open('./resources/cardinal_control.json', "wb") as f_o:
             shutil.copyfileobj(f, f_o)
 
@@ -118,7 +89,7 @@ def compare_results():
     with open('./resources/cardinal_control.json', 'r') as cf:
             control_data = json.load(cf)
 
-    compare_values(control_data['result'], test_data['result'], path="result")
+    compare_values(control_data, test_data, path="result")
 
 
 def run_test(args):
