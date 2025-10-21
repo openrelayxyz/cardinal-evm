@@ -14,8 +14,10 @@ ignored_keys = ['blockHash', 'hash', 'stateRoot', 'timestamp', 'logsBloom']
 def start_node(bin_path):
     global node
     bin_path = os.path.abspath(bin_path)
+    if not os.path.exists("./data"):
+        os.mkdir("./data")
     node = subprocess.Popen([
-        bin_path, "--debug", os.path.join(os.path.dirname(__file__), "config.yaml")
+        bin_path, "--debug", f"-init.genesis=./resources/genesis.json", "./resources/null-test-config.yaml"
     ])
     time.sleep(3)
 
@@ -107,6 +109,7 @@ def run_test(args):
         cleanup()
 
 def cleanup():
+    logging.info("cleaning up")
     files_to_remove = [
         './resources/cardinal_control.json',
         './resources/cardinal_test.json'
@@ -115,6 +118,8 @@ def cleanup():
     for path in files_to_remove:
         if os.path.exists(path):
             os.remove(path)
+    if os.path.exists("./data"):
+        shutil.rmtree("./data")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
