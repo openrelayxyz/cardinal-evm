@@ -38,7 +38,7 @@ func (api *CardinalAPI) ForkReady(ctx context.Context, forkName string) int {
 		if _, ok := cfg.FieldByName("OsakaTime"); ok {
 			if oTime := api.config.OsakaTime; oTime != nil {
 				osaka := *oTime
-				if osaka.Uint64() >= latestTime {
+				if latestTime >= osaka.Uint64() {
 					result = 2
 				} else {
 					result = 1
