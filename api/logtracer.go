@@ -25,12 +25,13 @@ type tracer struct {
 	count          int
 	traceTransfers bool
 	blockNumber    uint64
+	blockTimestamp    uint64
 	blockHash      ctypes.Hash
 	txHash         ctypes.Hash
 	txIdx          uint
 }
 
-func newTracer(traceTransfers bool, blockNumber uint64, blockHash, txHash ctypes.Hash, txIndex uint) *tracer {
+func newTracer(traceTransfers bool, blockNumber uint64,  blockTimestamp uint64, blockHash, txHash ctypes.Hash, txIndex uint) *tracer {
 	return &tracer{
 		logs:           make([]*types.Log, 0),
 		traceTransfers: traceTransfers,
@@ -38,6 +39,7 @@ func newTracer(traceTransfers bool, blockNumber uint64, blockHash, txHash ctypes
 		blockHash:      blockHash,
 		txHash:         txHash,
 		txIdx:          txIndex,
+		blockTimestamp: blockTimestamp,
 	}
 }
 
@@ -63,6 +65,7 @@ func (t *tracer) CaptureStart(from common.Address, to common.Address, create boo
             TxHash:      t.txHash,
             TxIndex:     t.txIdx,
             Index:       uint(t.count),
+			BlockTimestamp: t.blockTimestamp,
         })
         t.count++
     }

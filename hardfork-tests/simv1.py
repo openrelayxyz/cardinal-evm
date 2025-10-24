@@ -9,13 +9,17 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
 
 node = None
 
-ignored_keys = ['blockHash', 'hash', 'stateRoot', 'timestamp', 'logsBloom']
+ignored_keys = ['blockHash', 'hash', 'stateRoot', 'size', 'parentHash']
 
 def start_node(bin_path):
     global node
     bin_path = os.path.abspath(bin_path)
     if not os.path.exists("./data"):
         os.mkdir("./data")
+    else:
+        shutil.rmtree("./data")
+        os.mkdir("./data")
+        
     node = subprocess.Popen([
         bin_path, "--debug", f"-init.genesis=./resources/genesis.json", "./resources/null-test-config.yaml"
     ])
@@ -118,8 +122,6 @@ def cleanup():
     for path in files_to_remove:
         if os.path.exists(path):
             os.remove(path)
-    if os.path.exists("./data"):
-        shutil.rmtree("./data")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

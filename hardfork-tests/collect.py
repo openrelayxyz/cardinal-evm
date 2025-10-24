@@ -1,3 +1,4 @@
+import argparse
 import requests,json, gzip
 
 Payloads = [
@@ -103,11 +104,10 @@ Payloads = [
         },
     ]
 
-def gather_data():
+def gather_data(url):
     results = []
-
     for i in Payloads:
-       res= requests.post("http://localhost:8000", json=i)
+       res= requests.post(url, json=i)
        if res.status_code == 200:
             results.append(res.json().get("result"))
        else:
@@ -116,7 +116,11 @@ def gather_data():
     return results
 
 if __name__ == "__main__":
-    data = gather_data()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-e", "--endpoint", default='http://localhost:8000')
+    args = parser.parse_args()
+
+    data = gather_data(args.endpoint)
     if data:
         with gzip.open("./resources/control-data.json.gz", "wt", compresslevel=5) as fo:
             json.dump(data, fo)

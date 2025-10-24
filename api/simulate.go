@@ -232,7 +232,7 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		callResults = make([]simCallResult, len(block.Calls))
 		receipts    = make([]*types.Receipt, len(block.Calls))
 		senders     = make(map[ctypes.Hash]common.Address)
-		tracer      = newTracer(s.traceTransfers, header.Number.Uint64(), header.Hash(), ctypes.Hash{}, 0)
+		tracer      = newTracer(s.traceTransfers, header.Number.Uint64(), header.Time, header.Hash(), ctypes.Hash{}, 0)
 	)
 
 	getHashFn := func(n uint64) ctypes.Hash {

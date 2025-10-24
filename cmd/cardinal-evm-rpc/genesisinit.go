@@ -28,10 +28,8 @@ type genesisBlock struct {
 	Weight hexutil.Uint64          `json:"difficulty"`
 	Alloc      GenesisAlloc        `json:"alloc"`
 	GasLimit   hexutil.Uint64     `json:"gasLimit"`
-	Coinbase   common.Address     `json:"coinbase"`
 	Timestamp  uint64     		`json:"timestamp"`
 	ExtraData  hexutil.Bytes      `json:"extraData"`
-	Nonce      hexutil.Uint64     `json:"nonce"`
 	MixHash    ctypes.Hash         `json:"mixhash"`
 }
 
@@ -70,7 +68,6 @@ func genesisInit(dbpath, genesispath string, archival bool) error {
 		Time:  uint64(gb.Timestamp),
 		Extra: gb.ExtraData,
 		MixDigest: ctypes.Hash(gb.MixHash),
-		Nonce: types.EncodeNonce(uint64(gb.Nonce)),
 	}
 	rawHeader,_ := rlp.EncodeToBytes(header)
 	headerKey := fmt.Sprintf("c/%x/b/%x/h", gb.Config.ChainID, gb.Hash.Bytes())
