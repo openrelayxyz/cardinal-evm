@@ -67,9 +67,9 @@ func (f TransactionEmitterFunc) Emit(tx *types.Transaction) error {
 	return f(tx)
 }
 
-func newRPCBalance(balance *big.Int) **hexutil.Big {
+func newRPCBalance(balance *big.Int) *hexutil.Big {
 	rpcBalance := (*hexutil.Big)(balance)
-	return &rpcBalance
+	return rpcBalance
 }
 
 func hex2Bytes(str string) *hexutil.Bytes {

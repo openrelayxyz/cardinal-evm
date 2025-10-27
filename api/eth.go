@@ -133,7 +133,7 @@ func (s *PublicBlockChainAPI) GetStorageAt(ctx *rpc.CallContext, address common.
 type OverrideAccount struct {
 	Nonce     *hexutil.Uint64              `json:"nonce"`
 	Code      *hexutil.Bytes               `json:"code"`
-	Balance   **hexutil.Big                `json:"balance"`
+	Balance   *hexutil.Big                `json:"balance"`
 	State     *map[ctypes.Hash]ctypes.Hash `json:"state"`
 	StateDiff *map[ctypes.Hash]ctypes.Hash `json:"stateDiff"`
 }
@@ -176,7 +176,7 @@ func (diff *StateOverride) Apply(state state.StateDB) error {
 		}
 		// Override account balance.
 		if account.Balance != nil {
-			state.SetBalance(addr, (*big.Int)(*account.Balance))
+			state.SetBalance(addr, (*big.Int)(account.Balance))
 		}
 		if account.State != nil && account.StateDiff != nil {
 			return fmt.Errorf("account %s has both 'state' and 'stateDiff'", addr.Hex())
@@ -192,7 +192,33 @@ func (diff *StateOverride) Apply(state state.StateDB) error {
 			}
 		}
 	}
+
+	// Now finalize the changes. Finalize is normally performed between transactions.
+	// By using finalize, the overrides are semantically behaving as
+	// if they were created in a transaction just before the tracing occur.
+	state.Finalise()
 	return nil
+}
+
+func applyMessageWithEVM(ctx *rpc.CallContext, evm *vm.EVM, msg *Msg, timeout time.Duration, gp *GasPool) (*ExecutionResult, error) {
+	// Wait for the context to be done and cancel the evm. Even if the
+	// EVM has finished, cancelling may be done (repeatedly)
+	go func() {
+		<-ctx.Context().Done()
+		evm.Cancel()
+	}()
+
+	// Execute the message.
+	result, err := ApplyMessage(evm, msg, gp)
+
+	// If the timer caused an abort, return an appropriate error message
+	if evm.Cancelled() {
+		return nil, fmt.Errorf("execution aborted (timeout = %v)", timeout)
+	}
+	if err != nil {
+		return result, fmt.Errorf("err: %w (supplied gas %d)", err, msg.gasLimit)
+	}
+	return result, nil
 }
 
 func DoCall(cctx *rpc.CallContext, getEVM func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, args TransactionArgs, prevState *PreviousState, blockNrOrHash vm.BlockNumberOrHash, overrides *StateOverride, timeout time.Duration, globalGasCap uint64) (*ExecutionResult, *PreviousState, error) {
@@ -338,6 +364,61 @@ func (s *PublicBlockChainAPI) Call(ctx *rpc.CallContext, args TransactionArgs, b
 		}
 	}
 	return res, err
+}
+
+// SimulateV1 executes series of transactions on top of a base state.
+// The transactions are packed into blocks. For each block, block header
+// fields can be overridden. The state can also be overridden prior to
+// execution of each block.
+//
+// Note, this function doesn't make any changes in the state/blockchain and is
+// useful to execute and retrieve values.
+func (s *PublicBlockChainAPI) SimulateV1(ctx *rpc.CallContext, opts simOpts, blockNrOrHash *vm.BlockNumberOrHash) ([]*simBlockResult, error) {
+	if len(opts.BlockStateCalls) == 0 {
+		return nil, &invalidParamsError{message: "empty input"}
+	} else if len(opts.BlockStateCalls) > maxSimulateBlocks {
+		return nil,  &clientLimitExceededError{message: "too many blocks"}
+	}
+
+	bNrOrHash := vm.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
+	if blockNrOrHash != nil {
+		bNrOrHash = *blockNrOrHash
+	}
+
+	var results []*simBlockResult
+
+	err := s.evmmgr.View(bNrOrHash, &vm.Config{NoBaseFee: !opts.Validation}, ctx, func(statedb state.StateDB, baseHeader *types.Header, evmFn func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, chaincfg *params.ChainConfig) error {
+		gasCap := s.gasLimit(baseHeader)
+		if gasCap == 0 {
+			gasCap = math.MaxUint64
+		}
+
+		sim := &simulator{
+			timeout:        30 * time.Second, 
+			state:          statedb.Copy(),
+			base:           types.CopyHeader(baseHeader),
+			chainConfig:    chaincfg,
+			// Each tx and all the series of txes shouldn't consume more gas than cap
+			gp:             new(GasPool).AddGas(gasCap),
+			traceTransfers: opts.TraceTransfers,
+			validate:       opts.Validation,
+			fullTx:         opts.ReturnFullTransactions,
+			evmFn:          evmFn,
+		}
+		var err error
+		results, err = sim.execute(ctx, opts.BlockStateCalls)
+		return err
+	})
+
+	if err != nil {
+		switch err.(type) {
+		case codedError:
+		default:
+			err = evmError{err}
+		}
+		return nil, err
+	}
+	return results, nil
 }
 
 //

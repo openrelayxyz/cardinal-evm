@@ -43,6 +43,10 @@ type stateDB struct {
 	refund     uint64
 	accessList *accessList
 	alcalc     bool
+	logs    map[ctypes.Hash][]*types.Log
+	thash   ctypes.Hash
+	txIndex int
+	logSize uint
 }
 
 func NewStateDB(tx storage.Transaction, chainid int64) StateDB {
@@ -165,6 +169,9 @@ func (sdb *stateDB) AddBalance(addr common.Address, amount *big.Int) {
 }
 func (sdb *stateDB) GetBalance(addr common.Address) *big.Int {
 	sobj := sdb.getAccount(addr)
+	if sobj.fakeBalance != nil {
+		return sobj.getBalance()
+	}
 	if !sobj.loadAccount(sdb.tx, sdb.chainid) {
 		return common.Big0
 	}
@@ -345,10 +352,21 @@ func (sdb *stateDB) RevertToSnapshot(snap int) {
 	sdb.journal = sdb.journal[:snap]
 }
 func (sdb *stateDB) Snapshot() int { return len(sdb.journal) }
-func (sdb *stateDB) AddLog(*types.Log) {
-	// At this time, I don't think we have any features that require logs to
-	// actually be tracked, but we'll leave this as a placeholder so if we ever
-	// need it we don't have to rework it back into the EVM
+
+func (sdb *stateDB) AddLog(log *types.Log) {
+
+	sdb.journal = append(sdb.journal, journalEntry{nil, func(sdb *stateDB) {
+        logs := sdb.logs[sdb.thash]
+        if len(logs) > 0 {
+            sdb.logs[sdb.thash] = logs[:len(logs)-1]
+            sdb.logSize--
+        }
+    }})
+	log.TxHash = sdb.thash
+	log.TxIndex = uint(sdb.txIndex)
+	log.Index = sdb.logSize
+	sdb.logs[sdb.thash] = append(sdb.logs[sdb.thash], log)
+	sdb.logSize++
 }
 func (sdb *stateDB) AddPreimage(ctypes.Hash, []byte) {
 	// I doubt we'll ever support preimage tracking, but easier to leave a
@@ -356,3 +374,25 @@ func (sdb *stateDB) AddPreimage(ctypes.Hash, []byte) {
 }
 
 // func (sdb *stateDB) ForEachStorage(addr common.Address, func(ctypes.Hash, ctypes.Hash) bool) error {return nil}
+
+// GetLogs returns the logs matching the specified transaction hash, and annotates
+// them with the given blockNumber and blockHash.
+func (s *stateDB) GetLogs(hash ctypes.Hash, blockNumber uint64, blockHash ctypes.Hash) []*types.Log {
+	logs := s.logs[hash]
+	for _, l := range logs {
+		l.BlockNumber = blockNumber
+		l.BlockHash = blockHash
+	}
+	return logs
+}
+
+// SetTxContext sets the current transaction hash and index which are
+// used when the EVM emits new state logs. It should be invoked before
+// transaction execution.
+func (s *stateDB) SetTxContext(thash ctypes.Hash, ti int) {
+	if s.logs == nil {
+		s.logs = make(map[ctypes.Hash][]*types.Log)
+	}
+	s.thash = thash
+	s.txIndex = ti
+}

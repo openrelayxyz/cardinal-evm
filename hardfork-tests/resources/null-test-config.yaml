@@ -1,0 +1,13 @@
+http.port: 8000
+chainid: 70722
+log.level: 2
+datadir: ./data
+reorg.threshold: 128
+cloudwatch:
+  namespace: cardinal
+  dimensions:
+    network: IntegrationTest
+#topic.transactions: hoodi-tx
+block.wait.ms: 2000
+brokers:
+  - url: "null://"

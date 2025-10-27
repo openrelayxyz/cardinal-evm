@@ -25,10 +25,13 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/common/math"
 	"github.com/openrelayxyz/cardinal-evm/params"
 	"github.com/openrelayxyz/cardinal-evm/state"
+	"github.com/openrelayxyz/cardinal-evm/crypto/kzg4844"
 	"github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-rpc"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
+	"github.com/holiman/uint256"
+	ctypes "github.com/openrelayxyz/cardinal-types"
 )
 
 // TransactionArgs represents the arguments to construct a new transaction
@@ -53,8 +56,30 @@ type TransactionArgs struct {
 	AccessList *types.AccessList `json:"accessList,omitempty"`
 	ChainID    *hexutil.Big      `json:"chainId,omitempty"`
 
+	// For BlobTxType
+	BlobFeeCap *hexutil.Big  `json:"maxFeePerBlobGas"`
+	BlobHashes []ctypes.Hash `json:"blobVersionedHashes,omitempty"`
+
+	// For BlobTxType transactions with blob sidecar
+	Blobs       []kzg4844.Blob       `json:"blobs"`
+	Commitments []kzg4844.Commitment `json:"commitments"`
+	Proofs      []kzg4844.Proof      `json:"proofs"`
+
 	AuthList   []types.Authorization `json:"authorizationList,omitempty"`
 }
+
+// this utility is being added to confrom to eip1559 protocol which set ups a mutually exclusive condition for args.GasPrice and args.MaxFeePerGas or args.MaxPriorityFeePerGas
+func (args *TransactionArgs) normalize() {
+    if args.MaxFeePerGas != nil || args.MaxPriorityFeePerGas != nil {
+        // 1559 style: drop legacy field
+        args.GasPrice = nil
+    } else if args.GasPrice != nil {
+        // Legacy style: drop 1559 fields
+        args.MaxFeePerGas = nil
+        args.MaxPriorityFeePerGas = nil
+    }
+}
+
 
 // from retrieves the transaction sender address.
 func (arg *TransactionArgs) from() common.Address {
@@ -79,6 +104,7 @@ func (arg *TransactionArgs) data() []byte {
 // core evm. This method is used in calls and traces that do not require a real
 // live transaction.
 func (args *TransactionArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (Msg, error) {
+	args.normalize()
 	// Reject invalid combinations of pre- and post-1559 fee styles
 	if args.GasPrice != nil && (args.MaxFeePerGas != nil || args.MaxPriorityFeePerGas != nil) {
 		return Msg{}, errors.New("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
@@ -156,18 +182,24 @@ func (args *TransactionArgs) setDefaults(ctx *rpc.CallContext, chainConfig *para
 	// if args.GasPrice != nil && (args.MaxFeePerGas != nil || args.MaxPriorityFeePerGas != nil) {
 	// 	return errors.New("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
 	// }
-	// if args.MaxFeePerGas == nil {
-	// 	args.MaxFeePerGas = (*hexutil.Big)(header.BaseFee)
-	// }
-	if args.GasPrice == nil {
-		args.GasPrice = (*hexutil.Big)(header.BaseFee)
-	}
 	if args.Value == nil {
 		args.Value = new(hexutil.Big)
 	}
 	if args.Nonce == nil {
 		nonce := db.GetNonce(*args.From)
 		args.Nonce = (*hexutil.Uint64)(&nonce)
+	}
+	if header.BaseFee == nil {
+		if args.GasPrice == nil {
+			args.GasPrice = new(hexutil.Big)
+		}
+	} else {
+		if args.MaxFeePerGas == nil {
+			args.MaxFeePerGas = (*hexutil.Big)(header.BaseFee)  
+		}
+		if args.MaxPriorityFeePerGas == nil {
+			args.MaxPriorityFeePerGas = new(hexutil.Big) 
+		}
 	}
 	if args.Gas == nil {
 		gas, _, err := DoEstimateGas(ctx, getEVM, *args, &PreviousState{db.ALCalcCopy(), header}, blockNrOrHash, header.GasLimit, true, chainConfig)
@@ -177,6 +209,109 @@ func (args *TransactionArgs) setDefaults(ctx *rpc.CallContext, chainConfig *para
 		args.Gas = &gas
 	}
 	return nil
+}
+
+// ToTransaction converts the arguments to a transaction.
+// This assumes that setDefaults has been called.
+func (args *TransactionArgs) ToTransaction(defaultType int) *types.Transaction {
+	usedType := types.LegacyTxType
+	switch {
+	case args.AuthList != nil || defaultType == types.SetCodeTxType:
+		usedType = types.SetCodeTxType
+	case args.BlobHashes != nil || defaultType == types.BlobTxType:
+		usedType = types.BlobTxType
+	case args.MaxFeePerGas != nil || defaultType == types.DynamicFeeTxType:
+		usedType = types.DynamicFeeTxType
+	case args.AccessList != nil || defaultType == types.AccessListTxType:
+		usedType = types.AccessListTxType
+	}
+	// Make it possible to default to newer tx, but use legacy if gasprice is provided
+	if args.GasPrice != nil {
+		usedType = types.LegacyTxType
+	}
+	var data types.TxData
+	switch usedType {
+	case types.SetCodeTxType:
+		al := types.AccessList{}
+		if args.AccessList != nil {
+			al = *args.AccessList
+		}
+		authList := []types.Authorization{}
+		if args.AuthList != nil {
+			authList = args.AuthList
+		}
+		data = &types.SetCodeTx{
+			To:         *args.To,
+			ChainID:    uint256.MustFromBig(args.ChainID.ToInt()),
+			Nonce:      uint64(*args.Nonce),
+			Gas:        uint64(*args.Gas),
+			GasFeeCap:  uint256.MustFromBig((*big.Int)(args.MaxFeePerGas)),
+			GasTipCap:  uint256.MustFromBig((*big.Int)(args.MaxPriorityFeePerGas)),
+			Value:      uint256.MustFromBig((*big.Int)(args.Value)),
+			Data:       args.data(),
+			AccessList: al,
+			AuthList:   authList,
+		}
+
+	case types.BlobTxType:
+		al := types.AccessList{}
+		if args.AccessList != nil {
+			al = *args.AccessList
+		}
+		data = &types.BlobTx{
+			To:         *args.To,
+			ChainID:    uint256.MustFromBig((*big.Int)(args.ChainID)),
+			Nonce:      uint64(*args.Nonce),
+			Gas:        uint64(*args.Gas),
+			GasFeeCap:  uint256.MustFromBig((*big.Int)(args.MaxFeePerGas)),
+			GasTipCap:  uint256.MustFromBig((*big.Int)(args.MaxPriorityFeePerGas)),
+			Value:      uint256.MustFromBig((*big.Int)(args.Value)),
+			Data:       args.data(),
+			AccessList: al,
+			BlobHashes: args.BlobHashes,
+			BlobFeeCap: uint256.MustFromBig((*big.Int)(args.BlobFeeCap)),
+		}
+
+	case types.DynamicFeeTxType:
+		al := types.AccessList{}
+		if args.AccessList != nil {
+			al = *args.AccessList
+		}
+		data = &types.DynamicFeeTx{
+			To:         args.To,
+			ChainID:    (*big.Int)(args.ChainID),
+			Nonce:      uint64(*args.Nonce),
+			Gas:        uint64(*args.Gas),
+			GasFeeCap:  (*big.Int)(args.MaxFeePerGas),
+			GasTipCap:  (*big.Int)(args.MaxPriorityFeePerGas),
+			Value:      (*big.Int)(args.Value),
+			Data:       args.data(),
+			AccessList: al,
+		}
+
+	case types.AccessListTxType:
+		data = &types.AccessListTx{
+			To:         args.To,
+			ChainID:    (*big.Int)(args.ChainID),
+			Nonce:      uint64(*args.Nonce),
+			Gas:        uint64(*args.Gas),
+			GasPrice:   (*big.Int)(args.GasPrice),
+			Value:      (*big.Int)(args.Value),
+			Data:       args.data(),
+			AccessList: *args.AccessList,
+		}
+
+	default:
+		data = &types.LegacyTx{
+			To:       args.To,
+			Nonce:    uint64(*args.Nonce),
+			Gas:      uint64(*args.Gas),
+			GasPrice: (*big.Int)(args.GasPrice),
+			Value:    (*big.Int)(args.Value),
+			Data:     args.data(),
+		}
+	}
+	return types.NewTx(data)
 }
 
 //
