@@ -2,7 +2,9 @@ package api
 
 import (
 	"math/big"
+
 	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-evm/params"
 	"github.com/openrelayxyz/cardinal-evm/state"
 	"github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/vm"
@@ -25,7 +27,7 @@ func (s *EtherCattleBlockChainAPI) EstimateGasList(ctx *rpc.CallContext, argsLis
 	fast := precise == nil || !*precise
 	blockNrOrHash := vm.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
 	returnVals := make([]hexutil.Uint64, len(argsList))
-	err := s.evmmgr.View(blockNrOrHash, &vm.Config{NoBaseFee: true}, ctx, func(statedb state.StateDB, header *types.Header, evmFn func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM) error {
+	err := s.evmmgr.View(blockNrOrHash, &vm.Config{NoBaseFee: true}, ctx, func(statedb state.StateDB, header *types.Header, evmFn func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, chaincfg *params.ChainConfig) error {
 		var (
 			gas       hexutil.Uint64
 			err       error
@@ -33,7 +35,7 @@ func (s *EtherCattleBlockChainAPI) EstimateGasList(ctx *rpc.CallContext, argsLis
 			gasCap    = s.gasLimit(header)
 		)
 		for idx, args := range argsList {
-			gas, stateData, err = DoEstimateGas(ctx, evmFn, args, stateData, blockNrOrHash, gasCap, fast)
+			gas, stateData, err = DoEstimateGas(ctx, evmFn, args, stateData, blockNrOrHash, gasCap, fast, chaincfg)
 			// DoEstimateGas(ctx, s.b, args, stateData, blockNrOrHash, gasCap, fast)
 			if err != nil {
 				return err

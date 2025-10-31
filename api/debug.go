@@ -50,7 +50,7 @@ func (s *PrivateDebugAPI) TraceStructLog(ctx *rpc.CallContext, args TransactionA
 // If the accesslist creation fails an error is returned.
 // If the transaction itself fails, an vmErr is returned.
 func TraceStructLog(ctx *rpc.CallContext, db state.StateDB, header *types.Header, chaincfg *params.ChainConfig, getEVM func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, blockNrOrHash vm.BlockNumberOrHash, args TransactionArgs) (slog []vm.StructLog, err error) {
-	if err := args.setDefaults(ctx, getEVM, db, header, blockNrOrHash); err != nil {
+	if err := args.setDefaults(ctx, chaincfg, getEVM, db, header, blockNrOrHash); err != nil {
 		return nil, err
 	}
 	// Create an initial tracer
@@ -60,7 +60,11 @@ func TraceStructLog(ctx *rpc.CallContext, db state.StateDB, header *types.Header
 	if value == nil { value = new(big.Int) }
 	gasPrice := args.GasPrice.ToInt()
 	if gasPrice == nil { gasPrice = new(big.Int) }
-	msg := NewMessage(args.from(), args.To, uint64(*args.Nonce), value, uint64(*args.Gas), gasPrice, big.NewInt(0), big.NewInt(0), args.data(), *args.AccessList, args.AuthList, false)
+	var acl types.AccessList
+	if args.AccessList != nil {
+		acl = *args.AccessList
+	}
+	msg := NewMessage(args.from(), args.To, uint64(*args.Nonce), value, uint64(*args.Gas), gasPrice, big.NewInt(0), big.NewInt(0), args.data(), acl, args.AuthList, false)
 
 	_, err = ApplyMessage(getEVM(db.Copy(), &vm.Config{Tracer: tracer, Debug: true, NoBaseFee: true}, args.from(), msg.GasPrice()), msg, new(GasPool).AddGas(msg.Gas()))
 	if err != nil {

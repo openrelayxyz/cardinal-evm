@@ -101,6 +101,8 @@ var (
 	ErrEmptyAuthList   = errors.New("EIP-7702 transaction with empty auth list")
 	ErrSetCodeTxCreate = errors.New("EIP-7702 transaction cannot be used to create contract")
 
+	// -- EIP-7825 errors --
+	ErrGasLimitTooHigh = errors.New("transaction gas limit too high")
 	
 )
 
@@ -145,5 +147,17 @@ func (e *invalidParamsError) ErrorCode() int { return errCodeInvalidParams }
 
 type clientLimitExceededError struct{ message string }
 
+type invalidBlockNumberError struct{ message string }
+func (e *invalidBlockNumberError) Error() string  { return e.message }
+func (e *invalidBlockNumberError) ErrorCode() int { return errCodeBlockNumberInvalid }
+
+type invalidBlockTimestampError struct{ message string }
+func (e *invalidBlockTimestampError) Error() string  { return e.message }
+
 func (e *clientLimitExceededError) Error() string  { return e.message }
 func (e *clientLimitExceededError) ErrorCode() int { return errCodeClientLimitExceeded }
+
+type blockGasLimitReachedError struct{ message string }
+
+func (e *blockGasLimitReachedError) Error() string  { return e.message }
+func (e *blockGasLimitReachedError) ErrorCode() int { return errCodeBlockGasLimitReached }

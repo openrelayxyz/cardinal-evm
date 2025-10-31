@@ -23,6 +23,7 @@ import (
 	log "github.com/inconshreveable/log15"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/common/math"
+	"github.com/openrelayxyz/cardinal-evm/params"
 	"github.com/openrelayxyz/cardinal-evm/state"
 	"github.com/openrelayxyz/cardinal-evm/crypto/kzg4844"
 	"github.com/openrelayxyz/cardinal-evm/types"
@@ -67,6 +68,19 @@ type TransactionArgs struct {
 	AuthList   []types.Authorization `json:"authorizationList,omitempty"`
 }
 
+// this utility is being added to confrom to eip1559 protocol which set ups a mutually exclusive condition for args.GasPrice and args.MaxFeePerGas or args.MaxPriorityFeePerGas
+func (args *TransactionArgs) normalize() {
+    if args.MaxFeePerGas != nil || args.MaxPriorityFeePerGas != nil {
+        // 1559 style: drop legacy field
+        args.GasPrice = nil
+    } else if args.GasPrice != nil {
+        // Legacy style: drop 1559 fields
+        args.MaxFeePerGas = nil
+        args.MaxPriorityFeePerGas = nil
+    }
+}
+
+
 // from retrieves the transaction sender address.
 func (arg *TransactionArgs) from() common.Address {
 	if arg.From == nil {
@@ -90,6 +104,7 @@ func (arg *TransactionArgs) data() []byte {
 // core evm. This method is used in calls and traces that do not require a real
 // live transaction.
 func (args *TransactionArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (Msg, error) {
+	args.normalize()
 	// Reject invalid combinations of pre- and post-1559 fee styles
 	if args.GasPrice != nil && (args.MaxFeePerGas != nil || args.MaxPriorityFeePerGas != nil) {
 		return Msg{}, errors.New("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
@@ -160,19 +175,13 @@ func (args *TransactionArgs) ToMessage(globalGasCap uint64, baseFee *big.Int) (M
 // setDefaults provides values such that transactions will execute
 // successfully. Unlike the go-ethereum verson of this method, this is not
 // intended to be sane recommendations for gas prices based on mempool.
-func (args *TransactionArgs) setDefaults(ctx *rpc.CallContext, getEVM func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, db state.StateDB, header *types.Header, blockNrOrHash vm.BlockNumberOrHash) error {
+func (args *TransactionArgs) setDefaults(ctx *rpc.CallContext, chainConfig *params.ChainConfig, getEVM func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, db state.StateDB, header *types.Header, blockNrOrHash vm.BlockNumberOrHash) error {
 	if args.From == nil {
 		args.From = &(common.Address{})
 	}
 	// if args.GasPrice != nil && (args.MaxFeePerGas != nil || args.MaxPriorityFeePerGas != nil) {
 	// 	return errors.New("both gasPrice and (maxFeePerGas or maxPriorityFeePerGas) specified")
 	// }
-	// if args.MaxFeePerGas == nil {
-	// 	args.MaxFeePerGas = (*hexutil.Big)(header.BaseFee)
-	// }
-	if args.GasPrice == nil {
-		args.GasPrice = (*hexutil.Big)(header.BaseFee)
-	}
 	if args.Value == nil {
 		args.Value = new(hexutil.Big)
 	}
@@ -180,8 +189,20 @@ func (args *TransactionArgs) setDefaults(ctx *rpc.CallContext, getEVM func(state
 		nonce := db.GetNonce(*args.From)
 		args.Nonce = (*hexutil.Uint64)(&nonce)
 	}
+	if header.BaseFee == nil {
+		if args.GasPrice == nil {
+			args.GasPrice = new(hexutil.Big)
+		}
+	} else {
+		if args.MaxFeePerGas == nil {
+			args.MaxFeePerGas = (*hexutil.Big)(header.BaseFee)  
+		}
+		if args.MaxPriorityFeePerGas == nil {
+			args.MaxPriorityFeePerGas = new(hexutil.Big) 
+		}
+	}
 	if args.Gas == nil {
-		gas, _, err := DoEstimateGas(ctx, getEVM, *args, &PreviousState{db.ALCalcCopy(), header}, blockNrOrHash, header.GasLimit, true)
+		gas, _, err := DoEstimateGas(ctx, getEVM, *args, &PreviousState{db.ALCalcCopy(), header}, blockNrOrHash, header.GasLimit, true, chainConfig)
 		if err != nil {
 			return err
 		}

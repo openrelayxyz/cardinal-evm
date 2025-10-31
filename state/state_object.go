@@ -111,7 +111,6 @@ func (s *stateObject) equal(b *stateObject) bool {
 }
 
 func (s *stateObject) copy() *stateObject {
-
 	state := &stateObject{
 		address:  s.address,
 		account:  s.account,
@@ -127,6 +126,9 @@ func (s *stateObject) copy() *stateObject {
 	}
 	if s.nonce != nil {
 		state.nonce = &(*s.nonce)
+	}
+	if s.fakeBalance != nil {
+		state.fakeBalance = new(big.Int).Set(s.fakeBalance)
 	}
 	return state
 }

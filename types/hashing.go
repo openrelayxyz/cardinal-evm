@@ -63,7 +63,7 @@ func prefixedRlpHash(prefix byte, x interface{}) (h ctypes.Hash) {
 // This is internal, do not use.
 type TrieHasher interface {
 	Reset()
-	Update([]byte, []byte)
+	Update(key []byte, value []byte) error
 	Hash() ctypes.Hash
 }
 

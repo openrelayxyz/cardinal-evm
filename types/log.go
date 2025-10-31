@@ -41,19 +41,21 @@ type Log struct {
 	// Derived fields. These fields are filled in by the node
 	// but not secured by consensus.
 	// block in which the transaction was included
-	BlockNumber uint64 `json:"blockNumber"`
+	BlockNumber uint64 `json:"blockNumber" rlp:"-"`
 	// hash of the transaction
-	TxHash types.Hash `json:"transactionHash" gencodec:"required"`
+	TxHash types.Hash `json:"transactionHash" gencodec:"required" rlp:"-"`
 	// index of the transaction in the block
-	TxIndex uint `json:"transactionIndex"`
+	TxIndex uint `json:"transactionIndex" rlp:"-"`
 	// hash of the block in which the transaction was included
-	BlockHash types.Hash `json:"blockHash"`
+	BlockHash types.Hash `json:"blockHash" rlp:"-"`
+	// timestamp of the block in which the transaction was included
+	BlockTimestamp uint64 `json:"blockTimestamp" rlp:"-"`
 	// index of the log in the block
-	Index uint `json:"logIndex"`
+	Index uint `json:"logIndex" rlp:"-"`
 
 	// The Removed field is true if this log was reverted due to a chain reorganisation.
 	// You must pay attention to this field if you receive logs through a filter query.
-	Removed bool `json:"removed"`
+	Removed bool `json:"removed" rlp:"-"`
 }
 
 type logMarshaling struct {

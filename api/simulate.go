@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -13,11 +14,13 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/eips/eip4844"
 	"github.com/openrelayxyz/cardinal-evm/params"
 	"github.com/openrelayxyz/cardinal-evm/state"
+	"github.com/openrelayxyz/cardinal-evm/trie"
 	"github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-evm/vm"
 	rpc "github.com/openrelayxyz/cardinal-rpc"
 	ctypes "github.com/openrelayxyz/cardinal-types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
+	// log "github.com/inconshreveable/log15"
 )
 
 const (
@@ -26,7 +29,7 @@ const (
 	maxSimulateBlocks = 256
 
 	// timestampIncrement is the default increment between block timestamps.
-	timestampIncrement = 1
+	timestampIncrement = 12
 )
 
 // BlockOverrides is a set of header fields to override.
@@ -39,6 +42,8 @@ type BlockOverrides struct {
 	PrevRandao    *ctypes.Hash
 	BaseFeePerGas *hexutil.Big
 	BlobBaseFee   *hexutil.Big
+	BeaconRoot    *ctypes.Hash
+	Withdrawals   *types.Withdrawals
 }
 
 // simOpts are the inputs to eth_simulateV1.
@@ -51,6 +56,7 @@ type simOpts struct {
 
 // simBlock is a batch of calls to be simulated sequentially.
 type simBlock struct {
+	BlockOverrides *BlockOverrides
 	StateOverrides *StateOverride
 	Calls          []TransactionArgs
 }
@@ -69,15 +75,6 @@ type simulator struct {
 	evmFn          func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM
 }
 
-type simBlockResult struct {
-	fullTx      bool
-	chainConfig *params.ChainConfig
-	Block       *types.Block
-	Calls       []simCallResult
-	// senders is a map of transaction hashes to their senders.
-	senders map[ctypes.Hash]common.Address
-}
-
 // simCallResult is the result of a simulated call.
 type simCallResult struct {
 	ReturnValue hexutil.Bytes  `json:"returnData"`
@@ -87,21 +84,40 @@ type simCallResult struct {
 	Error       *callError     `json:"error,omitempty"`
 }
 
-type simpleTrieHasher struct {
-	data []byte
+func (r *simCallResult) MarshalJSON() ([]byte, error) {
+	type callResultAlias simCallResult
+	// Marshal logs to be an empty array instead of nil when empty
+	if r.Logs == nil {
+		r.Logs = []*types.Log{}
+	}
+	return json.Marshal((*callResultAlias)(r))
 }
 
-func (h *simpleTrieHasher) Reset() {
-	h.data = h.data[:0] 
+type simBlockResult struct {
+	fullTx      bool
+	chainConfig *params.ChainConfig
+	Block       *types.Block
+	Calls       []simCallResult
+	// senders is a map of transaction hashes to their senders.
+	senders map[ctypes.Hash]common.Address
 }
 
-func (h *simpleTrieHasher) Update(key, value []byte) {
-	h.data = append(h.data, key...)
-	h.data = append(h.data, value...)
-}
-
-func (h *simpleTrieHasher) Hash() ctypes.Hash {
-	return crypto.Keccak256Hash(h.data)
+func (r *simBlockResult) MarshalJSON() ([]byte, error) {
+	blockData := types.RPCMarshalBlock(r.Block, true, r.fullTx, r.chainConfig)
+	blockData["calls"] = r.Calls
+	// Set tx sender if user requested full tx objects.
+	if r.fullTx {
+		if raw, ok := blockData["transactions"].([]any); ok {
+			for _, tx := range raw {
+				if tx, ok := tx.(*types.RPCTransaction); ok {
+					tx.From = r.senders[tx.Hash]
+				} else {
+					return nil, errors.New("simulated transaction result has invalid type")
+				}
+			}
+		}
+	}
+	return json.Marshal(blockData)
 }
 
 func (s *simulator) execute(ctx *rpc.CallContext, blocks []simBlock) ([]*simBlockResult, error) {
@@ -124,11 +140,43 @@ func (s *simulator) execute(ctx *rpc.CallContext, blocks []simBlock) ([]*simBloc
 		parent  = s.base
 	)
 
+	var err error
+	blocks, err = s.sanitizeChain(blocks)
+	if err != nil {
+		return nil, err
+	}
+
 	for bi, block := range blocks {
 		header := types.CopyHeader(s.base)
 		header.Number = new(big.Int).Add(s.base.Number, big.NewInt(int64(bi+1)))
 		header.ParentHash = parent.Hash()
-		header.Time = parent.Time + uint64(bi+1)*12
+		header.Extra = []byte{}
+		header.BaseFee = nil
+
+		override := *block.BlockOverrides
+		if override.Number != nil {header.Number = override.Number.ToInt()}
+		if override.Difficulty != nil {header.Difficulty = override.Difficulty.ToInt()}
+		if override.Time != nil {header.Time = uint64(*override.Time)}
+		if override.GasLimit != nil {header.GasLimit = uint64(*override.GasLimit)}
+		if override.FeeRecipient != nil {header.Coinbase = *override.FeeRecipient}
+		if override.PrevRandao != nil {header.MixDigest = *override.PrevRandao} else{
+			header.MixDigest = ctypes.Hash{}
+		}
+		if override.BaseFeePerGas != nil {header.BaseFee = override.BaseFeePerGas.ToInt()}
+		if override.BlobBaseFee != nil {
+			val := *override.BlobBaseFee.ToInt()
+			ptr := val.Uint64()
+			header.ExcessBlobGas = &ptr
+		}
+
+		var parentBeaconRoot *ctypes.Hash
+		if s.chainConfig.IsCancun(override.Number.ToInt(), big.NewInt(int64(*override.Time))) {
+			parentBeaconRoot = &ctypes.Hash{}
+			if override.BeaconRoot != nil {
+				parentBeaconRoot = override.BeaconRoot
+			}
+		}
+		header.ParentBeaconRoot = parentBeaconRoot
 
 		s.gp = new(GasPool).AddGas(header.GasLimit)
 
@@ -165,20 +213,11 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 	if s.chainConfig.IsCancun(header.Number, new(big.Int).SetUint64(header.Time)) {
 		var excess uint64
 		if s.chainConfig.IsCancun(parent.Number, new(big.Int).SetUint64(parent.Time)) {
-			parentExcess := uint64(0)
-			if parent.ExcessBlobGas != nil {
-				parentExcess = *parent.ExcessBlobGas
-			}
-			parentBlobGasUsed := uint64(0)
-			if parent.BlobGasUsed != nil {
-				parentBlobGasUsed = *parent.BlobGasUsed
-			}
-			excess = eip4844.CalcExcessBlobGas(parentExcess, parentBlobGasUsed)
+			excess = eip4844.CalcExcessBlobGas(s.chainConfig, parent, header.Time)
 		}
 		header.ExcessBlobGas = &excess
 	}
 	
-
 	// State overrides are applied prior to execution of a block
 	if block.StateOverrides != nil {
 		if err := block.StateOverrides.Apply(s.state); err != nil {
@@ -193,7 +232,7 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		callResults = make([]simCallResult, len(block.Calls))
 		receipts    = make([]*types.Receipt, len(block.Calls))
 		senders     = make(map[ctypes.Hash]common.Address)
-		// allLogs     []*types.Log
+		tracer      = newTracer(s.traceTransfers, header.Number.Uint64(), header.Time, header.Hash(), ctypes.Hash{}, 0)
 	)
 
 	getHashFn := func(n uint64) ctypes.Hash {
@@ -212,21 +251,42 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 		if err := ctx.Context().Err(); err != nil {
 			return nil, nil, nil, err
 		}
-		if err := call.setDefaults(ctx, s.evmFn, s.state, header, vm.BlockNumberOrHashWithHash(header.Hash(), false)); err != nil {
+		// Let the call run wild unless explicitly specified.
+		if call.Gas == nil {
+			remaining := header.GasLimit - gasUsed
+			call.Gas = (*hexutil.Uint64)(&remaining)
+		}
+
+		// Cap at gas pool
+		gasCap := s.gp.Gas()
+		if gasCap > 0 && gasCap < uint64(*call.Gas) {
+			call.Gas = (*hexutil.Uint64)(&gasCap)
+		}
+
+		if gasUsed+uint64(*call.Gas) > header.GasLimit {
+			return nil,nil,nil, &blockGasLimitReachedError{fmt.Sprintf("block gas limit reached: %d >= %d", gasUsed, header.GasLimit)}
+		}
+		if call.ChainID == nil {
+			call.ChainID = (*hexutil.Big)(s.chainConfig.ChainID)
+		}
+		if err := call.setDefaults(ctx, s.chainConfig, s.evmFn, s.state, header, vm.BlockNumberOrHashWithHash(header.Hash(), false)); err != nil {
 			return nil, nil, nil, err
 		}
-		if gasUsed+uint64(*call.Gas) > header.GasLimit {
-			return nil, nil, nil, fmt.Errorf("block gas limit exceeded")
-		}
+
+		evm := s.evmFn(s.state, &vm.Config{
+			NoBaseFee: !s.validate, Tracer: tracer, Debug: s.traceTransfers,
+		}, call.from(), call.GasPrice.ToInt())
+
 		tx := call.ToTransaction(types.DynamicFeeTxType)
 		txes[i] = tx
 		senders[tx.Hash()] = call.from()
+
+		//update tracer with real tx hash
+		tracer.reset(tx.Hash(), uint(i))
+
 		s.state.SetTxContext(tx.Hash(), i)
-
-		evm := s.evmFn(s.state, &vm.Config{
-			NoBaseFee: !s.validate,
-		}, call.from(), call.GasPrice.ToInt())
-
+		
+		evm.Context.BaseFee = header.BaseFee
 		if evm.Context.GetHash == nil {
 			evm.Context.GetHash = getHashFn
 		}
@@ -247,7 +307,7 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 			root = nil
 		}
 		gasUsed += result.UsedGas
-		header.Root = s.base.Root
+		// header.Root = s.base.Root
 
 		receipt := &types.Receipt{
 			Type:              tx.Type(),
@@ -282,6 +342,9 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 			ReturnValue: result.ReturnData,
 			Logs:  receipt.Logs,
 		}
+		if s.traceTransfers && tracer != nil{
+			callRes.Logs = append(callRes.Logs, tracer.Logs()...)
+		}
 		if result.Failed() {
 			callRes.Status = hexutil.Uint64(types.ReceiptStatusFailed)
 			if errors.Is(result.Err, vm.ErrExecutionReverted) {
@@ -293,7 +356,6 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 			}
 		} else {
 			callRes.Status = hexutil.Uint64(types.ReceiptStatusSuccessful)
-			// allLogs = append(allLogs, receipt.Logs...)
 		}
 		callResults[i] = callRes
 	}
@@ -302,16 +364,88 @@ func (s *simulator) processBlock(ctx *rpc.CallContext, block *simBlock, header, 
 	if s.chainConfig.IsCancun(header.Number, new(big.Int).SetUint64(header.Time)) {
 		header.BlobGasUsed = &blobGasUsed
 	}
-
-	hasher := &simpleTrieHasher{}
-
-	header.TxHash = types.DeriveSha(types.Transactions(txes), hasher)
-	header.ReceiptHash = types.DeriveSha(types.Receipts(receipts), hasher)
 	header.Bloom = types.CreateBloom(receipts)
-	header.Root = s.base.Root
+	
+	reqHash := types.CalcRequestsHash([][]byte{})
+	header.RequestsHash = &reqHash
 
-	blockBody := &types.Body{Transactions: txes}
-	blck := types.NewBlock(header, blockBody, receipts, hasher)
+	blockBody := &types.Body{Transactions: txes, Withdrawals: *block.BlockOverrides.Withdrawals}
+	blck := types.NewBlock(header, blockBody, receipts, trie.NewStackTrie(nil))
 
 	return blck, callResults, senders, nil
 }
+
+// sanitizeChain checks the chain integrity. Specifically it checks that
+// block numbers and timestamp are strictly increasing, setting default values
+// when necessary. Gaps in block numbers are filled with empty blocks.
+// Note: It modifies the block's override object.
+func (s *simulator) sanitizeChain(blocks []simBlock) ([]simBlock, error) {
+	var (
+		res           = make([]simBlock, 0, len(blocks))
+		base          = s.base
+		prevNumber    = base.Number
+		prevTimestamp = base.Time
+	)
+	for _, block := range blocks {
+		if block.BlockOverrides == nil {
+			block.BlockOverrides = new(BlockOverrides)
+		}
+		if block.BlockOverrides.Number == nil {
+			n := new(big.Int).Add(prevNumber, big.NewInt(1))
+			block.BlockOverrides.Number = (*hexutil.Big)(n)
+		}
+		if block.BlockOverrides.Withdrawals == nil {
+			block.BlockOverrides.Withdrawals = &types.Withdrawals{}
+		}
+		diff := new(big.Int).Sub(block.BlockOverrides.Number.ToInt(), prevNumber)
+		if diff.Cmp(common.Big0) <= 0 {
+			return nil, &invalidBlockNumberError{fmt.Sprintf("block numbers must be in order: %d <= %d", block.BlockOverrides.Number.ToInt().Uint64(), prevNumber)}
+		}
+		if total := new(big.Int).Sub(block.BlockOverrides.Number.ToInt(), base.Number); total.Cmp(big.NewInt(maxSimulateBlocks)) > 0 {
+			return nil, &clientLimitExceededError{message: "too many blocks"}
+		}
+		if diff.Cmp(big.NewInt(1)) > 0 {
+			// Fill the gap with empty blocks.
+			gap := new(big.Int).Sub(diff, big.NewInt(1))
+			// Assign block number to the empty blocks.
+			for i := uint64(0); i < gap.Uint64(); i++ {
+				n := new(big.Int).Add(prevNumber, big.NewInt(int64(i+1)))
+				t := prevTimestamp + timestampIncrement
+				b := simBlock{
+					BlockOverrides: &BlockOverrides{
+						Number:      (*hexutil.Big)(n),
+						Time:        (*hexutil.Uint64)(&t),
+						Withdrawals: &types.Withdrawals{},
+					},
+				}
+				prevTimestamp = t
+				res = append(res, b)
+			}
+		}
+		// Only append block after filling a potential gap.
+		prevNumber = block.BlockOverrides.Number.ToInt()
+		var t uint64
+		if block.BlockOverrides.Time == nil {
+			t = prevTimestamp + timestampIncrement
+			block.BlockOverrides.Time = (*hexutil.Uint64)(&t)
+		} else {
+			t = uint64(*block.BlockOverrides.Time)
+			if t <= prevTimestamp {
+				return nil, &invalidBlockTimestampError{fmt.Sprintf("block timestamps must be in order: %d <= %d", t, prevTimestamp)}
+			}
+		}
+		prevTimestamp = t
+		res = append(res, block)
+	}
+	return res, nil
+}
+
+// there is a virtual log being returned by geth on any eth transfer. It is present in geth and we need to figure out how to implement it in EVM.
+// aparently geth removes the extra data field from the block which we ran the call against, while evm includes it.
+// look into how the block hash is being produced -- Probably not worth trying to do.  
+// evm includes mix hash where geth does not. 
+// look into parent beacon block root and why it appears to be left off from geth. 
+// receipt root should be achievable (maybe geth is including the virtual log in the receipts)
+// geth returns a size value where evm appears not to. 
+// research why evm is producing a different tx hash
+// evm is not including withdrawals and withdrawals hash in what we return but should. 
