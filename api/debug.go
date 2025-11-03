@@ -24,9 +24,6 @@ func NewDebugAPI(s storage.Storage, evmmgr *vm.EVMManager, chainid int64) *Priva
 	return &PrivateDebugAPI{storage: s, evmmgr: evmmgr, chainid: chainid}
 }
 
-// GetBalance returns the amount of wei for the given address in the state of the
-// given block number. The rpc.LatestBlockNumber and rpc.PendingBlockNumber meta
-// block numbers are also allowed.
 func (s *PrivateDebugAPI) GetAccountData(ctx *rpc.CallContext, address common.Address, blockNrOrHash vm.BlockNumberOrHash) (map[string]interface{}, error) {
 	result := make(map[string]interface{})
 	err := s.evmmgr.View(blockNrOrHash, ctx, func(statedb state.StateDB) {
@@ -42,6 +39,24 @@ func (s *PrivateDebugAPI) GetAccountData(ctx *rpc.CallContext, address common.Ad
 		}
 	}
 	return result, err
+}
+
+
+func (s *PrivateDebugAPI) RawKeyLookup(ctx *rpc.CallContext, key hexutil.Bytes, blockNrOrHash vm.BlockNumberOrHash) (hexutil.Bytes, error) {
+	var result []byte
+	err := s.evmmgr.View(blockNrOrHash, ctx, func(tx storage.Transaction) error {
+		v, err := tx.Get([]byte(key))
+		result = v
+		return err
+	})
+	if err != nil {
+		switch err.(type) {
+		case codedError:
+		default:
+			err = evmError{err}
+		}
+	}
+	return (hexutil.Bytes)(result), err
 }
 
 // CreateAccessList creates a EIP-2930 type AccessList for the given transaction.
