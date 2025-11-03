@@ -8,6 +8,7 @@ import (
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/state"
 	"github.com/openrelayxyz/cardinal-evm/types"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-evm/params"
 	"github.com/openrelayxyz/cardinal-rpc"
 )
@@ -21,6 +22,26 @@ type PrivateDebugAPI struct {
 // NewPublicBlockChainAPI creates a new Ethereum blockchain API.
 func NewDebugAPI(s storage.Storage, evmmgr *vm.EVMManager, chainid int64) *PrivateDebugAPI {
 	return &PrivateDebugAPI{storage: s, evmmgr: evmmgr, chainid: chainid}
+}
+
+// GetBalance returns the amount of wei for the given address in the state of the
+// given block number. The rpc.LatestBlockNumber and rpc.PendingBlockNumber meta
+// block numbers are also allowed.
+func (s *PrivateDebugAPI) GetAccountData(ctx *rpc.CallContext, address common.Address, blockNrOrHash vm.BlockNumberOrHash) (map[string]interface{}, error) {
+	result := make(map[string]interface{})
+	err := s.evmmgr.View(blockNrOrHash, ctx, func(statedb state.StateDB) {
+		result["balance"] = (*hexutil.Big)(statedb.GetBalance(address))
+		result["nonce"] = statedb.GetNonce(address)
+		result["codeHash"] = statedb.GetCodeHash(address)
+	})
+	if err != nil {
+		switch err.(type) {
+		case codedError:
+		default:
+			err = evmError{err}
+		}
+	}
+	return result, err
 }
 
 // CreateAccessList creates a EIP-2930 type AccessList for the given transaction.
