@@ -20,14 +20,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"math/big"
-	"time"
 	"sync/atomic"
+	"errors"
+	"time"
 
 	"github.com/openrelayxyz/cardinal-evm/common"
-	"github.com/openrelayxyz/cardinal-types/hexutil"
-	"github.com/openrelayxyz/cardinal-evm/vm"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
+	"github.com/openrelayxyz/cardinal-evm/types"
+	"github.com/openrelayxyz/cardinal-evm/vm"
 	ctypes "github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 )
 
 //go:generate go run github.com/fjl/gencodec -type account -field-override accountMarshaling -out gen_account_json.go
@@ -41,8 +43,10 @@ type stateMap = map[common.Address]*account
 type account struct {
 	Balance *big.Int                    `json:"balance,omitempty"`
 	Code    []byte                      `json:"code,omitempty"`
+	CodeHash *ctypes.Hash                `json:"codeHash,omitempty"`
 	Nonce   uint64                      `json:"nonce,omitempty"`
 	Storage map[ctypes.Hash]ctypes.Hash `json:"storage,omitempty"`
+	empty   bool 
 }
 
 func (a *account) exists() bool {
@@ -71,6 +75,9 @@ type prestateTracer struct {
 
 type prestateTracerConfig struct {
 	DiffMode bool `json:"diffMode"` // If true, this tracer will return state modifications
+	DisableCode    bool `json:"disableCode"`    // If true, this tracer will not return the contract code
+	DisableStorage bool `json:"disableStorage"` // If true, this tracer will not return the contract storage
+	IncludeEmpty   bool `json:"includeEmpty"`   // If true, this tracer will return empty state objects
 }
 
 func newPrestateTracer(ctx *Context, cfg json.RawMessage) (vm.Tracer, error) {
@@ -79,6 +86,11 @@ func newPrestateTracer(ctx *Context, cfg json.RawMessage) (vm.Tracer, error) {
 		if err := json.Unmarshal(cfg, &config); err != nil {
 			return nil, err
 		}
+	}
+	// Diff mode has special semantics around account creating and deletion which
+	// requires it to include empty accounts and storage.
+	if config.DiffMode && config.IncludeEmpty {
+		return nil, errors.New("cannot use diffMode with includeEmpty")
 	}
 	t:=  prestateTracer{
 		pre:     stateMap{},
@@ -105,6 +117,10 @@ func (t *prestateTracer) CaptureStart(env *vm.EVM, from common.Address, to commo
 	toBal := new(big.Int).Sub(t.pre[to].Balance, value)
 	t.pre[to].Balance = toBal
 
+	if !t.pre[to].exists() {
+		t.pre[to].empty = true
+	}
+
 	// The sender balance is after reducing: value and gasLimit.
 	// We need to re-add them to get the pre-tx balance.
 	fromBal := new(big.Int).Set(t.pre[from].Balance)
@@ -130,6 +146,11 @@ func (t *prestateTracer) CaptureEnd(output []byte, gasUsed uint64, time time.Dur
 		if s := t.pre[t.to]; s != nil && !s.exists() {
 			// Exclude newly created contract.
 			delete(t.pre, t.to)
+		}
+	}
+	for addr, s := range t.pre {
+		if s.empty {
+			delete(t.pre, addr)
 		}
 	}
 }
@@ -182,64 +203,18 @@ func (t *prestateTracer) CaptureTxStart(gasLimit uint64) {
 }
 
 func (t *prestateTracer) CaptureTxEnd(restGas uint64) {
-	if !t.config.DiffMode {
+	if t.config.DiffMode {
+		t.processDiffState()
+	}
+	// Remove accounts that were empty prior to execution. Unless
+	// user requested to include empty accounts.
+	if t.config.IncludeEmpty {
 		return
 	}
 
-	for addr, state := range t.pre {
-		// The deleted account's state is pruned from `post` but kept in `pre`
-		if _, ok := t.deleted[addr]; ok {
-			continue
-		}
-		modified := false
-		postAccount := &account{Storage: make(map[ctypes.Hash]ctypes.Hash)}
-		newBalance := t.env.StateDB.GetBalance(addr)
-		newNonce := t.env.StateDB.GetNonce(addr)
-		newCode := t.env.StateDB.GetCode(addr)
-
-		if newBalance.Cmp(t.pre[addr].Balance) != 0 {
-			modified = true
-			postAccount.Balance = newBalance
-		}
-		if newNonce != t.pre[addr].Nonce {
-			modified = true
-			postAccount.Nonce = newNonce
-		}
-		if !bytes.Equal(newCode, t.pre[addr].Code) {
-			modified = true
-			postAccount.Code = newCode
-		}
-
-		for key, val := range state.Storage {
-			// don't include the empty slot
-			if val == (ctypes.Hash{}) {
-				delete(t.pre[addr].Storage, key)
-			}
-
-			newVal := t.env.StateDB.GetState(addr, key)
-			if val == newVal {
-				// Omit unchanged slots
-				delete(t.pre[addr].Storage, key)
-			} else {
-				modified = true
-				if newVal != (ctypes.Hash{}) {
-					postAccount.Storage[key] = newVal
-				}
-			}
-		}
-
-		if modified {
-			t.post[addr] = postAccount
-		} else {
-			// if state is not modified, then no need to include into the pre state
+	for addr, s := range t.pre {
+		if s.empty {
 			delete(t.pre, addr)
-		}
-	}
-	// the new created contracts' prestate were empty, so delete them
-	for a := range t.created {
-		// the created contract maybe exists in statedb before the creating tx
-		if s := t.pre[a]; s != nil && !s.exists() {
-			delete(t.pre, a)
 		}
 	}
 }
@@ -269,6 +244,90 @@ func (t *prestateTracer) Stop(err error) {
 	t.interrupt.Store(true)
 }
 
+func (t *prestateTracer) processDiffState() {
+	for addr, state := range t.pre {
+		// The deleted account's state is pruned from `post` but kept in `pre`
+		if _, ok := t.deleted[addr]; ok {
+			continue
+		}
+		modified := false
+		postAccount := &account{Storage: make(map[ctypes.Hash]ctypes.Hash)}
+		newBalance := t.env.StateDB.GetBalance(addr)
+		newNonce := t.env.StateDB.GetNonce(addr)
+		newCodeHash := t.env.StateDB.GetCodeHash(addr)
+
+		if newBalance.Cmp(t.pre[addr].Balance) != 0 {
+			modified = true
+			postAccount.Balance = newBalance
+		}
+		if newNonce != t.pre[addr].Nonce {
+			modified = true
+			postAccount.Nonce = newNonce
+		}
+		prevCodeHash := ctypes.Hash{}
+		if t.pre[addr].CodeHash != nil {
+			prevCodeHash = *t.pre[addr].CodeHash
+		}
+		// Empty code hashes are excluded from the prestate. Normalize
+		// the empty code hash to a zero hash to make it comparable.
+		if newCodeHash == types.EmptyCodeHash {
+			newCodeHash = ctypes.Hash{}
+		}
+		if newCodeHash != prevCodeHash {
+			modified = true
+			postAccount.CodeHash = &newCodeHash
+		}
+		if !t.config.DisableCode {
+			newCode := t.env.StateDB.GetCode(addr)
+			if !bytes.Equal(newCode, t.pre[addr].Code) {
+				modified = true
+				postAccount.Code = newCode
+			}
+		}
+
+		if !t.config.DisableStorage {
+			for key, val := range state.Storage {
+				// don't include the empty slot
+				if val == (ctypes.Hash{}) {
+					delete(t.pre[addr].Storage, key)
+				}
+
+				newVal := t.env.StateDB.GetState(addr, key)
+				if val == newVal {
+					// Omit unchanged slots
+					delete(t.pre[addr].Storage, key)
+				} else {
+					modified = true
+					if newVal != (ctypes.Hash{}) {
+						postAccount.Storage[key] = newVal
+					}
+				}
+			}
+		}
+
+		if modified {
+			t.post[addr] = postAccount
+		} else {
+			// if state is not modified, then no need to include into the pre state
+			delete(t.pre, addr)
+		}
+	}
+	// for a := range t.created {
+	// 	if s := t.pre[a]; s != nil && !s.exists() {
+	// 		delete(t.pre, a)
+	// 	}
+	// }
+
+	// if _, inPre := t.pre[t.to]; !inPre {
+	// 	newBalance := t.env.StateDB.GetBalance(t.to)
+	// 	if newBalance.Sign() != 0 {
+	// 		t.post[t.to] = &account{
+	// 			Balance: newBalance,
+	// 		}
+	// 	}
+	// }
+}
+
 // lookupAccount fetches details of an account and adds it to the prestate
 // if it doesn't exist there.
 func (t *prestateTracer) lookupAccount(addr common.Address) {
@@ -276,18 +335,36 @@ func (t *prestateTracer) lookupAccount(addr common.Address) {
 		return
 	}
 
-	t.pre[addr] = &account{
+	acc := &account{
 		Balance: t.env.StateDB.GetBalance(addr),
 		Nonce:   t.env.StateDB.GetNonce(addr),
 		Code:    t.env.StateDB.GetCode(addr),
-		Storage: make(map[ctypes.Hash]ctypes.Hash),
 	}
+	codeHash := t.env.StateDB.GetCodeHash(addr)
+	// If the code is empty, we don't need to store it in the prestate.
+	if codeHash != (ctypes.Hash{}) && codeHash != types.EmptyCodeHash {
+		acc.CodeHash = &codeHash
+	}
+	if !acc.exists() {
+		acc.empty = true
+	}
+	// The code must be fetched first for the emptiness check.
+	if t.config.DisableCode {
+		acc.Code = nil
+	}
+	if !t.config.DisableStorage {
+		acc.Storage = make(map[ctypes.Hash]ctypes.Hash)
+	}
+	t.pre[addr] = acc
 }
 
 // lookupStorage fetches the requested storage slot and adds
 // it to the prestate of the given contract. It assumes `lookupAccount`
 // has been performed on the contract before.
 func (t *prestateTracer) lookupStorage(addr common.Address, key ctypes.Hash) {
+	if t.config.DisableStorage {
+		return
+	}
 	if _, ok := t.pre[addr].Storage[key]; ok {
 		return
 	}

@@ -44,8 +44,8 @@ func NewMuxTracer(ctx *Context, cfg json.RawMessage) (vm.Tracer, error) {
 	}
 	objects := make([]vm.Tracer, 0, len(config))
 	names := make([]string, 0, len(config))
-	for k, _ := range config {
-		t, err := New(k, ctx, cfg)
+	for k, v := range config {
+		t, err := New(k, ctx, v)
 		if err != nil {
 			return nil, err
 		}

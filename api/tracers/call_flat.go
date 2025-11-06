@@ -293,6 +293,7 @@ func newFlatCreate(input *callFrame) *flatCallFrame {
 	return &flatCallFrame{
 		Type: strings.ToLower(vm.CREATE.String()),
 		Action: flatCallAction{
+			CreationMethod: strings.ToLower(input.Type.String()),
 			From:  &input.From,
 			Gas:   &input.Gas,
 			Value: input.Value,
