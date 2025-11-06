@@ -104,16 +104,10 @@ func (t *fourByteTracer) CaptureStart(env *vm.EVM,from common.Address, to common
 	t.activePrecompiles = vm.ActivePrecompiles(rules)
 
 	// Save the outer calldata also
-	if len(input) >= 4 {
+	if !create && len(input) >= 4 && !t.isPrecompiled(to) {
 		t.store(input[0:4], len(input)-4)
 	}
 }
-// func (t *fourByteTracer) CaptureEnd([]byte, uint64, time.Duration, error) { }
-// func (t *fourByteTracer) CaptureExit(output []byte, gasUsed uint64, err error) {}
-// func (t *fourByteTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, rData []byte, depth int, err error) {}
-// func (t *fourByteTracer) CaptureFault(pc uint64, op vm.OpCode, gas, cost uint64, scope *vm.ScopeContext, depth int, err error){}
-// func (t *fourByteTracer) CaptureTxEnd(res uint64){}
-// func (t *fourByteTracer) CaptureTxStart(res uint64){}
 
 // GetResult returns the json-encoded nested list of call traces, and any
 // error arising from the encoding or forceful termination (via `Stop`).

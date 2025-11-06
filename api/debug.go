@@ -147,7 +147,7 @@ func (s *PrivateDebugAPI) TraceCall(ctx *rpc.CallContext, args TransactionArgs, 
 		if config != nil {
 			traceConfig = &config.TraceConfig
 		}
-		result, err = s.traceTx(ctx, msg, new(tracers.Context), header, statedb, evmFn, cfg, traceConfig)
+		result, err = s.traceTx(ctx, msg, new(tracers.Context), header, statedb, evmFn, traceConfig)
 		return err
 	})
 	if err != nil {
@@ -165,7 +165,7 @@ func (s *PrivateDebugAPI) TraceCall(ctx *rpc.CallContext, args TransactionArgs, 
 // traceTx configures a new tracer according to the provided configuration, and
 // executes the given message in the provided environment. The return value will
 // be tracer dependent.
-func (s *PrivateDebugAPI) traceTx(ctx *rpc.CallContext, message Msg, txctx *tracers.Context, header *types.Header, statedb state.StateDB, getEVM func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, chainConfig *params.ChainConfig, config *TraceConfig) (interface{}, error){
+func (s *PrivateDebugAPI) traceTx(ctx *rpc.CallContext, message Msg, txctx *tracers.Context, header *types.Header, statedb state.StateDB, getEVM func(state.StateDB, *vm.Config, common.Address, *big.Int) *vm.EVM, config *TraceConfig) (interface{}, error){
 	var ( 
 		timeout = s.traceTimeout
 		err error
@@ -181,7 +181,11 @@ func (s *PrivateDebugAPI) traceTx(ctx *rpc.CallContext, message Msg, txctx *trac
 	}
 	var tracer vm.Tracer
 	if config == nil || config.Tracer == nil {
-		 tracer = vm.NewStructLogger(&vm.LogConfig{})
+		logCfg := &vm.LogConfig{}
+		if config != nil {
+			logCfg = &config.LogConfig
+		}
+		 tracer = vm.NewStructLogger(logCfg)
 	} else {
 		tracer, err = tracers.New(*config.Tracer, txctx,config.TracerConfig)
 		if err != nil {
