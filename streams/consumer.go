@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"math/big"
 	"time"
+	"errors"
 	log "github.com/inconshreveable/log15"
 )
 
@@ -45,10 +46,14 @@ type StreamManager struct{
 	lastBlockTime time.Time
 	processTime time.Duration
 	heightCh chan<- *rpc.HeightRecord
+	triggerBlock *int64
 }
 
-func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, chainid int64, s storage.Storage, whitelist map[uint64]types.Hash, resumptionTime int64, heightCh chan<- *rpc.HeightRecord, failedReconstructPanic bool, blacklist map[string]map[int32]map[int64]struct{}) (*StreamManager, error) {
+func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, chainid int64, s storage.Storage, whitelist map[uint64]types.Hash, resumptionTime int64, heightCh chan<- *rpc.HeightRecord, failedReconstructPanic bool, blacklist map[string]map[int32]map[int64]struct{}, stoppingBlock *int64) (*StreamManager, error) {
 	lastHash, lastNumber, lastWeight, resumption := s.LatestBlock()
+	if uint64(*stoppingBlock) >= lastNumber{
+		return nil, errors.New(fmt.Sprintf("last block is beyond exit at block, lastblock: %v, exit at block: %v",lastNumber, *stoppingBlock))
+	}
 	trackedPrefixes := []*regexp.Regexp{
 		regexp.MustCompile("c/[0-9a-z]+/a/"),
 		regexp.MustCompile("c/[0-9a-z]+/s"),
@@ -96,6 +101,7 @@ func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, ch
 		ready: make(chan struct{}),
 		chainid: chainid,
 		heightCh: heightCh,
+		triggerBlock: stoppingBlock,
 	}, nil
 }
 
@@ -194,6 +200,10 @@ func (m *StreamManager) Start() error {
 				update.Done()
 				m.heightCh <- heightRecord
 				log.Info("Imported new chain segment", params...)
+				if latest.Number == *m.triggerBlock {
+					log.Info("exit block reached")
+					m.Close()
+				}
 			case reorg := <-reorgCh:
 				for k := range reorg {
 					m.storage.Rollback(uint64(k))
