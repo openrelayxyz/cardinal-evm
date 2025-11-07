@@ -46,13 +46,13 @@ type StreamManager struct{
 	lastBlockTime time.Time
 	processTime time.Duration
 	heightCh chan<- *rpc.HeightRecord
-	triggerBlock *int64
+	triggerBlock int64
 }
 
-func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, chainid int64, s storage.Storage, whitelist map[uint64]types.Hash, resumptionTime int64, heightCh chan<- *rpc.HeightRecord, failedReconstructPanic bool, blacklist map[string]map[int32]map[int64]struct{}, stoppingBlock *int64) (*StreamManager, error) {
+func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, chainid int64, s storage.Storage, whitelist map[uint64]types.Hash, resumptionTime int64, heightCh chan<- *rpc.HeightRecord, failedReconstructPanic bool, blacklist map[string]map[int32]map[int64]struct{}, stoppingBlock int64) (*StreamManager, error) {
 	lastHash, lastNumber, lastWeight, resumption := s.LatestBlock()
-	if uint64(*stoppingBlock) >= lastNumber{
-		return nil, errors.New(fmt.Sprintf("last block is beyond exit at block, lastblock: %v, exit at block: %v",lastNumber, *stoppingBlock))
+	if uint64(stoppingBlock) >= lastNumber{
+		return nil, errors.New(fmt.Sprintf("last block is beyond exit at block, lastblock: %v, exit at block: %v",lastNumber, stoppingBlock))
 	}
 	trackedPrefixes := []*regexp.Regexp{
 		regexp.MustCompile("c/[0-9a-z]+/a/"),
@@ -124,12 +124,21 @@ func (m *StreamManager) Start() error {
 	}
 
 	waitCh := make(chan struct{})
+	exitAtCh := make(chan struct{})
 	go func() {
 		if !waiting {
-			<-consumerReady
-			waiting = true
+			select {
+			case <-consumerReady:
+				waiting = true
+			case <-exitAtCh:
+				m.ready <- struct{}{}
+				return
+			}
 		}
-		<-waitCh
+		select {
+		case <-waitCh:
+		case <-exitAtCh:
+		}
 		m.ready <- struct{}{}
 	}()
 	go func() {
@@ -200,9 +209,10 @@ func (m *StreamManager) Start() error {
 				update.Done()
 				m.heightCh <- heightRecord
 				log.Info("Imported new chain segment", params...)
-				if latest.Number == *m.triggerBlock {
+				if latest.Number == m.triggerBlock {
 					log.Info("exit block reached")
-					m.Close()
+					close(exitAtCh)
+					return 
 				}
 			case reorg := <-reorgCh:
 				for k := range reorg {

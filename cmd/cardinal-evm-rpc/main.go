@@ -120,7 +120,7 @@ func main() {
 		heightCh,
 		*exitWhenSynced,
 		cfg.Blacklist,
-		exitAtBlock,
+		*exitAtBlock,
 	)
 	if err != nil {
 		log.Error("Error connecting streams", "err", err)
@@ -156,8 +156,12 @@ func main() {
 	log.Debug("Waiting for stream to be ready")
 	<-sm.Ready()
 	log.Debug("Stream ready")
-	if *exitWhenSynced {
-		log.Info("--exitwhensynced set: shutting down")
+	if *exitWhenSynced || *exitAtBlock > 0 {
+		if *exitWhenSynced {
+			log.Info("--exitwhensynced set: shutting down")
+		} else {
+			log.Info(fmt.Sprintf("--exitAtBlock set: %v, shutting down", *exitAtBlock))
+		}
 		sm.Close()
 		s.Vacuum(cfg.RollbackThreshold, time.Duration(cfg.VacuumTime) * time.Second)
 		s.Close()
