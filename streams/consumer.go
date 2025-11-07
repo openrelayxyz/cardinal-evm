@@ -51,7 +51,7 @@ type StreamManager struct{
 
 func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, chainid int64, s storage.Storage, whitelist map[uint64]types.Hash, resumptionTime int64, heightCh chan<- *rpc.HeightRecord, failedReconstructPanic bool, blacklist map[string]map[int32]map[int64]struct{}, stoppingBlock int64) (*StreamManager, error) {
 	lastHash, lastNumber, lastWeight, resumption := s.LatestBlock()
-	if lastNumber >= uint64(stoppingBlock) {
+	if stoppingBlock > 0 && lastNumber >= uint64(stoppingBlock) {
 		return nil, errors.New(fmt.Sprintf("last block is beyond exit at block, lastblock: %v, exit at block: %v",lastNumber, stoppingBlock))
 	}
 	trackedPrefixes := []*regexp.Regexp{
@@ -209,7 +209,7 @@ func (m *StreamManager) Start() error {
 				update.Done()
 				m.heightCh <- heightRecord
 				log.Info("Imported new chain segment", params...)
-				if latest.Number == m.triggerBlock {
+				if m.triggerBlock > 0  && latest.Number == m.triggerBlock {
 					log.Info("exit block reached")
 					close(exitAtCh)
 					return 
