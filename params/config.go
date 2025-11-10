@@ -69,6 +69,7 @@ var (
 		ShanghaiTime:        big.NewInt(1681338455),
 		CancunTime:          big.NewInt(1710338135),
 		PragueTime:          big.NewInt(1746612311),
+		OsakaTime:           big.NewInt(1764798551),
 		Ethash:              new(EthashConfig),
 		Engine:              ETHashEngine,
 		BlobSchedule:        []*BlobConfig{
@@ -85,6 +86,27 @@ var (
 				Target: 6,
 				Max : 9,
 				UpdateFraction: 5007716,
+			},
+			// Osaka
+			&BlobConfig{
+				ActivationTime: 1764798551,
+				Target: 6,
+				Max: 9,
+				UpdateFraction: 5007716,
+			},
+			// BP01
+			&BlobConfig{
+				ActivationTime: 1765290071,
+				Target: 10,
+				Max: 15,
+				UpdateFraction: 8346193,
+			},
+			// BP02
+			&BlobConfig{
+				ActivationTime: 1767747671,
+				Target: 14,
+				Max: 21,
+				UpdateFraction: 11684671,
 			},
 		},
 	}
