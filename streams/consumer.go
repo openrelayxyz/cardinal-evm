@@ -153,6 +153,7 @@ func (m *StreamManager) Start() error {
 				start := time.Now()
 				added := update.Added()
 				var safeNum, finalizedNum *big.Int
+				var latest *delivery.PendingBatch
 				for _, pb := range added {
 					updates := make([]storage.KeyValue, 0, len(pb.Values))
 					for k, v := range pb.Values {
@@ -183,8 +184,15 @@ func (m *StreamManager) Start() error {
 						heightGauge.Update(pb.Number)
 						m.processed++
 					}
+					if m.triggerBlock > 0  && pb.Number == m.triggerBlock {
+						log.Info("exit block reached")
+						latest = pb
+						break 
+					}
 				}
-				latest := added[len(added) - 1]
+				if latest != nil {
+					latest = added[len(added) - 1]
+				}
 				processTimer.UpdateSince(start)
 				m.processTime = time.Since(start)
 				m.lastBlockTime = time.Now()
@@ -209,11 +217,6 @@ func (m *StreamManager) Start() error {
 				update.Done()
 				m.heightCh <- heightRecord
 				log.Info("Imported new chain segment", params...)
-				if m.triggerBlock > 0  && latest.Number >= m.triggerBlock {
-					log.Info("exit block reached")
-					close(exitAtCh)
-					return 
-				}
 			case reorg := <-reorgCh:
 				for k := range reorg {
 					m.storage.Rollback(uint64(k))
