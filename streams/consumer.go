@@ -190,7 +190,7 @@ func (m *StreamManager) Start() error {
 						break 
 					}
 				}
-				if latest != nil {
+				if latest == nil {
 					latest = added[len(added) - 1]
 				}
 				processTimer.UpdateSince(start)
