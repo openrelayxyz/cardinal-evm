@@ -217,6 +217,11 @@ func (m *StreamManager) Start() error {
 				update.Done()
 				m.heightCh <- heightRecord
 				log.Info("Imported new chain segment", params...)
+				if m.triggerBlock > 0  && latest.Number == m.triggerBlock {
+					log.Info("exit block reached")
+					close(exitAtCh)
+					return 
+				}
 			case reorg := <-reorgCh:
 				for k := range reorg {
 					m.storage.Rollback(uint64(k))
