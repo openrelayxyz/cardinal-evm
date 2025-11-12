@@ -185,7 +185,7 @@ func (m *StreamManager) Start() error {
 						m.processed++
 					}
 					if m.triggerBlock > 0  && pb.Number == m.triggerBlock {
-						log.Info("exit block reached")
+						log.Info("exit block reached within AddBlock loop")
 						latest = pb
 						break 
 					}
@@ -218,7 +218,7 @@ func (m *StreamManager) Start() error {
 				m.heightCh <- heightRecord
 				log.Info("Imported new chain segment", params...)
 				if m.triggerBlock > 0  && latest.Number == m.triggerBlock {
-					log.Info("exit block reached")
+					log.Info("exit block reached in outer for loop")
 					close(exitAtCh)
 					return 
 				}
