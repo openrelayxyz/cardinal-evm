@@ -157,12 +157,14 @@ func main() {
 	log.Debug("Waiting for stream to be ready")
 	<-sm.Ready()
 	log.Debug("Stream ready")
-	if *exitWhenSynced || *exitAtBlock > 0 {
-		if *exitWhenSynced {
-			log.Info("--exitwhensynced set: shutting down")
-		} else {
-			log.Info(fmt.Sprintf("--exitAtBlock set: %v, shutting down", *exitAtBlock))
-		}
+	if *exitAtBlock > 0 {
+		log.Info(fmt.Sprintf("--exitAtBlock set: %v, shutting down", *exitAtBlock))
+		sm.Close()
+		s.Close()
+		os.Exit(0)
+	}
+	if *exitWhenSynced {
+		log.Info("--exitwhensynced set: shutting down")
 		sm.Close()
 		s.Vacuum(cfg.RollbackThreshold, time.Duration(cfg.VacuumTime) * time.Second)
 		s.Close()
