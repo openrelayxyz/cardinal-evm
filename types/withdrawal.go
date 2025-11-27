@@ -1,4 +1,3 @@
-
 // Copyright 2022 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
@@ -19,10 +18,11 @@ package types
 
 import (
 	"bytes"
+	"reflect"
 
-	"github.com/openrelayxyz/plugeth-utils/core"
-	"github.com/openrelayxyz/plugeth-utils/restricted/hexutil"
-	"github.com/openrelayxyz/plugeth-utils/restricted/rlp"
+	"github.com/openrelayxyz/cardinal-evm/common"
+	"github.com/openrelayxyz/cardinal-evm/rlp"
+	"github.com/openrelayxyz/cardinal-types/hexutil"
 )
 
 //go:generate go run github.com/fjl/gencodec -type Withdrawal -field-override withdrawalMarshaling -out gen_withdrawal_json.go
@@ -32,7 +32,7 @@ import (
 type Withdrawal struct {
 	Index     uint64         `json:"index"`          // monotonically increasing identifier issued by consensus layer
 	Validator uint64         `json:"validatorIndex"` // index of validator associated with withdrawal
-	Address   core.Address `json:"address"`        // target address for withdrawn ether
+	Address   common.Address `json:"address"`        // target address for withdrawn ether
 	Amount    uint64         `json:"amount"`         // value of withdrawal in Gwei
 }
 
@@ -48,6 +48,12 @@ type Withdrawals []*Withdrawal
 
 // Len returns the length of s.
 func (s Withdrawals) Len() int { return len(s) }
+
+var withdrawalSize = int(reflect.TypeFor[Withdrawal]().Size())
+
+func (s Withdrawals) Size() int {
+	return withdrawalSize * len(s)
+}
 
 // EncodeIndex encodes the i'th withdrawal to w. Note that this does not check for errors
 // because we assume that *Withdrawal will only ever contain valid withdrawals that were either

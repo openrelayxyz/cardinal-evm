@@ -9,7 +9,8 @@ import (
 	"errors"
 
 	"github.com/openrelayxyz/cardinal-storage/resolver"
-	"github.com/openrelayxyz/cardinal-types"
+	ctypes "github.com/openrelayxyz/cardinal-types"
+	"github.com/openrelayxyz/cardinal-evm/types"
 	"github.com/openrelayxyz/cardinal-types/hexutil"
 	"github.com/openrelayxyz/cardinal-evm/common"
 	"github.com/openrelayxyz/cardinal-evm/crypto"
@@ -21,11 +22,15 @@ import (
 type genesisBlock struct {
 	// init.SetBlockData(r.Hash, r.ParentHash, r.Number, r.Weight.ToInt())
 	Config params.ChainConfig      `json:"config"`
-	Hash types.Hash                `json:"hash"`
-	ParentHash types.Hash          `json:"parentHash"`
+	Hash ctypes.Hash                `json:"hash"`
+	ParentHash ctypes.Hash          `json:"parentHash"`
 	Number hexutil.Uint64          `json:"number"`
 	Weight hexutil.Uint64          `json:"difficulty"`
 	Alloc      GenesisAlloc        `json:"alloc"`
+	GasLimit   hexutil.Uint64     `json:"gasLimit"`
+	Timestamp  uint64     		`json:"timestamp"`
+	ExtraData  hexutil.Bytes      `json:"extraData"`
+	MixHash    ctypes.Hash         `json:"mixhash"`
 }
 
 type GenesisAlloc map[string]GenesisAccount
@@ -33,14 +38,15 @@ type GenesisAlloc map[string]GenesisAccount
 // GenesisAccount is an account in the state of the genesis block.
 type GenesisAccount struct {
 	Code       hexutil.Bytes               `json:"code,omitempty"`
-	Storage    map[types.Hash]types.Hash   `json:"storage,omitempty"`
+	Storage    map[ctypes.Hash]ctypes.Hash   `json:"storage,omitempty"`
 	Balance    *hexutil.Big                `json:"balance"`
 	Nonce      hexutil.Uint64              `json:"nonce,omitempty"`
 }
 
 
 func genesisInit(dbpath, genesispath string, archival bool) error {
-	gfile, err := os.Open(genesispath)
+	gfile, err := os.Open(genesispath)      
+	if err != nil {return err}
 	decoder := json.NewDecoder(gfile)
 	var gb genesisBlock
 	if err := decoder.Decode(&gb); err != nil {
@@ -49,11 +55,24 @@ func genesisInit(dbpath, genesispath string, archival bool) error {
 	gfile.Close()
 	init, err := resolver.ResolveInitializer(dbpath, archival)
 	if err != nil { return err }
-	if gb.Hash == (types.Hash{}) {
+	if gb.Hash == (ctypes.Hash{}) {
 		return errors.New("hash must be set in genesis file")
 	}
 	var emptyAccount *state.Account
 	init.SetBlockData(gb.Hash, gb.ParentHash, uint64(gb.Number), new(big.Int).SetInt64(int64(gb.Weight)))
+	header:= &types.Header{
+		Number: big.NewInt(int64(gb.Number)),
+		ParentHash: ctypes.Hash(gb.ParentHash),
+		Difficulty: big.NewInt(int64(gb.Weight)),
+		GasLimit: uint64(gb.GasLimit),
+		Time:  uint64(gb.Timestamp),
+		Extra: gb.ExtraData,
+		MixDigest: ctypes.Hash(gb.MixHash),
+	}
+	rawHeader,_ := rlp.EncodeToBytes(header)
+	headerKey := fmt.Sprintf("c/%x/b/%x/h", gb.Config.ChainID, gb.Hash.Bytes())
+	init.AddData([]byte(headerKey), rawHeader)
+	
 	for addrString, alloc := range gb.Alloc {
 		addr := common.HexToAddress(addrString)
 		if len(alloc.Code) != 0 {
