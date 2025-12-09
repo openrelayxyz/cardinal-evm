@@ -99,6 +99,22 @@ func NewStreamManager(brokerParams []transports.BrokerParams, reorgThreshold, ch
 	}, nil
 }
 
+func validatePendingBatches(pb *delivery.PendingBatch) error {
+	hasStateUpdates := false
+	stateUpdatePattern := regexp.MustCompile("c/[0-9a-z]+/a/")
+
+	for k := range pb.Values {
+        if stateUpdatePattern.MatchString(k) {
+            hasStateUpdates = true
+            break
+        }
+    }
+	if !hasStateUpdates {
+		return fmt.Errorf("batch missing state data - Block: %v, Number: %d", pb.Hash, pb.Number)
+	}
+	return nil
+}
+
 func (m *StreamManager) Start() error {
 	if m.sub != nil || m.reorgSub != nil {
 		return fmt.Errorf("already started")
@@ -139,6 +155,11 @@ func (m *StreamManager) Start() error {
 				added := update.Added()
 				var safeNum, finalizedNum *big.Int
 				for _, pb := range added {
+					if err := validatePendingBatches(pb); err != nil {
+						log.Crit("Batch validation failed", "block", pb.Hash, "number", pb.Number, "err", err)
+        				panic(err.Error())
+					}
+
 					updates := make([]storage.KeyValue, 0, len(pb.Values))
 					for k, v := range pb.Values {
 						switch k {
