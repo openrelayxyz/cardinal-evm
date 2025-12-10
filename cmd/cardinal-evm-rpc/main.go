@@ -32,6 +32,7 @@ func main() {
 	initArchive := flag.Bool("init.archive", false, "When initializing from genesis, should this be an archival database?")
 	genesisJson := flag.String("init.genesis", "", "File containing genesis block JSON for database initialization")
 	shanghaiBlock := flag.Int64("shanghai.block", -1, "Override shanghai hardfork time")
+	exitAtBlock := flag.Int64("exit.at.block", 0, "close application after reaching processing a particular block")
 	debug := flag.Bool("debug", false, "Enable debug APIs")
 
 	flag.CommandLine.Parse(os.Args[1:])
@@ -119,6 +120,7 @@ func main() {
 		heightCh,
 		*exitWhenSynced,
 		cfg.Blacklist,
+		*exitAtBlock,
 	)
 	if err != nil {
 		log.Error("Error connecting streams", "err", err)
@@ -155,6 +157,12 @@ func main() {
 	log.Debug("Waiting for stream to be ready")
 	<-sm.Ready()
 	log.Debug("Stream ready")
+	if *exitAtBlock > 0 {
+		log.Info(fmt.Sprintf("--exit.at.block set: %v, shutting down", *exitAtBlock))
+		sm.Close()
+		s.Close()
+		os.Exit(0)
+	}
 	if *exitWhenSynced {
 		log.Info("--exitwhensynced set: shutting down")
 		sm.Close()
