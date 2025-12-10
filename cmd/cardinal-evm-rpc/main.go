@@ -158,7 +158,7 @@ func main() {
 	<-sm.Ready()
 	log.Debug("Stream ready")
 	if *exitAtBlock > 0 {
-		log.Info(fmt.Sprintf("--exitAtBlock set: %v, shutting down", *exitAtBlock))
+		log.Info(fmt.Sprintf("--exit.at.block set: %v, shutting down", *exitAtBlock))
 		sm.Close()
 		s.Close()
 		os.Exit(0)
